@@ -7,7 +7,8 @@ WORKDIR /src
 COPY . .
 
 # Build executable
-RUN make build
+RUN make build_server
+RUN make build_cli
 
 # Using a distroless image from https://github.com/GoogleContainerTools/distroless
 FROM gcr.io/distroless/static:nonroot

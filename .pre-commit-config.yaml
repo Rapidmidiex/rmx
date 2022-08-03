@@ -9,7 +9,7 @@ repos:
       - id: check-yaml
       - id: check-added-large-files
   - repo: https://github.com/golangci/golangci-lint
-    rev: v1.47.0
+    rev: v1.47.2
     hooks:
       - id: golangci-lint
   - repo: https://github.com/zricethezav/gitleaks
@@ -19,12 +19,12 @@ repos:
 
 ci:
   autofix_commit_msg: |
-      [pre-commit.ci] auto fixes from pre-commit.com hooks
+    [pre-commit.ci] auto fixes from pre-commit.com hooks
 
-      for more information, see https://pre-commit.ci
+    for more information, see https://pre-commit.ci
   autofix_prs: true
-  autoupdate_branch: ''
-  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_branch: ""
+  autoupdate_commit_msg: "[pre-commit.ci] pre-commit autoupdate"
   autoupdate_schedule: weekly
   skip: []
   submodules: false

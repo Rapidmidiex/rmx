@@ -8,7 +8,7 @@ A gh-pages site is automatically generated for you when you clone/fork this repo
 
 ### Steps
 
-🎛️  &nbsp; Configure gh-pages as per instructions [here](https://rog-golang-buddies.github.io/golang-template-repository/continuous-integration/mkdocs-material/#ci-setup).
+🎛️ &nbsp; Configure gh-pages as per instructions [here](https://rog-golang-buddies.github.io/golang-template-repository/continuous-integration/mkdocs-material/#ci-setup).
 
 🌐 &nbsp; Goto your site at `<org>.github.io/<repository>` (the link is also made available via **Environments** section in your Github repo).
 
@@ -17,11 +17,12 @@ A gh-pages site is automatically generated for you when you clone/fork this repo
 🧐 &nbsp; Peruse the `Continuous integration` docs to get yourself upto speed.
 
 > _Having trouble accessing your site? Access the template repository Quickstart and Continuous integration docs here_: <br>
-  https://rog-golang-buddies.github.io/golang-template-repository
+> https://rog-golang-buddies.github.io/golang-template-repository
 
 🚀 &nbsp; Go build something amazing!
 
 ---
+
 <br>
 
 > _The following section provides a sample README template sourced from https://www.makeareadme.com_
@@ -31,7 +32,6 @@ A gh-pages site is automatically generated for you when you clone/fork this repo
 ## Description
 
 _Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors._
-
 
 ## Installation
 
@@ -64,4 +64,4 @@ _Show your appreciation to those who have contributed to the project._
 ## License
 
 _For open source projects, say how it is licensed._
-_Commonly used open-source licenses are MIT (https://opensource.org/licenses/MIT) and Apache (https://www.apache.org/licenses/LICENSE-2.0).
+_Commonly used open-source licenses are [MIT](https://opensource.org/licenses/MIT) and [Apache](https://www.apache.org/licenses/LICENSE-2.0)._
