@@ -6,9 +6,8 @@ import (
 )
 
 var (
-	errNoCookie            = errorResponse{status: http.StatusUnauthorized, message: "Cookie not found."}
-	errUsernameAlreadyUsed = errorResponse{status: http.StatusForbidden, message: "This username is already used."}
-	errSessionNotFound     = errorResponse{status: http.StatusNotFound, message: "Session not found."}
+	errNoCookie        = errorResponse{status: http.StatusUnauthorized, message: "Cookie not found."}
+	errSessionNotFound = errorResponse{status: http.StatusNotFound, message: "Session not found."}
 )
 
 func handlerError(w http.ResponseWriter, err error) {

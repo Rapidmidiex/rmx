@@ -17,6 +17,7 @@ type jamConn struct {
 	mu   sync.Mutex
 	conn io.ReadWriter
 
+	id       string
 	username string
 }
 
@@ -64,19 +65,6 @@ func (s *JamService) NewSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// create a new session and set the provided username as the session owner
-	session := jamSession{
-		conns: make(map[string]*jamConn),
-		out:   make(chan []interface{}),
-
-		id:    uuid.NewString(),
-		name:  si.SessionName,
-		tempo: si.Tempo,
-		owner: si.Username,
-	}
-	// add session to sessions map
-	s.addSession(&session)
-
 	// upgrade http connection to websocket
 	conn, _, _, err := ws.UpgradeHTTP(r, w)
 	if err != nil {
@@ -89,15 +77,28 @@ func (s *JamService) NewSession(w http.ResponseWriter, r *http.Request) {
 	// then add it to the session connections
 	c := jamConn{}
 	c.conn = conn
-	c.username = si.Username
+	c.id = uuid.NewString()
+	if isEmptyString(si.Username) {
+		c.username = c.id
+	} else {
+		c.username = si.Username
+	}
 
+	// create a new session and set the session owner
+	session := jamSession{
+		conns: make(map[string]*jamConn),
+		out:   make(chan []interface{}),
+
+		id:    uuid.NewString(),
+		name:  si.SessionName,
+		tempo: si.Tempo,
+		owner: c.id,
+	}
+	// add session to sessions map
+	s.addSession(&session)
 	// check for errors
 	// err isn't nil if the username is already used
-	err = session.addConn(&c)
-	if err != nil {
-		handlerError(w, err)
-		return
-	}
+	session.addConn(&c)
 	session.broadcast("Welcome to Rapidmidiex!")
 
 	w.WriteHeader(http.StatusOK)
@@ -131,7 +132,12 @@ func (s *JamService) JoinSession(w http.ResponseWriter, r *http.Request) {
 	// create a new connection
 	c := jamConn{}
 	c.conn = conn
-	c.username = ji.Username
+	c.id = uuid.NewString()
+	if isEmptyString(ji.Username) {
+		c.username = c.id
+	} else {
+		c.username = ji.Username
+	}
 	session.addConn(&c)
 	session.broadcast("Welcome " + ji.Username + "!")
 
@@ -153,16 +159,10 @@ func (s *JamService) getSession(sID string) (*jamSession, error) {
 	return session, nil
 }
 
-func (s *jamSession) addConn(jc *jamConn) error {
-	if _, ok := s.conns[jc.username]; ok {
-		return &errUsernameAlreadyUsed
-	}
-
+func (s *jamSession) addConn(jc *jamConn) {
 	s.mu.Lock()
-	s.conns[jc.username] = jc
+	s.conns[jc.id] = jc
 	s.mu.Unlock()
-
-	return nil
 }
 
 func (c *jamConn) write(i interface{}) error {
