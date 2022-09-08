@@ -6,13 +6,9 @@ import (
 )
 
 var (
-	errInvalidUpdateInfo   = errorResponse{status: http.StatusBadRequest, message: "Invalid Username"}
-	errInvalidRegisterInfo = errorResponse{status: http.StatusBadRequest, message: "Invalid Register Info"}
-	errUserAlreadyExists   = errorResponse{status: http.StatusForbidden, message: "User with the same email already exists."}
-	errUserNotFound        = errorResponse{status: http.StatusNotFound, message: "User not found."}
-	errBadPassword         = errorResponse{status: http.StatusBadRequest, message: "Password must contain at least 8 characters and one number"}
-	errInvalidEmail        = errorResponse{status: http.StatusBadRequest, message: "Invalid Email"}
 	errNoCookie            = errorResponse{status: http.StatusUnauthorized, message: "Cookie not found."}
+	errUsernameAlreadyUsed = errorResponse{status: http.StatusForbidden, message: "This username is already used."}
+	errSessionNotFound     = errorResponse{status: http.StatusNotFound, message: "Session not found."}
 )
 
 func handlerError(w http.ResponseWriter, err error) {

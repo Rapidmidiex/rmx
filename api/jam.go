@@ -1,8 +1,6 @@
 package api
 
 import (
-	"context"
-	"database/sql"
 	"encoding/json"
 	"io"
 	"log"
@@ -12,16 +10,18 @@ import (
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 	"github.com/google/uuid"
-	"github.com/rog-golang-buddies/rapidmidiex/api/internal/db/user"
 )
 
+// struct type to store info related to a websocket connection
 type jamConn struct {
 	mu   sync.Mutex
 	conn io.ReadWriter
 
-	user.User
+	username string
 }
 
+// struct type to store info related to a Jam session
+// also contains a map of current connections to the session
 type jamSession struct {
 	mu    sync.RWMutex
 	conns map[string]*jamConn
@@ -30,26 +30,33 @@ type jamSession struct {
 	id    string
 	name  string
 	tempo uint
+	owner string
 }
 
+// struct type for the Jam service
+// also contains current available sessions created by users
 type JamService struct {
-	DBCon    *sql.DB
 	mu       sync.RWMutex
 	sessions map[string]*jamSession
 }
 
+// request types
 type (
 	newSessionReq struct {
-		Name  string `json:"name"`
-		Tempo uint   `json:"tempo"`
+		Username    string `json:"username"`
+		SessionName string `json:"session_name"`
+		Tempo       uint   `json:"tempo"`
 	}
 
 	joinSessionReq struct {
+		Username  string `json:"username"`
 		SessionID string `json:"session_id"`
 	}
 )
 
+// new session handler
 func (s *JamService) NewSession(w http.ResponseWriter, r *http.Request) {
+	// get values from the request
 	si := newSessionReq{}
 	if err := parse(r, &si); err != nil {
 		log.Println(err)
@@ -57,26 +64,48 @@ func (s *JamService) NewSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// create a new session and set the provided username as the session owner
 	session := jamSession{
 		conns: make(map[string]*jamConn),
 		out:   make(chan []interface{}),
 
 		id:    uuid.NewString(),
-		name:  si.Name,
+		name:  si.SessionName,
 		tempo: si.Tempo,
+		owner: si.Username,
 	}
+	// add session to sessions map
 	s.addSession(&session)
+
+	// upgrade http connection to websocket
+	conn, _, _, err := ws.UpgradeHTTP(r, w)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	// create a new connection between the owner and the server
+	// then add it to the session connections
+	c := jamConn{}
+	c.conn = conn
+	c.username = si.Username
+
+	// check for errors
+	// err isn't nil if the username is already used
+	err = session.addConn(&c)
+	if err != nil {
+		handlerError(w, err)
+		return
+	}
+	session.broadcast("Welcome to Rapidmidiex!")
 
 	w.WriteHeader(http.StatusOK)
 }
 
+// join session handler
 func (s *JamService) JoinSession(w http.ResponseWriter, r *http.Request) {
-	email, ok := r.Context().Value(emailCtxKey).(string)
-	if !ok {
-		w.WriteHeader(http.StatusBadRequest) // TODO: shouldn't respond with bad request.
-		return
-	}
-
+	// get values from the request
 	ji := joinSessionReq{}
 	if err := parse(r, &ji); err != nil {
 		log.Println(err)
@@ -84,43 +113,56 @@ func (s *JamService) JoinSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session := s.sessions[ji.SessionID]
+	// check if session exists
+	session, err := s.getSession(ji.SessionID)
+	if err != nil {
+		handlerError(w, err)
+		return
+	}
+
+	// upgrade http connection to websocket
 	conn, _, _, err := ws.UpgradeHTTP(r, w)
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	// create a new connection
 	c := jamConn{}
-	q := user.New(s.DBCon)
-	userInfo, err := q.GetUserByEmail(context.Background(), email)
-	if err != nil {
-		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	c.User = userInfo
 	c.conn = conn
+	c.username = ji.Username
 	session.addConn(&c)
-	session.broadcast("Welcome " + userInfo.Username + "!")
+	session.broadcast("Welcome " + ji.Username + "!")
 
 	w.WriteHeader(http.StatusOK)
 }
 
 func (s *JamService) addSession(js *jamSession) {
 	s.mu.Lock()
-	{
-		s.sessions[js.id] = js
-	}
+	s.sessions[js.id] = js
 	s.mu.Unlock()
 }
 
-func (s *jamSession) addConn(jc *jamConn) {
-	s.mu.Lock()
-	{
-		s.conns[jc.Email] = jc
+func (s *JamService) getSession(sID string) (*jamSession, error) {
+	session, ok := s.sessions[sID]
+	if ok {
+		return &jamSession{}, &errSessionNotFound
 	}
+
+	return session, nil
+}
+
+func (s *jamSession) addConn(jc *jamConn) error {
+	if _, ok := s.conns[jc.username]; ok {
+		return &errUsernameAlreadyUsed
+	}
+
+	s.mu.Lock()
+	s.conns[jc.username] = jc
 	s.mu.Unlock()
+
+	return nil
 }
 
 func (c *jamConn) write(i interface{}) error {
@@ -158,13 +200,15 @@ func (c *jamConn) writeRaw(b []byte) error {
 // 	}
 // }
 
+// iterates through session connections
+// and send provided message to each of them
 func (s *jamSession) broadcast(i interface{}) {
 	for _, c := range s.conns {
 		select {
 		case <-s.out:
 			c.write(i)
 		default:
-			delete(s.conns, c.Email)
+			delete(s.conns, c.username)
 			// c.close()
 		}
 	}
