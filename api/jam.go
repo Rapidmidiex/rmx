@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 	"github.com/google/uuid"
@@ -114,8 +115,10 @@ func (s *JamService) JoinSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// check if session exists
-	session, err := s.getSession(ji.SessionID)
+	sID := chi.URLParam(r, "session_id")
+
+	// err isn't nil if session doesn't exist
+	session, err := s.getSession(sID)
 	if err != nil {
 		handlerError(w, err)
 		return
