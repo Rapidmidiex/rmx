@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/cors"
 	"golang.org/x/sync/errgroup"
@@ -63,4 +64,21 @@ func (s *Server) ServeHTTP() {
 	if err := g.Wait(); err != nil {
 		log.Printf("exit reason: %s \n", err)
 	}
+}
+
+func NewServer(port string) *Server {
+	jamService := JamService{}
+	s := new(Server)
+
+	s.Port = port
+	s.Router = chi.NewMux()
+
+	s.Router.Route("/ws/v1", func(r chi.Router) {
+		r.Use(middleware.Logger)
+		r.Route("/jam", func(r chi.Router) {
+			r.Get("/new", jamService.Connect)
+		})
+	})
+
+	return s
 }

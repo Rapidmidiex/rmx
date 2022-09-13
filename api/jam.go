@@ -44,25 +44,37 @@ type JamService struct {
 
 // request types
 type (
-	newSessionReq struct {
+	newJamReq struct {
 		Username    string `json:"username"`
 		SessionName string `json:"session_name"`
 		Tempo       uint   `json:"tempo"`
 	}
 
-	joinSessionReq struct {
+	joinJamReq struct {
 		Username  string `json:"username"`
 		SessionID string `json:"session_id"`
+	}
+	wsReq struct {
+		MessageType string   `json:"messageType"` // Type of application message. Ex: JAM_SESSION_CONNECT, JAM_SESSION_CREATE
+		Payload     struct{} `json:"payload"`     // Payload of message, differs according to MessageType. Ex: JAM_SESSION_CREATE may contain Jam Session config (tempo, session name, etc).
+	}
+
+	JamSlim struct {
+		Id   string `json:"id"`
+		Name string `json:"name"`
+	}
+	listJamsResp struct {
+		Jams []JamSlim
 	}
 )
 
 // new session handler
 func (s *JamService) NewSession(w http.ResponseWriter, r *http.Request) {
 	// get values from the request
-	si := newSessionReq{}
+	si := newJamReq{}
 	if err := parse(r, &si); err != nil {
 		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -105,13 +117,60 @@ func (s *JamService) NewSession(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// Connect establishes a WebSocket connection with the application. From there we can communicate with the client about which session to join.
+func (s *JamService) Connect(w http.ResponseWriter, r *http.Request) {
+	// upgrade http connection to websocket
+	conn, _, _, err := ws.UpgradeHTTP(r, w)
+	if err != nil {
+		log.Println("connect", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	go func() {
+		defer conn.Close()
+		var (
+			fr      = wsutil.NewReader(conn, ws.StateServerSide)
+			fw      = wsutil.NewWriter(conn, ws.StateServerSide, ws.OpText)
+			decoder = json.NewDecoder(fr)
+			encoder = json.NewEncoder(fw)
+		)
+		for {
+			hdr, err := fr.NextFrame()
+			if err != nil {
+				log.Println(err)
+			}
+			if hdr.OpCode == ws.OpClose {
+				log.Println(io.EOF)
+				// Break out of for and close the connection
+				return
+			}
+
+			// TODO: Hand off messages to some app level message broker
+			// Ex: JAM_SESSION_CONNECT, JAM_SESSION_CREATE
+			var req wsReq
+			if err := decoder.Decode(&req); err != nil {
+				log.Println(err)
+			}
+
+			resp := listJamsResp{Jams: make([]JamSlim, 0)}
+			if err := encoder.Encode(&resp); err != nil {
+				log.Println(err)
+			}
+			if err = fw.Flush(); err != nil {
+				log.Println(err)
+			}
+		}
+	}()
+}
+
 // join session handler
 func (s *JamService) JoinSession(w http.ResponseWriter, r *http.Request) {
 	// get values from the request
-	ji := joinSessionReq{}
+	ji := joinJamReq{}
 	if err := parse(r, &ji); err != nil {
 		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 

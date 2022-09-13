@@ -23,11 +23,10 @@ func main() {
 		Router: chi.NewMux(),
 	}
 
-	server.Router.Route("/api/v1", func(r chi.Router) {
+	server.Router.Route("/ws/v1", func(r chi.Router) {
 		r.Use(middleware.Logger)
 		r.Route("/jam", func(r chi.Router) {
-			r.Post("/new", jamService.NewSession)
-			r.Get("/{session_id}/join", jamService.JoinSession)
+			r.Get("/new", jamService.Connect)
 		})
 	})
 
