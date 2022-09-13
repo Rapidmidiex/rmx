@@ -22,3 +22,4 @@ bin/
 # Other
 .DS_Store
 *.env
+cmd/**/config
