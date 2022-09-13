@@ -75,9 +75,7 @@ func NewServer(port string) *Server {
 
 	s.Router.Route("/ws/v1", func(r chi.Router) {
 		r.Use(middleware.Logger)
-		r.Route("/jam", func(r chi.Router) {
-			r.Get("/new", jamService.Connect)
-		})
+		r.Get("/jam", jamService.Connect)
 	})
 
 	return s

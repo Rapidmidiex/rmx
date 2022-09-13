@@ -16,7 +16,7 @@ func TestConnect(t *testing.T) {
 
 		server := httptest.NewServer(NewServer(":9005").Router)
 
-		wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws/v1/jam/new"
+		wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws/v1/jam"
 
 		conn, _, _, err := ws.DefaultDialer.Dial(context.Background(), wsURL)
 		if err != nil {
@@ -25,7 +25,7 @@ func TestConnect(t *testing.T) {
 		defer server.Close()
 		defer conn.Close()
 
-		_, err = conn.Write([]byte("{}"))
+		_, err = conn.Write([]byte(`{"type": "LIST_JAMS"}`))
 		if err != nil {
 			t.Fatal("could not write to WS connection")
 		}
