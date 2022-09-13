@@ -7,6 +7,8 @@ func LoadConfig() error {
 	viper.SetConfigType("env")    // REQUIRED if the config file does not have the extension in the name
 	viper.AddConfigPath(".")      // optionally look for config in the working directory
 
+	viper.SetDefault("PORT", "8080") // Set Default variables
+
 	viper.AutomaticEnv()
 
 	err := viper.ReadInConfig() // Find and read the config file

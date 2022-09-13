@@ -5,8 +5,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/rog-golang-buddies/rapidmidiex"
+	rmx "github.com/rog-golang-buddies/rapidmidiex"
 	"github.com/rog-golang-buddies/rapidmidiex/api"
+	"github.com/spf13/viper"
 )
 
 func main() {
@@ -18,7 +19,7 @@ func main() {
 	jamService := api.JamService{}
 
 	server := api.Server{
-		Port:   ":8080",
+		Port:   ":" + viper.GetString("PORT"),
 		Router: chi.NewMux(),
 	}
 
