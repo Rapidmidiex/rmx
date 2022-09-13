@@ -66,11 +66,10 @@ func (s *Server) ServeHTTP() {
 	}
 }
 
-func NewServer(port string) *Server {
+func NewServer() *Server {
 	jamService := JamService{}
 	s := new(Server)
 
-	s.Port = port
 	s.Router = chi.NewMux()
 
 	s.Router.Route("/ws/v1", func(r chi.Router) {

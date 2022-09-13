@@ -14,7 +14,7 @@ import (
 func TestConnect(t *testing.T) {
 	t.Run("we get a list of available Jam Session when we connect over websocket", func(t *testing.T) {
 
-		server := httptest.NewServer(NewServer(":9005").Router)
+		server := httptest.NewServer(NewServer().Router)
 
 		wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws/v1/jam"
 
@@ -25,7 +25,8 @@ func TestConnect(t *testing.T) {
 		defer server.Close()
 		defer conn.Close()
 
-		_, err = conn.Write([]byte(`{"type": "LIST_JAMS"}`))
+		listJamsReq := []byte(`{"type": "LIST_JAMS"}`)
+		_, err = conn.Write(listJamsReq)
 		if err != nil {
 			t.Fatal("could not write to WS connection")
 		}
