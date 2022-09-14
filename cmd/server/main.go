@@ -15,7 +15,8 @@ func main() {
 		log.Fatalf("failed to read config: %v", err.Error())
 	}
 
-	server := api.NewServer()
+	js := api.NewJamService()
+	server := api.NewServer(js)
 
 	port := ":" + viper.GetString("PORT")
 	log.Printf("starting the server on %s%s\n", server.Host, port)

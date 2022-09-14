@@ -66,8 +66,7 @@ func (s *Server) ServeHTTP() {
 	}
 }
 
-func NewServer() *Server {
-	jamService := JamService{}
+func NewServer(jamService *JamService) *Server {
 	s := new(Server)
 
 	s.Router = chi.NewMux()
@@ -75,6 +74,7 @@ func NewServer() *Server {
 	s.Router.Route("/ws/v1", func(r chi.Router) {
 		r.Use(middleware.Logger)
 		r.Get("/jam", jamService.Connect)
+		r.Get("/jam/{jamId}", jamService.Join)
 	})
 
 	return s

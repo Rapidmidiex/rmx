@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -67,6 +68,12 @@ type (
 		Jams []JamSlim
 	}
 )
+
+func NewJamService() *JamService {
+	return &JamService{
+		sessions: make(map[string]*jamSession),
+	}
+}
 
 // new session handler
 func (s *JamService) NewSession(w http.ResponseWriter, r *http.Request) {
@@ -164,6 +171,89 @@ func (s *JamService) Connect(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
+func (s *JamService) Join(w http.ResponseWriter, r *http.Request) {
+	// upgrade http connection to websocket
+	conn, _, _, err := ws.UpgradeHTTP(r, w)
+	if err != nil {
+		log.Println("connect", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	jamId := chi.URLParam(r, "jamId")
+	log.Println("jamId***", jamId)
+
+	// Hardcoded new session for now
+	session := &jamSession{
+		conns: make(map[string]*jamConn),
+		out:   make(chan []interface{}),
+
+		id:    jamId,
+		name:  "Jam On It!",
+		tempo: 85,
+		owner: uuid.NewString(),
+	}
+
+	// Since the session is hardcoded, it probably already exists.
+	err = s.addSession(session)
+	// If the session does exist, we can ignore and keep rolling.
+	if err != nil && err != &errSessionExists {
+		handlerError(w, err)
+		return
+	}
+
+	session, err = s.getSession(jamId)
+	if err != nil {
+		handlerError(w, err)
+		return
+	}
+
+	go func() {
+		defer conn.Close()
+		var (
+			fr      = wsutil.NewReader(conn, ws.StateServerSide)
+			fw      = wsutil.NewWriter(conn, ws.StateServerSide, ws.OpText)
+			decoder = json.NewDecoder(fr)
+			encoder = json.NewEncoder(fw)
+		)
+		for {
+			hdr, err := fr.NextFrame()
+			if err != nil {
+				log.Println("NextFrame error", err)
+			}
+			if hdr.OpCode == ws.OpClose {
+				// Break out of for and close the connection
+				return
+			}
+
+			// TODO: Hand off messages to some Jam level message handler
+			// Ex: NOTE_ON, NOTE_OFF, PLAYER_JOINED, PLAYER_MESSAGE
+
+			// Should the message handler do the encoding/decoding since they will know which concrete type to decode into?
+			// TODO: Move all out to own handler
+			var req wsReq
+			if err := decoder.Decode(&req); err != nil {
+				log.Println(err)
+			}
+
+			msg := fmt.Sprintf("Welcome to Jam %s!", session.id)
+			log.Println(msg)
+			// TODO: Create proper response types
+			type Resp struct {
+				MessageText string `json:"messageText"`
+			}
+
+			resp := Resp{MessageText: msg}
+			if err := encoder.Encode(&resp); err != nil {
+				log.Println(err)
+			}
+			if err = fw.Flush(); err != nil {
+				log.Println(err)
+			}
+		}
+	}()
+}
+
 // join session handler
 func (s *JamService) JoinSession(w http.ResponseWriter, r *http.Request) {
 	// get values from the request
@@ -206,15 +296,20 @@ func (s *JamService) JoinSession(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *JamService) addSession(js *jamSession) {
+func (s *JamService) addSession(js *jamSession) error {
 	s.mu.Lock()
+	_, err := s.getSession(js.id)
+	if err != nil && err != &errSessionNotFound {
+		return &errSessionExists
+	}
 	s.sessions[js.id] = js
 	s.mu.Unlock()
+	return nil
 }
 
 func (s *JamService) getSession(sID string) (*jamSession, error) {
 	session, ok := s.sessions[sID]
-	if ok {
+	if !ok {
 		return &jamSession{}, &errSessionNotFound
 	}
 
