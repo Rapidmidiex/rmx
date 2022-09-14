@@ -17,6 +17,7 @@ require (
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
+	github.com/lithammer/shortuuid/v4 v4.0.0
 	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
@@ -28,6 +29,7 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/testify v1.8.0 // indirect
 	github.com/subosito/gotenv v1.3.0 // indirect
+	golang.org/x/exp v0.0.0-20220914170420-dc92f8653013
 	golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f // indirect
 	golang.org/x/text v0.3.7 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect

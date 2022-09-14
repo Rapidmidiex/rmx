@@ -12,8 +12,11 @@ type Conn struct {
 	p   *Pool
 }
 
+func (c Conn) Pool() *Pool { return c.p }
+
 func (c Conn) Close() error {
 	c.p.Delete(c.ID)
+
 	return c.rwc.Close()
 }
 

@@ -1,11 +1,14 @@
 package internal
 
 import (
+	"errors"
 	"log"
 	"net/http"
 )
 
 var (
+	ErrTodo = errors.New("rmx: not yet implemented")
+
 	errNoCookie        = errorResponse{status: http.StatusUnauthorized, message: "Cookie not found."}
 	errSessionNotFound = errorResponse{status: http.StatusNotFound, message: "Session not found."}
 	errSessionExists   = errorResponse{status: http.StatusNotFound, message: "Session already exists."}

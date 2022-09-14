@@ -5,9 +5,12 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	"github.com/lithammer/shortuuid/v4"
 
 	h "github.com/hyphengolang/prelude/http"
 
+	rmx "github.com/rog-golang-buddies/rapidmidiex/internal"
 	"github.com/rog-golang-buddies/rapidmidiex/www/ws"
 )
 
@@ -32,4 +35,8 @@ func (s Service) respond(w http.ResponseWriter, r *http.Request, data interface{
 
 func (s Service) fileServer(prefix string, dirname string) http.Handler {
 	return h.FileServer(prefix, dirname)
+}
+
+func (s Service) SafeUUID(uid uuid.UUID) rmx.ID {
+	return rmx.ID(shortuuid.DefaultEncoder.Encode(uid))
 }

@@ -1,0 +1,8 @@
+@import url("https://cdn.jsdelivr.net/npm/modern-normalize/modern-normalize.min.css");
+
+[aria-label="users"]::before {
+    content: attr(aria-label);
+    text-transform: capitalize;
+    font-size: large;
+    font-weight: bold;
+}
