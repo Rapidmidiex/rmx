@@ -25,7 +25,7 @@ func TestConnect(t *testing.T) {
 		defer server.Close()
 		defer conn.Close()
 
-		listJamsReq := []byte(`{"type": "LIST_JAMS"}`)
+		listJamsReq := []byte(`{"messageType": "JAM_LIST"}`)
 		_, err = conn.Write(listJamsReq)
 		if err != nil {
 			t.Fatal("could not write to WS connection")
