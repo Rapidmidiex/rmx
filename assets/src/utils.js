@@ -5,3 +5,12 @@ export function websocketUrl(path) {
 
     return url.href; // => ws://www.example.com:9999/path/to/websocket
 };
+
+/**
+ * 
+ * @returns {string} sessionId
+ */
+export const sessionId = () => {
+    return window.location.pathname.split("/").at(-1);
+}
+

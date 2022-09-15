@@ -65,4 +65,5 @@ func (t MessageTyp) MarshalJSON() ([]byte, error) {
 	return []byte(`"` + t.String() + `"`), nil
 }
 
+// ID with ability to encode to a URL friendly version
 type ID string

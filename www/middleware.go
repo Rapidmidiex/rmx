@@ -2,11 +2,33 @@ package www
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"github.com/gorilla/websocket"
+
+	ws "github.com/rog-golang-buddies/rapidmidiex/www/ws"
 )
+
+func (s Service) sessionPool(f http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		uid, err := s.parseUUID(w, r, "id")
+		if err != nil {
+			s.respond(w, r, err, http.StatusBadRequest)
+			return
+		}
+
+		p, err := s.c.Get(uid)
+		if err != nil {
+			s.l.Println(err)
+			return
+		}
+
+		s.l.Println("This session matches the ID", p.ID)
+
+		r = r.WithContext(context.WithValue(r.Context(), roomKey, p))
+		f(w, r)
+	}
+}
 
 func (s Service) upgradeHTTP(f http.HandlerFunc) http.HandlerFunc {
 	u := &websocket.Upgrader{
@@ -16,13 +38,14 @@ func (s Service) upgradeHTTP(f http.HandlerFunc) http.HandlerFunc {
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		if s.p.Size() == s.p.MaxConn {
-			err := fmt.Errorf("pool: maximum number of connections reached")
-			s.respond(w, r, err, http.StatusUnauthorized)
+		p := r.Context().Value(roomKey).(*ws.Pool)
+
+		if p.Size() == p.MaxConn {
+			s.respond(w, r, ws.ErrMaxConn, http.StatusUnauthorized)
 			return
 		}
 
-		c, err := s.p.NewConn(w, r, u)
+		c, err := p.NewConn(w, r, u)
 		if err != nil {
 			s.respond(w, r, err, http.StatusInternalServerError)
 			return

@@ -1,4 +1,4 @@
-package ws
+package websocket
 
 import (
 	"github.com/google/uuid"
