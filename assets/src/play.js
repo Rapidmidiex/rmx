@@ -22,7 +22,7 @@ ws.addEventListener("message", async e => {
 
     switch (type.toLowerCase()) {
         case "join":
-            newUserJoined({ id });
+            newUserJoined();
             break;
         case "leave":
             userHasLeft({ id });
@@ -40,7 +40,7 @@ document.querySelector("button").addEventListener("click", e => {
     ws.send(1);
 });
 
-async function newUserJoined({ id }) {
+async function newUserJoined() {
     const r = await fetch(`/api/jam/${sessionId()}`);
     const { users } = await r.json();
 
