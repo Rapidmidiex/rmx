@@ -25,7 +25,7 @@ ws.addEventListener("message", async e => {
             newUserJoined();
             break;
         case "leave":
-            userHasLeft({ id });
+            document.getElementById(id).remove();
             break;
     }
 });
@@ -58,9 +58,4 @@ async function newUserJoined() {
     document
         .querySelector(`[aria-label="users"]`)
         .replaceChildren(...items);
-}
-
-function userHasLeft({ id }) {
-    const li = document.getElementById(id);
-    li.remove();
 }
