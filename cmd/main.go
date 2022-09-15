@@ -2,14 +2,17 @@ package main
 
 import (
 	"log"
-	"net/http"
-
-	"github.com/go-chi/chi/v5"
-	"github.com/rog-golang-buddies/rapidmidiex/www"
 )
 
 func main() {
-	s := www.NewService(chi.NewMux())
-	log.Println("http://localhost:8888")
-	log.Fatalln(http.ListenAndServe(":8888", s))
+	if err := run(); err != nil {
+		log.Fatalln(err)
+	}
+}
+
+func run() error {
+	app := DefaultApp()
+	app.l.Printf("Running... http://localhost%s/", app.srv.Addr)
+
+	return app.ListenAndServe()
 }

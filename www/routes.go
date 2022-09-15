@@ -47,8 +47,8 @@ func (s Service) jamSessionHTML(path string) http.HandlerFunc {
 		panic(err)
 	}
 
-	// I should be rendering a 404 page if there is an error
-	// in this layer, but for an MVC this will do
+	// !I should be rendering a 404 page if there is an error
+	// !in this layer, but for an MVC this will do
 	return func(w http.ResponseWriter, r *http.Request) {
 		uid, err := s.parseUUID(w, r, "id")
 		if err != nil {
@@ -95,6 +95,9 @@ func (s Service) handleJamSession() http.HandlerFunc {
 			return
 		}
 
+		// ?could the API be adjusted such that
+		// ?this for-loop only needs to read and
+		// ?never touch the code for writing
 		for {
 			var n int
 			if err := c.ReadJSON(&n); err != nil {
@@ -112,7 +115,7 @@ func (s Service) handleJamSession() http.HandlerFunc {
 
 func (s Service) createSession() http.HandlerFunc {
 	type response struct {
-		ID rmx.ID `json:"sessionId"`
+		SessionID rmx.ID `json:"sessionId"`
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -123,7 +126,7 @@ func (s Service) createSession() http.HandlerFunc {
 		}
 
 		v := response{
-			ID: rmx.ID(suid.DefaultEncoder.Encode(uid)),
+			SessionID: rmx.ID(suid.DefaultEncoder.Encode(uid)),
 		}
 
 		s.respond(w, r, v, http.StatusOK)
@@ -132,8 +135,8 @@ func (s Service) createSession() http.HandlerFunc {
 
 func (s Service) getSessionData() http.HandlerFunc {
 	type response struct {
-		ID    rmx.ID   `json:"sessionId"`
-		Users []rmx.ID `json:"userIds"`
+		SessionID rmx.ID   `json:"sessionId"`
+		Users     []rmx.ID `json:"users"`
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -143,6 +146,7 @@ func (s Service) getSessionData() http.HandlerFunc {
 			return
 		}
 
+		// !rename method as `Get` is undescriptive
 		p, err := s.c.Get(uid)
 		if err != nil {
 			s.respond(w, r, err, http.StatusNotFound)
@@ -150,22 +154,12 @@ func (s Service) getSessionData() http.HandlerFunc {
 		}
 
 		v := &response{
-			ID: rmx.ID(suid.DefaultEncoder.Encode(p.ID)),
-			Users: FMap(p.Keys(), func(uid uuid.UUID) rmx.ID {
+			SessionID: rmx.ID(suid.DefaultEncoder.Encode(p.ID)),
+			Users: rmx.FMap(p.Keys(), func(uid uuid.UUID) rmx.ID {
 				return rmx.ID(suid.DefaultEncoder.Encode(uid))
 			}),
 		}
 
 		s.respond(w, r, v, http.StatusOK)
 	}
-}
-
-func FMap[T any, U any](vs []T, f func(T) U) []U {
-	out := make([]U, len(vs))
-
-	for i, v := range vs {
-		out[i] = f(v)
-	}
-
-	return out
 }

@@ -24,7 +24,7 @@ type Server struct {
 func (s *Server) ServeHTTP() {
 	// "*" shouldn't be used as AllowedOrigins
 	c := cors.Options{
-		AllowedOrigins:   []string{"http://localhost:3000", "http://127.0.0.1:3000"},
+		AllowedOrigins:   []string{"http://localhost:8888", "http://127.0.0.1:8888"},
 		AllowCredentials: true,
 		AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodDelete, http.MethodPatch},
 		AllowedHeaders:   []string{"Origin", "Content-Type", "Accept", "Authorization"},

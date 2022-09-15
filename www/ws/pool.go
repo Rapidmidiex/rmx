@@ -38,6 +38,11 @@ func DefaultPool() *Pool {
 				c.WriteJSON(msg)
 			}
 		}
+
+		// ?why does this pattern not work
+		// for _, c := range p.cs {
+		// 	c.WriteJSON(<-p.msgs)
+		// }
 	}()
 
 	return p

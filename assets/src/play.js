@@ -42,12 +42,13 @@ document.querySelector("button").addEventListener("click", e => {
 
 async function userJoinedSession({ id }) {
     const r = await fetch(`/api/jam/${sessionId()}`);
-    const { userIds } = await r.json();
+    const { users } = await r.json();
 
-    //? proxy Array that updates the list in the DOM
+    console.log(users);
 
+    // ^proxy Array that updates the list in the DOM
     const items = [];
-    for (const id of userIds) {
+    for (const id of users) {
         const li = document.createElement("li");
         li.textContent = `${id} has joined`;
         li.id = id;
@@ -57,7 +58,6 @@ async function userJoinedSession({ id }) {
     document
         .querySelector(`[aria-label="users"]`)
         .replaceChildren(...items);
-    // document.querySelector(`[aria-label="users"]`).appendChild(li);
 }
 
 function userLeftSession({ id }) {
