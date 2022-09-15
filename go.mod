@@ -7,6 +7,8 @@ require (
 	github.com/go-chi/chi/v5 v5.0.7
 	github.com/gobwas/ws v1.1.0
 	github.com/google/uuid v1.3.0
+	github.com/gorilla/websocket v1.5.0
+	github.com/hyphengolang/prelude v0.0.7
 	github.com/rs/cors v1.8.2
 	github.com/spf13/viper v1.12.0
 	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde

@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -41,8 +42,9 @@ func NewApp(addr string, h http.Handler, read, write, idle time.Duration) *App {
 func DefaultApp() *App {
 	mux := chi.NewMux()
 	h := www.NewService(mux)
+	port := getEnv("PORT", "8888")
 
-	return NewApp(":8888", h, 10*time.Second, 10*time.Second, 120*time.Second)
+	return NewApp(":"+port, h, 10*time.Second, 10*time.Second, 120*time.Second)
 }
 
 func (a App) Shutdown() error {
@@ -51,4 +53,11 @@ func (a App) Shutdown() error {
 
 func (a *App) ListenAndServe() error {
 	return a.srv.ListenAndServe()
+}
+
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
 }
