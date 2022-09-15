@@ -40,9 +40,7 @@ func DefaultPool() *Pool {
 		}
 
 		// ?why does this pattern not work
-		// for _, c := range p.cs {
-		// 	c.WriteJSON(<-p.msgs)
-		// }
+		// for _, c := range p.cs {	c.WriteJSON(<-p.msgs) }
 	}()
 
 	return p

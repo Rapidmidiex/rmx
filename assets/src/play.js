@@ -22,10 +22,10 @@ ws.addEventListener("message", async e => {
 
     switch (type.toLowerCase()) {
         case "join":
-            userJoinedSession({ id });
+            newUserJoined({ id });
             break;
         case "leave":
-            userLeftSession({ id });
+            userHasLeft({ id });
             break;
     }
 });
@@ -40,11 +40,11 @@ document.querySelector("button").addEventListener("click", e => {
     ws.send(1);
 });
 
-async function userJoinedSession({ id }) {
+async function newUserJoined({ id }) {
     const r = await fetch(`/api/jam/${sessionId()}`);
     const { users } = await r.json();
 
-    console.log(users);
+    // console.log(users);
 
     // ^proxy Array that updates the list in the DOM
     const items = [];
@@ -60,7 +60,7 @@ async function userJoinedSession({ id }) {
         .replaceChildren(...items);
 }
 
-function userLeftSession({ id }) {
+function userHasLeft({ id }) {
     const li = document.getElementById(id);
     li.remove();
 }
