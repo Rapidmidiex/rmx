@@ -44,8 +44,6 @@ async function newUserJoined() {
     const r = await fetch(`/api/jam/${sessionId()}`);
     const { users } = await r.json();
 
-    // console.log(users);
-
     // ^proxy Array that updates the list in the DOM
     const items = [];
     for (const id of users) {

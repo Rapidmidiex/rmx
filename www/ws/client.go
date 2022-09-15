@@ -9,7 +9,7 @@ import (
 )
 
 type Client struct {
-	mu sync.Mutex
+	mu sync.RWMutex
 
 	ps map[uuid.UUID]*Pool
 }

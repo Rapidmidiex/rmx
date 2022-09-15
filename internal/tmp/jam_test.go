@@ -1,4 +1,5 @@
-package internal
+// * Will be adding the testing back once we can adapt it for the `gorilla/websocket` package
+package tmp
 
 import (
 	"context"

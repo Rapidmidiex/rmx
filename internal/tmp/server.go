@@ -1,4 +1,6 @@
-package internal
+// * Need to move a lot of this logic back into the `cmd` package
+// * I have started this process already
+package tmp
 
 import (
 	"context"

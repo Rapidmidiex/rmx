@@ -13,7 +13,7 @@ import (
 )
 
 type Pool struct {
-	mu sync.Mutex
+	mu sync.RWMutex
 
 	ID      uuid.UUID
 	MaxConn int

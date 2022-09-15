@@ -1,4 +1,6 @@
-package internal
+// * most of this isn't required as I have already got a function that handles http responses
+// * file:jam_tmp.go is dependant therefore cannot delete this straight away
+package tmp
 
 import (
 	"errors"

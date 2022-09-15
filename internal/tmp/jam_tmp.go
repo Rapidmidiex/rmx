@@ -1,4 +1,6 @@
-package internal
+// * In the process of taking useful code from here and moving to the `www` package
+
+package tmp
 
 import (
 	"encoding/json"
@@ -23,6 +25,28 @@ type jamConn struct {
 	username string
 }
 
+func (c *jamConn) write(i interface{}) error {
+	w := wsutil.NewWriter(c.conn, ws.StateServerSide, ws.OpText)
+	encoder := json.NewEncoder(w)
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if err := encoder.Encode(i); err != nil {
+		return err
+	}
+
+	return w.Flush()
+}
+
+func (c *jamConn) writeRaw(b []byte) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	_, err := c.conn.Write(b)
+	return err
+}
+
 // struct type to store info related to a Jam session
 // also contains a map of current connections to the session
 type jamSession struct {
@@ -36,6 +60,43 @@ type jamSession struct {
 	owner string
 }
 
+func (s *jamSession) addConn(jc *jamConn) {
+	s.mu.Lock()
+	s.conns[jc.id] = jc
+	s.mu.Unlock()
+}
+
+// func (s *jamSession) writer(i interface{}) {
+// 	for bts := range c.out {
+// 		s.mu.RLock()
+// 		cs := s.conns
+// 		s.mu.RUnlock()
+//
+// 		for _, c := range cs {
+// 			c := c // For closure.
+// 			c.writeRaw(bts)
+// 		}
+// 	}
+// }
+
+// * I have adapted this slightly inside the `www/ws` pacakge
+// iterates through session connections
+// and send provided message to each of them
+func (s *jamSession) broadcast(i interface{}) {
+	for _, c := range s.conns {
+		select {
+		case <-s.out:
+			c.write(i)
+		default:
+			delete(s.conns, c.username)
+			// c.close()
+		}
+	}
+}
+
+// * Imo, a service should have a `ServeHTTP` method attatched if it is going to be talking
+// * directly to the web, I have adapted this inside `www` pacakge
+// * I have also decoupled the RESTful logic with sessions into a seperate data structure
 // struct type for the Jam service
 // also contains current available sessions created by users
 type JamService struct {
@@ -43,6 +104,8 @@ type JamService struct {
 	sessions map[string]*jamSession
 }
 
+// * Better to define some of these inside the handlers themselves
+// * An example of such pattern can be found inside the `www` pacakge
 // request types
 type (
 	newJamReq struct {
@@ -314,59 +377,4 @@ func (s *JamService) getSession(sID string) (*jamSession, error) {
 	}
 
 	return session, nil
-}
-
-func (s *jamSession) addConn(jc *jamConn) {
-	s.mu.Lock()
-	s.conns[jc.id] = jc
-	s.mu.Unlock()
-}
-
-func (c *jamConn) write(i interface{}) error {
-	w := wsutil.NewWriter(c.conn, ws.StateServerSide, ws.OpText)
-	encoder := json.NewEncoder(w)
-
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if err := encoder.Encode(i); err != nil {
-		return err
-	}
-
-	return w.Flush()
-}
-
-func (c *jamConn) writeRaw(b []byte) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	_, err := c.conn.Write(b)
-	return err
-}
-
-// func (s *jamSession) writer(i interface{}) {
-// 	for bts := range c.out {
-// 		s.mu.RLock()
-// 		cs := s.conns
-// 		s.mu.RUnlock()
-//
-// 		for _, c := range cs {
-// 			c := c // For closure.
-// 			c.writeRaw(bts)
-// 		}
-// 	}
-// }
-
-// iterates through session connections
-// and send provided message to each of them
-func (s *jamSession) broadcast(i interface{}) {
-	for _, c := range s.conns {
-		select {
-		case <-s.out:
-			c.write(i)
-		default:
-			delete(s.conns, c.username)
-			// c.close()
-		}
-	}
 }
