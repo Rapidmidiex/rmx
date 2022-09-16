@@ -24,7 +24,6 @@ const session = new Proxy({ id: "" }, {
         switch (prop) {
             case "id":
                 obj[prop] = value;
-                // !should not be hard-coded but for MVC it's acceptable
                 document.getElementById("session").textContent = window.location.href + "play/" + value;
                 return true;
 

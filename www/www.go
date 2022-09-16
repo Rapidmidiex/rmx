@@ -6,13 +6,13 @@ import (
 	h "github.com/hyphengolang/prelude/http"
 )
 
-type contextKey struct{ string }
+type contextKey string
 
-func (c *contextKey) String() string { return "context value " + c.string }
+// func (c *contextKey) String() string { return "context value " + c.string }
 
 var (
-	roomKey    = &contextKey{"ws-pool"}
-	upgradeKey = &contextKey{"http-upgrade"}
+	roomKey    = contextKey("ws-pool")
+	upgradeKey = contextKey("http-upgrade")
 )
 
 func chain(hf http.HandlerFunc, mw ...h.MiddleWare) http.HandlerFunc { return h.Chain(hf, mw...) }
