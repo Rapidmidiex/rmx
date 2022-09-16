@@ -24,6 +24,9 @@ func run() error {
 
 	port := getEnv("PORT", "8888")
 
+	sCtx, cancel := signal.NotifyContext(context.Background(), syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	defer cancel()
+
 	c := cors.Options{
 		AllowedOrigins:   []string{"http://localhost:" + port},
 		AllowCredentials: true,
@@ -31,40 +34,26 @@ func run() error {
 		AllowedHeaders:   []string{"Origin", "Content-Type", "Accept", "Authorization"},
 	}
 
-	mux := chi.NewMux()
-	service := www.NewService(mux)
-
-	h := cors.New(c).Handler(service)
-
-	serverCtx, serverStop := signal.NotifyContext(
-		context.Background(),
-		syscall.SIGHUP,
-		syscall.SIGINT,
-		syscall.SIGTERM,
-		syscall.SIGQUIT,
-	)
-	defer serverStop()
-
-	server := http.Server{
+	srv := http.Server{
 		Addr:         ":" + port,
-		Handler:      h,
+		Handler:      cors.New(c).Handler(www.NewService(chi.NewMux())),
 		ReadTimeout:  10 * time.Second,  // max time to read request from the client
 		WriteTimeout: 10 * time.Second,  // max time to write response to the client
 		IdleTimeout:  120 * time.Second, // max time for connections using TCP Keep-Alive
-		BaseContext: func(_ net.Listener) context.Context {
-			return serverCtx
-		},
+		BaseContext:  func(_ net.Listener) context.Context { return sCtx },
 	}
 
-	g, gCtx := errgroup.WithContext(serverCtx)
+	g, gCtx := errgroup.WithContext(sCtx)
+
 	g.Go(func() error {
 		// Run the server
-		log.Printf("App server starting on %s", server.Addr)
-		return server.ListenAndServe()
+		log.Printf("App server starting on %s", srv.Addr)
+		return srv.ListenAndServe()
 	})
+
 	g.Go(func() error {
 		<-gCtx.Done()
-		return server.Shutdown(context.Background())
+		return srv.Shutdown(context.Background())
 	})
 
 	if err := g.Wait(); err != nil {
