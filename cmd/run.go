@@ -18,6 +18,11 @@ import (
 )
 
 func run() error {
+	if err := loadConfig(); err != nil {
+		return err
+	}
+
+	// port := viper.GetString("PORT")
 	port := getEnv("PORT", "8888")
 
 	c := cors.Options{

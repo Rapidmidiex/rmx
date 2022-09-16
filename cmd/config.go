@@ -1,8 +1,8 @@
-package rmx
+package main
 
 import "github.com/spf13/viper"
 
-func LoadConfig() error {
+func loadConfig() error {
 	viper.SetConfigName("config") // name of config file (without extension)
 	viper.SetConfigType("env")    // REQUIRED if the config file does not have the extension in the name
 	viper.AddConfigPath(".")      // optionally look for config in the working directory
