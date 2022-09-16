@@ -1,6 +1,6 @@
 package internal
 
-type MessageTyp int
+type MessageType int
 
 const (
 	Unknown = iota
@@ -16,43 +16,43 @@ const (
 	NoteOff
 )
 
-func (t MessageTyp) String() string {
+func (t MessageType) String() string {
 	switch t {
 	case Create:
-		return "Create"
+		return "CREATE"
 	case Delete:
-		return "Delete"
+		return "DELETE"
 	case Join:
-		return "Join"
+		return "JOIN"
 	case Leave:
-		return "Leave"
+		return "LEAVE"
 	case Message:
-		return "Message"
+		return "MESSAGE"
 	case NoteOn:
-		return "NoteOn"
+		return "NOTE_ON"
 	case NoteOff:
-		return "NoteOff"
+		return "NOTE_OFF"
 
 	default:
-		return "Unknown"
+		return "UNKNOWN"
 	}
 }
 
-func (t *MessageTyp) UnmarshalJSON(b []byte) error {
+func (t *MessageType) UnmarshalJSON(b []byte) error {
 	switch s := string(b[1 : len(b)-1]); s {
-	case "Create":
+	case "CREATE":
 		*t = Create
-	case "Delete":
+	case "DELETE":
 		*t = Delete
-	case "Join":
+	case "JOIN":
 		*t = Join
-	case "Leave":
+	case "LEAVE":
 		*t = Leave
-	case "Message":
+	case "MESSAGE":
 		*t = Message
-	case "NoteOn":
+	case "NOTE_ON":
 		*t = NoteOn
-	case "NoteOff":
+	case "NOTE_OFF":
 		*t = NoteOff
 	default:
 		*t = Unknown
@@ -61,7 +61,7 @@ func (t *MessageTyp) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func (t MessageTyp) MarshalJSON() ([]byte, error) {
+func (t MessageType) MarshalJSON() ([]byte, error) {
 	return []byte(`"` + t.String() + `"`), nil
 }
 
