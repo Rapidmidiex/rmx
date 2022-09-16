@@ -47,8 +47,8 @@ func (s Service) jamSessionHTML(path string) http.HandlerFunc {
 		panic(err)
 	}
 
-	// !I should be rendering a 404 page if there is an error
-	// !in this layer, but for an MVC this will do
+	// ! I should be rendering a 404 page if there is an error
+	// ! in this layer, but for an MVC this will do
 	return func(w http.ResponseWriter, r *http.Request) {
 		uid, err := s.parseUUID(w, r, "id")
 		if err != nil {
