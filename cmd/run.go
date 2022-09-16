@@ -23,7 +23,7 @@ func run() error {
 	c := cors.Options{
 		AllowedOrigins:   []string{"http://localhost:" + port},
 		AllowCredentials: true,
-		AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodDelete, http.MethodPatch},
+		AllowedMethods:   []string{http.MethodGet},
 		AllowedHeaders:   []string{"Origin", "Content-Type", "Accept", "Authorization"},
 	}
 
