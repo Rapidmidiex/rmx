@@ -27,7 +27,7 @@ func NewService(r chi.Router) *Service {
 	return s
 }
 
-func (s Service) respond(w http.ResponseWriter, r *http.Request, data interface{}, status int) {
+func (s Service) respond(w http.ResponseWriter, r *http.Request, data any, status int) {
 	h.Respond(w, r, data, status)
 }
 
