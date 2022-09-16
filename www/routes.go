@@ -67,9 +67,9 @@ func (s Service) jamSessionHTML(path string) http.HandlerFunc {
 
 func (s Service) handleJamSession() http.HandlerFunc {
 	type response struct {
-		MessageTyp rmx.MessageTyp `json:"type"`
-		ID         rmx.ID         `json:"id"`
-		SessionID  rmx.ID         `json:"sessionId"`
+		MessageTyp rmx.MessageType `json:"type"`
+		ID         rmx.ID          `json:"id"`
+		SessionID  rmx.ID          `json:"sessionId"`
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
