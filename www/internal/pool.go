@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/rog-golang-buddies/rapidmidiex/internal/suid"
 
 	// https://stackoverflow.com/questions/21362950/getting-a-slice-of-keys-from-a-map
 
@@ -15,18 +15,18 @@ import (
 type Pool struct {
 	mu sync.RWMutex
 
-	ID      uuid.UUID
+	ID      suid.UUID
 	MaxConn int
 
-	cs   map[uuid.UUID]*Conn
+	cs   map[suid.UUID]*Conn
 	msgs chan any
 }
 
 func DefaultPool() *Pool {
 	p := &Pool{
-		ID:      uuid.New(),
+		ID:      suid.NewUUID(),
 		MaxConn: 4,
-		cs:      make(map[uuid.UUID]*Conn),
+		cs:      make(map[suid.UUID]*Conn),
 		msgs:    make(chan any),
 	}
 
@@ -53,7 +53,7 @@ func (p *Pool) Size() int {
 	return len(p.cs)
 }
 
-func (p *Pool) Keys() []uuid.UUID {
+func (p *Pool) Keys() []suid.UUID {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -69,14 +69,14 @@ func (p *Pool) NewConn(w http.ResponseWriter, r *http.Request, u *websocket.Upgr
 		return nil, err
 	}
 
-	c := &Conn{uuid.New(), rwc, p}
+	c := &Conn{suid.NewUUID(), rwc, p}
 
 	p.cs[c.ID] = c
 
 	return c, nil
 }
 
-func (p *Pool) Delete(uid uuid.UUID) {
+func (p *Pool) Delete(uid suid.UUID) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 

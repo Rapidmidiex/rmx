@@ -4,13 +4,12 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/google/uuid"
-	suid "github.com/lithammer/shortuuid/v4"
 
 	t "github.com/hyphengolang/prelude/template"
 
 	rmx "github.com/rog-golang-buddies/rapidmidiex/internal"
-	ws "github.com/rog-golang-buddies/rapidmidiex/www/ws"
+	"github.com/rog-golang-buddies/rapidmidiex/internal/suid"
+	ws "github.com/rog-golang-buddies/rapidmidiex/www/internal"
 )
 
 func (s Service) routes() {
@@ -68,8 +67,8 @@ func (s Service) jamSessionHTML(path string) http.HandlerFunc {
 func (s Service) handleJamSession() http.HandlerFunc {
 	type response struct {
 		MessageTyp rmx.MessageType `json:"type"`
-		ID         rmx.ID          `json:"id"`
-		SessionID  rmx.ID          `json:"sessionId"`
+		ID         suid.SUID       `json:"id"`
+		SessionID  suid.SUID       `json:"sessionId"`
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -77,8 +76,8 @@ func (s Service) handleJamSession() http.HandlerFunc {
 		defer func() {
 			c.SendMessage(response{
 				MessageTyp: rmx.Leave,
-				ID:         s.safeUUID(c.ID),
-				SessionID:  s.safeUUID(c.Pool().ID),
+				ID:         c.ID.ShortUUID(),
+				SessionID:  c.Pool().ID.ShortUUID(),
 			})
 
 			c.Close()
@@ -86,8 +85,8 @@ func (s Service) handleJamSession() http.HandlerFunc {
 
 		err := c.SendMessage(response{
 			MessageTyp: rmx.Join,
-			ID:         s.safeUUID(c.ID),
-			SessionID:  s.safeUUID(c.Pool().ID),
+			ID:         c.ID.ShortUUID(),
+			SessionID:  c.Pool().ID.ShortUUID(),
 		})
 
 		if err != nil {
@@ -95,9 +94,9 @@ func (s Service) handleJamSession() http.HandlerFunc {
 			return
 		}
 
-		// ?could the API be adjusted such that
-		// ?this for-loop only needs to read and
-		// ?never touch the code for writing
+		// ? could the API be adjusted such that
+		// ? this for-loop only needs to read and
+		// ? never touch the code for writing
 		for {
 			var n int
 			if err := c.ReadJSON(&n); err != nil {
@@ -115,7 +114,7 @@ func (s Service) handleJamSession() http.HandlerFunc {
 
 func (s Service) createSession() http.HandlerFunc {
 	type response struct {
-		SessionID rmx.ID `json:"sessionId"`
+		SessionID suid.SUID `json:"sessionId"`
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -126,7 +125,7 @@ func (s Service) createSession() http.HandlerFunc {
 		}
 
 		v := response{
-			SessionID: rmx.ID(suid.DefaultEncoder.Encode(uid)),
+			SessionID: suid.FromUUID(uid),
 		}
 
 		s.respond(w, r, v, http.StatusOK)
@@ -135,8 +134,8 @@ func (s Service) createSession() http.HandlerFunc {
 
 func (s Service) getSessionData() http.HandlerFunc {
 	type response struct {
-		SessionID rmx.ID   `json:"sessionId"`
-		Users     []rmx.ID `json:"users"`
+		SessionID suid.SUID   `json:"sessionId"`
+		Users     []suid.SUID `json:"users"`
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -146,7 +145,7 @@ func (s Service) getSessionData() http.HandlerFunc {
 			return
 		}
 
-		// !rename method as `Get` is undescriptive
+		// ! rename method as `Get` is undescriptive
 		p, err := s.c.Get(uid)
 		if err != nil {
 			s.respond(w, r, err, http.StatusNotFound)
@@ -154,10 +153,8 @@ func (s Service) getSessionData() http.HandlerFunc {
 		}
 
 		v := &response{
-			SessionID: rmx.ID(suid.DefaultEncoder.Encode(p.ID)),
-			Users: rmx.FMap(p.Keys(), func(uid uuid.UUID) rmx.ID {
-				return rmx.ID(suid.DefaultEncoder.Encode(uid))
-			}),
+			SessionID: p.ID.ShortUUID(),
+			Users:     rmx.FMap(p.Keys(), func(uid suid.UUID) suid.SUID { return uid.ShortUUID() }),
 		}
 
 		s.respond(w, r, v, http.StatusOK)

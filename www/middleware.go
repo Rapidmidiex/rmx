@@ -6,7 +6,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	ws "github.com/rog-golang-buddies/rapidmidiex/www/ws"
+	ws "github.com/rog-golang-buddies/rapidmidiex/www/internal"
 )
 
 func (s Service) sessionPool(f http.HandlerFunc) http.HandlerFunc {

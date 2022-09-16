@@ -1,12 +1,12 @@
 package websocket
 
 import (
-	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/rog-golang-buddies/rapidmidiex/internal/suid"
 )
 
 type Conn struct {
-	ID uuid.UUID
+	ID suid.UUID
 
 	rwc *websocket.Conn
 	p   *Pool
