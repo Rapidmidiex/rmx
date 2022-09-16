@@ -59,6 +59,7 @@ func run() error {
 	g, gCtx := errgroup.WithContext(serverCtx)
 	g.Go(func() error {
 		// Run the server
+		log.Printf("App server starting on %s", server.Addr)
 		return server.ListenAndServe()
 	})
 	g.Go(func() error {
