@@ -20,10 +20,9 @@ func (s Service) routes() {
 	s.r.Handle("/assets/*", s.fileServer("/assets/", "assets"))
 	s.r.Get("/", s.indexHTML("ui/www/index.html"))
 	s.r.Get("/play/{id}", s.jamSessionHTML("ui/www/play.html"))
-
-	// s.r.Get("/api/v0/jam/create", s.createSession())
-	// s.r.Get("/api/v0/jam/{id}", s.getSessionData())
-	// s.r.HandleFunc("api/v0/jam/{id}", chain(s.handleJamSession(), s.upgradeHTTP, s.sessionPool))
+	// s.r.Get("/api/jam/create", s.createSession())
+	// s.r.Get("/api/jam/{id}", s.getSessionData())
+	// s.r.HandleFunc("/jam/{id}", chain(s.handleJamSession(), s.upgradeHTTP, s.sessionPool))
 
 	// v1
 	s.r.Get("/api/v1/jam/create", s.createSession())
