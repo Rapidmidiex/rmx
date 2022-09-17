@@ -9,7 +9,7 @@ import (
 	h "github.com/hyphengolang/prelude/http"
 
 	"github.com/rog-golang-buddies/rapidmidiex/internal/suid"
-	ws "github.com/rog-golang-buddies/rapidmidiex/www/internal"
+	ws "github.com/rog-golang-buddies/rapidmidiex/www/websocket"
 )
 
 type Service struct {

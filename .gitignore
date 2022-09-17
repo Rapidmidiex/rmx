@@ -23,3 +23,6 @@ bin/
 .DS_Store
 *.env
 cmd/**/config
+
+# NPM
+node_modules

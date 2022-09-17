@@ -10,7 +10,7 @@ app.innerHTML = `
 
 document.querySelector("button").addEventListener("click", async e => {
     try {
-        const r = await fetch("/api/jam/create");
+        const r = await fetch("/api/v1/jam/create");
         const { sessionId } = await r.json();
 
         session.id = sessionId;
@@ -21,6 +21,7 @@ document.querySelector("button").addEventListener("click", async e => {
 
 const session = new Proxy({ id: "" }, {
     set(obj, prop, value) {
+        let v = 0;
         switch (prop) {
             case "id":
                 obj[prop] = value;

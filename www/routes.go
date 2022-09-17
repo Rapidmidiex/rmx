@@ -9,59 +9,26 @@ import (
 
 	rmx "github.com/rog-golang-buddies/rapidmidiex/internal"
 	"github.com/rog-golang-buddies/rapidmidiex/internal/suid"
-	ws "github.com/rog-golang-buddies/rapidmidiex/www/internal"
+	ws "github.com/rog-golang-buddies/rapidmidiex/www/websocket"
 )
 
 func (s Service) routes() {
 	// middleware
 	s.r.Use(middleware.Logger)
 
-	// http
+	// v0
 	s.r.Handle("/assets/*", s.fileServer("/assets/", "assets"))
-	s.r.Get("/", s.indexHTML("pages/index.html"))
-	s.r.Get("/play/{id}", s.jamSessionHTML("pages/play.html"))
+	s.r.Get("/", s.indexHTML("ui/www/index.html"))
+	s.r.Get("/play/{id}", s.jamSessionHTML("ui/www/play.html"))
 
-	// api
-	s.r.Get("/api/jam/create", s.createSession())
-	s.r.Get("/api/jam/{id}", s.getSessionData())
+	// s.r.Get("/api/v0/jam/create", s.createSession())
+	// s.r.Get("/api/v0/jam/{id}", s.getSessionData())
+	// s.r.HandleFunc("api/v0/jam/{id}", chain(s.handleJamSession(), s.upgradeHTTP, s.sessionPool))
 
-	// ws
-	s.r.HandleFunc("/jam/{id}", chain(s.handleJamSession(), s.upgradeHTTP, s.sessionPool))
-}
-
-func (s Service) indexHTML(path string) http.HandlerFunc {
-	render, err := t.Render(path)
-	if err != nil {
-		panic(err)
-	}
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		render(w, r, nil)
-	}
-}
-
-func (s Service) jamSessionHTML(path string) http.HandlerFunc {
-	render, err := t.Render(path)
-	if err != nil {
-		panic(err)
-	}
-
-	// ! I should be rendering a 404 page if there is an error
-	// ! in this layer, but for an MVC this will do
-	return func(w http.ResponseWriter, r *http.Request) {
-		uid, err := s.parseUUID(w, r, "id")
-		if err != nil {
-			s.respond(w, r, err, http.StatusBadRequest)
-			return
-		}
-
-		if _, err = s.c.Get(uid); err != nil {
-			s.respond(w, r, err, http.StatusNotFound)
-			return
-		}
-
-		render(w, r, nil)
-	}
+	// v1
+	s.r.Get("/api/v1/jam/create", s.createSession())
+	s.r.Get("/api/v1/jam/{id}", s.getSessionData())
+	s.r.HandleFunc("/api/v1/jam/{id}/ws", chain(s.handleJamSession(), s.upgradeHTTP, s.sessionPool))
 }
 
 func (s Service) handleJamSession() http.HandlerFunc {
@@ -158,5 +125,40 @@ func (s Service) getSessionData() http.HandlerFunc {
 		}
 
 		s.respond(w, r, v, http.StatusOK)
+	}
+}
+
+func (s Service) indexHTML(path string) http.HandlerFunc {
+	render, err := t.Render(path)
+	if err != nil {
+		panic(err)
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		render(w, r, nil)
+	}
+}
+
+func (s Service) jamSessionHTML(path string) http.HandlerFunc {
+	render, err := t.Render(path)
+	if err != nil {
+		panic(err)
+	}
+
+	// ! I should be rendering a 404 page if there is an error
+	// ! in this layer, but for an MVC this will do
+	return func(w http.ResponseWriter, r *http.Request) {
+		uid, err := s.parseUUID(w, r, "id")
+		if err != nil {
+			s.respond(w, r, err, http.StatusBadRequest)
+			return
+		}
+
+		if _, err = s.c.Get(uid); err != nil {
+			s.respond(w, r, err, http.StatusNotFound)
+			return
+		}
+
+		render(w, r, nil)
 	}
 }

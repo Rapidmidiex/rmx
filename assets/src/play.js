@@ -9,7 +9,7 @@ app.innerHTML = `
     <ul aria-label="users"></ul>
 `;
 
-const ws = new WebSocket(websocketUrl(`/jam/${sessionId()}`));
+const ws = new WebSocket(websocketUrl(`/api/v1/jam/${sessionId()}/ws`));
 
 ws.addEventListener("open", e => {
     document.querySelector("button").disabled = false;
@@ -41,7 +41,7 @@ document.querySelector("button").addEventListener("click", e => {
 });
 
 async function newUserJoined() {
-    const r = await fetch(`/api/jam/${sessionId()}`);
+    const r = await fetch(`/api/v1/jam/${sessionId()}`);
     const { users } = await r.json();
 
     // ^proxy Array that updates the list in the DOM
