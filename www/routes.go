@@ -16,10 +16,12 @@ func (s Service) routes() {
 	// middleware
 	s.r.Use(middleware.Logger)
 
+	// temporary static files
+	// s.r.Handle("/assets/*", s.fileServer("/assets/", "assets"))
+	// s.r.Get("/", s.indexHTML("ui/www/index.html"))
+	// s.r.Get("/play/{id}", s.jamSessionHTML("ui/www/play.html"))
+
 	// v0
-	s.r.Handle("/assets/*", s.fileServer("/assets/", "assets"))
-	s.r.Get("/", s.indexHTML("ui/www/index.html"))
-	s.r.Get("/play/{id}", s.jamSessionHTML("ui/www/play.html"))
 	// s.r.Get("/api/jam/create", s.createSession())
 	// s.r.Get("/api/jam/{id}", s.getSessionData())
 	// s.r.HandleFunc("/jam/{id}", chain(s.handleJamSession(), s.upgradeHTTP, s.sessionPool))
