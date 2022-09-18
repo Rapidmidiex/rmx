@@ -5,6 +5,7 @@ import (
 
 	rmx "github.com/rog-golang-buddies/rapidmidiex/internal"
 	"github.com/rog-golang-buddies/rapidmidiex/internal/suid"
+	"golang.org/x/exp/maps"
 )
 
 type Client struct {
@@ -58,4 +59,11 @@ func (c *Client) Get(uid suid.UUID) (*Pool, error) {
 func (c *Client) Has(uid suid.UUID) bool {
 	_, err := c.Get(uid)
 	return err == nil
+}
+
+func (c *Client) List() []*Pool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return maps.Values(c.ps)
 }

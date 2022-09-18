@@ -12,7 +12,15 @@ import (
 	ws "github.com/rog-golang-buddies/rapidmidiex/www/websocket"
 )
 
-func (s Service) routes() {
+type (
+	session struct {
+		Name      string      `json:"name,omitempty"`
+		SessionID suid.SUID   `json:"sessionId,omitempty"`
+		Users     []suid.SUID `json:"users,omitempty"`
+	}
+)
+
+func (s *Service) routes() {
 	// middleware
 	s.r.Use(middleware.Logger)
 
@@ -25,12 +33,13 @@ func (s Service) routes() {
 	// s.r.HandleFunc("/jam/{id}", chain(s.handleJamSession(), s.upgradeHTTP, s.sessionPool))
 
 	// v1
+	s.r.Get("/api/v1/jam", s.listSessions())
 	s.r.Get("/api/v1/jam/create", s.createSession())
 	s.r.Get("/api/v1/jam/{id}", s.getSessionData())
-	s.r.HandleFunc("/api/v1/jam/{id}/ws", chain(s.handleJamSession(), s.upgradeHTTP, s.sessionPool))
+	s.r.Get("/api/v1/jam/{id}/ws", chain(s.handleJamSession(), s.upgradeHTTP, s.sessionPool))
 }
 
-func (s Service) handleJamSession() http.HandlerFunc {
+func (s *Service) handleJamSession() http.HandlerFunc {
 	type response struct {
 		MessageTyp rmx.MessageType `json:"type"`
 		ID         suid.SUID       `json:"id"`
@@ -78,7 +87,7 @@ func (s Service) handleJamSession() http.HandlerFunc {
 	}
 }
 
-func (s Service) createSession() http.HandlerFunc {
+func (s *Service) createSession() http.HandlerFunc {
 	type response struct {
 		SessionID suid.SUID `json:"sessionId"`
 	}
@@ -98,7 +107,7 @@ func (s Service) createSession() http.HandlerFunc {
 	}
 }
 
-func (s Service) getSessionData() http.HandlerFunc {
+func (s *Service) getSessionData() http.HandlerFunc {
 	type response struct {
 		SessionID suid.SUID   `json:"sessionId"`
 		Users     []suid.SUID `json:"users"`
@@ -111,7 +120,7 @@ func (s Service) getSessionData() http.HandlerFunc {
 			return
 		}
 
-		// ! rename method as `Get` is undescriptive
+		// ! rename method as `Get` is nondescriptive
 		p, err := s.c.Get(uid)
 		if err != nil {
 			s.respond(w, r, err, http.StatusNotFound)
@@ -127,7 +136,31 @@ func (s Service) getSessionData() http.HandlerFunc {
 	}
 }
 
-func (s Service) indexHTML(path string) http.HandlerFunc {
+func (s *Service) listSessions() http.HandlerFunc {
+	type response struct {
+		Sessions []session `json:"sessions"`
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		pl := s.c.List()
+
+		sl := make([]session, 0, len(pl))
+		for _, p := range pl {
+			sl = append(sl, session{
+				Name:      "", // name not implemented yet
+				SessionID: p.ID.ShortUUID(),
+			})
+		}
+
+		v := &response{
+			Sessions: sl,
+		}
+
+		s.respond(w, r, v, http.StatusOK)
+	}
+}
+
+func (s *Service) indexHTML(path string) http.HandlerFunc {
 	render, err := t.Render(path)
 	if err != nil {
 		panic(err)
@@ -138,7 +171,7 @@ func (s Service) indexHTML(path string) http.HandlerFunc {
 	}
 }
 
-func (s Service) jamSessionHTML(path string) http.HandlerFunc {
+func (s *Service) jamSessionHTML(path string) http.HandlerFunc {
 	render, err := t.Render(path)
 	if err != nil {
 		panic(err)
