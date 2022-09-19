@@ -19,7 +19,7 @@ type Service struct {
 	c *ws.Client
 }
 
-func (s Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.r.ServeHTTP(w, r) }
+func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.r.ServeHTTP(w, r) }
 
 func NewService(r chi.Router) *Service {
 	s := &Service{r, log.Default(), ws.DefaultClient}
@@ -27,14 +27,14 @@ func NewService(r chi.Router) *Service {
 	return s
 }
 
-func (s Service) respond(w http.ResponseWriter, r *http.Request, data any, status int) {
+func (s *Service) respond(w http.ResponseWriter, r *http.Request, data any, status int) {
 	h.Respond(w, r, data, status)
 }
 
-func (s Service) fileServer(prefix string, dirname string) http.Handler {
+func (s *Service) fileServer(prefix string, dirname string) http.Handler {
 	return h.FileServer(prefix, dirname)
 }
 
-func (S Service) parseUUID(w http.ResponseWriter, r *http.Request, key string) (suid.UUID, error) {
+func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request, key string) (suid.UUID, error) {
 	return suid.ParseString(chi.URLParam(r, key))
 }

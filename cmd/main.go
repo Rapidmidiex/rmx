@@ -37,7 +37,7 @@ func run() error {
 	c := cors.Options{
 		AllowedOrigins:   []string{"http://localhost:" + port, "http://localhost:5173"}, // ? band-aid, needs to change to a flag
 		AllowCredentials: true,
-		AllowedMethods:   []string{http.MethodGet},
+		AllowedMethods:   []string{http.MethodGet, http.MethodPost},
 		AllowedHeaders:   []string{"Origin", "Content-Type", "Accept", "Authorization"},
 	}
 
