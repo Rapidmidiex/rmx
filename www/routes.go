@@ -12,14 +12,6 @@ import (
 	ws "github.com/rog-golang-buddies/rapidmidiex/www/websocket"
 )
 
-type (
-	session struct {
-		Name      string      `json:"name,omitempty"`
-		SessionID suid.SUID   `json:"sessionId,omitempty"`
-		Users     []suid.SUID `json:"users,omitempty"`
-	}
-)
-
 func (s *Service) routes() {
 	// middleware
 	s.r.Use(middleware.Logger)
@@ -90,9 +82,9 @@ func (s *Service) handleJamSession() http.HandlerFunc {
 }
 
 func (s *Service) createSession() http.HandlerFunc {
-	type response struct {
-		SessionID suid.SUID `json:"sessionId"`
-	}
+	// type response struct {
+	// 	SessionID suid.SUID `json:"sessionId"`
+	// }
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		uid, err := s.c.NewPool()
@@ -101,7 +93,7 @@ func (s *Service) createSession() http.HandlerFunc {
 			return
 		}
 
-		v := response{
+		v := Session{
 			SessionID: suid.FromUUID(uid),
 		}
 
@@ -110,10 +102,10 @@ func (s *Service) createSession() http.HandlerFunc {
 }
 
 func (s *Service) getSessionData() http.HandlerFunc {
-	type response struct {
-		SessionID suid.SUID   `json:"sessionId"`
-		Users     []suid.SUID `json:"users"`
-	}
+	// type response struct {
+	// 	SessionID suid.SUID   `json:"sessionId"`
+	// 	Users     []suid.SUID `json:"users"`
+	// }
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		uid, err := s.parseUUID(w, r, "id")
@@ -129,7 +121,7 @@ func (s *Service) getSessionData() http.HandlerFunc {
 			return
 		}
 
-		v := &response{
+		v := &Session{
 			SessionID: p.ID.ShortUUID(),
 			Users:     rmx.FMap(p.Keys(), func(uid suid.UUID) suid.SUID { return uid.ShortUUID() }),
 		}
@@ -140,22 +132,22 @@ func (s *Service) getSessionData() http.HandlerFunc {
 
 func (s *Service) listSessions() http.HandlerFunc {
 	type response struct {
-		Sessions []session `json:"sessions"`
+		Sessions []Session `json:"sessions"`
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		pl := s.c.List()
+		// pl := s.c.List()
 
-		sl := make([]session, 0, len(pl))
-		for _, p := range pl {
-			sl = append(sl, session{
-				Name:      "", // name not implemented yet
-				SessionID: p.ID.ShortUUID(),
-			})
-		}
+		// sl := make([]session, 0, len(pl))
+		// for _, p := range pl {
+		// 	sl = append(sl, session{
+		// 		Name:      "", // name not implemented yet
+		// 		SessionID: p.ID.ShortUUID(),
+		// 	})
+		// }
 
 		v := &response{
-			Sessions: sl,
+			Sessions: rmx.FMap(s.c.List(), func(p *ws.Pool) Session { return Session{SessionID: p.ID.ShortUUID()} }),
 		}
 
 		s.respond(w, r, v, http.StatusOK)
