@@ -28,3 +28,11 @@ func TestUUID(t *testing.T) {
 		t.Fatalf("expected: %s;got %s\n", uid, sid)
 	}
 }
+
+func TestSIze(t *testing.T) {
+	s1 := NewSUID()
+	s2 := NewSUID()
+	s3 := NewSUID()
+
+	t.Log(len(s1), len(s2), len(s3))
+}

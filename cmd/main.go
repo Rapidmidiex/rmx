@@ -12,7 +12,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/cors"
-	"github.com/spf13/viper"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/rog-golang-buddies/rapidmidiex/www"
@@ -25,17 +24,15 @@ func main() {
 }
 
 func run() error {
-	// if err := loadConfig(); err != nil {
-	// 	return err
-	// }
-
+	// ? want to move to viper ASAP
 	port := getEnv("PORT", "8888")
 
 	sCtx, cancel := signal.NotifyContext(context.Background(), syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer cancel()
 
+	// ? should this defined within the instantiation of a new service
 	c := cors.Options{
-		AllowedOrigins:   []string{"http://localhost:" + port, "http://localhost:5173"}, // ? band-aid, needs to change to a flag
+		AllowedOrigins:   []string{"http://localhost:5173"}, // ? band-aid, needs to change to a flag
 		AllowCredentials: true,
 		AllowedMethods:   []string{http.MethodGet},
 		AllowedHeaders:   []string{"Origin", "Content-Type", "Accept", "Authorization"},
@@ -77,19 +74,20 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
-func loadConfig() error {
-	viper.SetConfigName("config") // name of config file (without extension)
-	viper.SetConfigType("env")    // REQUIRED if the config file does not have the extension in the name
-	viper.AddConfigPath(".")      // optionally look for config in the working directory
+func init() {
+	// // name of config file (without extension)
+	// viper.SetConfigName("config") 
+	// // REQUIRED if the config file does not have the extension in the name
+	// viper.SetConfigType("env")    
+	// // optionally look for config in the working directory
+	// viper.AddConfigPath(".")      
 
-	viper.SetDefault("PORT", "8080") // Set Default variables
+	//// Set Default variables
+	// viper.SetDefault("PORT", "8080") 
 
-	viper.AutomaticEnv()
+	// viper.AutomaticEnv()
 
-	err := viper.ReadInConfig() // Find and read the config file
-	if err != nil {             // Handle errors reading the config file
-		return err
-	}
-
-	return nil
+	// if err := viper.ReadInConfig(); err != nil {
+	// 	panic(err)
+	// }
 }
