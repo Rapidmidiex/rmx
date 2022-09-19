@@ -32,11 +32,13 @@ func (s *Service) routes() {
 	// s.r.Get("/api/jam/{id}", s.getSessionData())
 	// s.r.HandleFunc("/jam/{id}", chain(s.handleJamSession(), s.upgradeHTTP, s.sessionPool))
 
-	// v1
+	// REST v1
 	s.r.Get("/api/v1/jam", s.listSessions())
-	s.r.Get("/api/v1/jam/create", s.createSession())
+	s.r.Post("/api/v1/jam", s.createSession())
 	s.r.Get("/api/v1/jam/{id}", s.getSessionData())
-	s.r.Get("/api/v1/jam/{id}/ws", chain(s.handleJamSession(), s.upgradeHTTP, s.sessionPool))
+
+	// Websocket
+	s.r.Get("/ws", chain(s.handleJamSession(), s.upgradeHTTP, s.sessionPool))
 }
 
 func (s *Service) handleJamSession() http.HandlerFunc {

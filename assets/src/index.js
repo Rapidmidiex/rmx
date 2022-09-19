@@ -1,4 +1,4 @@
-const app = document.getElementById("app");
+const app = document.getElementById('app');
 
 app.innerHTML = `
     <h1>Welcome, Home</h1>
@@ -8,9 +8,14 @@ app.innerHTML = `
     <div id="session"></div>
 `;
 
-document.querySelector("button").addEventListener("click", async e => {
+document.querySelector('button').addEventListener('click', async (e) => {
     try {
-        const r = await fetch("/api/v1/jam/create");
+        const r = await fetch('/api/v1/jam', {
+            method: 'POST',
+            body: {
+                // TODO: Add any info from UI
+            },
+        });
         const { sessionId } = await r.json();
 
         session.id = sessionId;
@@ -19,16 +24,26 @@ document.querySelector("button").addEventListener("click", async e => {
     }
 });
 
-const session = new Proxy({ id: "" }, {
-    set(obj, prop, value) {
-        let v = 0;
-        switch (prop) {
-            case "id":
-                obj[prop] = value;
-                document.getElementById("session").textContent = window.location.href + "play/" + value;
-                return true;
+const session = new Proxy(
+    { id: '' },
+    {
+        set(obj, prop, value) {
+            let v = 0;
+            switch (prop) {
+                case 'id':
+                    obj[prop] = value;
+                    const url = `${window.location.href}play/${value}`;
+                    const anchor = document.createElement('a');
+                    anchor.href = url;
+                    anchor.innerText = url;
+                    anchor.target = '_blank';
+                    document.getElementById('session').appendChild(anchor);
 
-            default: return false;
-        }
+                    return true;
+
+                default:
+                    return false;
+            }
+        },
     }
-});
+);

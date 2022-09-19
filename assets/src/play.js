@@ -1,6 +1,6 @@
-import { websocketUrl, sessionId } from "./utils.js";
+import { websocketUrl, sessionId } from './utils.js';
 
-const app = document.getElementById("app");
+const app = document.getElementById('app');
 
 app.innerHTML = `
     <h1>Welcome to the JAM Session</h1>
@@ -9,34 +9,34 @@ app.innerHTML = `
     <ul aria-label="users"></ul>
 `;
 
-const ws = new WebSocket(websocketUrl(`/api/v1/jam/${sessionId()}/ws`));
+const ws = new WebSocket(websocketUrl(`/ws`));
 
-ws.addEventListener("open", e => {
-    document.querySelector("button").disabled = false;
+ws.addEventListener('open', (e) => {
+    document.querySelector('button').disabled = false;
 
-    alert("web socket has opened");
+    alert('web socket has opened');
 });
 
-ws.addEventListener("message", async e => {
+ws.addEventListener('message', async (e) => {
     const { type, id } = JSON.parse(e.data);
 
     switch (type.toLowerCase()) {
-        case "join":
+        case 'join':
             newUserJoined();
             break;
-        case "leave":
+        case 'leave':
             document.getElementById(id).remove();
             break;
     }
 });
 
-ws.addEventListener("error", e => {
+ws.addEventListener('error', (e) => {
     console.error(e);
 
-    document.querySelector("button").disabled = true;
+    document.querySelector('button').disabled = true;
 });
 
-document.querySelector("button").addEventListener("click", e => {
+document.querySelector('button').addEventListener('click', (e) => {
     ws.send(1);
 });
 
@@ -47,13 +47,11 @@ async function newUserJoined() {
     // ^proxy Array that updates the list in the DOM
     const items = [];
     for (const id of users) {
-        const li = document.createElement("li");
+        const li = document.createElement('li');
         li.textContent = `${id} has joined`;
         li.id = id;
         items.push(li);
     }
 
-    document
-        .querySelector(`[aria-label="users"]`)
-        .replaceChildren(...items);
+    document.querySelector(`[aria-label="users"]`).replaceChildren(...items);
 }
