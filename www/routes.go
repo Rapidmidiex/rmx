@@ -35,7 +35,7 @@ func (s *Service) routes() {
 	// REST v1
 	s.r.Get("/api/v1/jam", s.listSessions())
 	s.r.Post("/api/v1/jam", s.createSession())
-	s.r.Get("/api/v1/jam/{id}", s.getSessionData())
+	s.r.Get("/api/v1/jam/{id}", s.getSessionData)
 
 	// Websocket
 	s.r.Get("/ws", chain(s.handleJamSession(), s.upgradeHTTP, s.sessionPool))
@@ -109,33 +109,26 @@ func (s *Service) createSession() http.HandlerFunc {
 	}
 }
 
-func (s *Service) getSessionData() http.HandlerFunc {
-	type response struct {
-		SessionID suid.SUID   `json:"sessionId"`
-		Users     []suid.SUID `json:"users"`
+func (s *Service) getSessionData(w http.ResponseWriter, r *http.Request) {
+	uid, err := s.parseUUID(w, r, "id")
+	if err != nil {
+		s.respond(w, r, err, http.StatusBadRequest)
+		return
 	}
 
-	return func(w http.ResponseWriter, r *http.Request) {
-		uid, err := s.parseUUID(w, r, "id")
-		if err != nil {
-			s.respond(w, r, err, http.StatusBadRequest)
-			return
-		}
-
-		// ! rename method as `Get` is nondescriptive
-		p, err := s.c.Get(uid)
-		if err != nil {
-			s.respond(w, r, err, http.StatusNotFound)
-			return
-		}
-
-		v := &response{
-			SessionID: p.ID.ShortUUID(),
-			Users:     rmx.FMap(p.Keys(), func(uid suid.UUID) suid.SUID { return uid.ShortUUID() }),
-		}
-
-		s.respond(w, r, v, http.StatusOK)
+	// ! rename method as `Get` is nondescriptive
+	p, err := s.c.Get(uid)
+	if err != nil {
+		s.respond(w, r, err, http.StatusNotFound)
+		return
 	}
+
+	v := &session{
+		SessionID: p.ID.ShortUUID(),
+		Users:     rmx.FMap(p.Keys(), func(uid suid.UUID) suid.SUID { return uid.ShortUUID() }),
+	}
+
+	s.respond(w, r, v, http.StatusOK)
 }
 
 func (s *Service) listSessions() http.HandlerFunc {
