@@ -1,4 +1,4 @@
-package www
+package api
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	ws "github.com/rog-golang-buddies/rapidmidiex/www/websocket"
+	ws "github.com/rog-golang-buddies/rapidmidiex/api/websocket"
 )
 
 func (s Service) sessionPool(f http.HandlerFunc) http.HandlerFunc {

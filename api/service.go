@@ -1,4 +1,4 @@
-package www
+package api
 
 import (
 	"log"
@@ -8,8 +8,8 @@ import (
 
 	h "github.com/hyphengolang/prelude/http"
 
+	ws "github.com/rog-golang-buddies/rapidmidiex/api/websocket"
 	"github.com/rog-golang-buddies/rapidmidiex/internal/suid"
-	ws "github.com/rog-golang-buddies/rapidmidiex/www/websocket"
 )
 
 type Service struct {

@@ -1,4 +1,4 @@
-package www
+package api
 
 import (
 	"net/http"
@@ -7,9 +7,9 @@ import (
 
 	t "github.com/hyphengolang/prelude/template"
 
+	ws "github.com/rog-golang-buddies/rapidmidiex/api/websocket"
 	rmx "github.com/rog-golang-buddies/rapidmidiex/internal"
 	"github.com/rog-golang-buddies/rapidmidiex/internal/suid"
-	ws "github.com/rog-golang-buddies/rapidmidiex/www/websocket"
 )
 
 type (
