@@ -6,15 +6,26 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
+
+// Styles
+var baseStyle = lipgloss.NewStyle().
+	BorderStyle(lipgloss.NormalBorder()).
+	BorderForeground(lipgloss.Color("240"))
 
 // Message types
 type statusMsg int
 
 type errMsg struct{ err error }
 
-type sessionsResp struct {
+type Session struct {
+	Id string `json:"sessionId"` // TODO: Need to fix the API to return "id"
+	// UserCount int    `json:"userCount"`
+}
+type jamsResp struct {
 	Sessions []Session `json:"sessions"`
 }
 
@@ -24,34 +35,31 @@ func (e errMsg) Error() string { return e.err.Error() }
 
 // Commands
 func FetchSessions(baseURL string) tea.Cmd {
-	fmt.Println(baseURL)
 	return func() tea.Msg {
 		// Create an HTTP client and make a GET request.
 		c := &http.Client{Timeout: 10 * time.Second}
-		res, err := c.Get(baseURL + "/api/v1/jam")
+		res, err := c.Get(baseURL + "/jam")
 		if err != nil {
-			fmt.Println(err)
 			// There was an error making our request. Wrap the error we received
 			// in a message and return it.
 			return errMsg{err}
 		}
-		// We received a response from the server. Return the HTTP status code
+		// We received a response from the server.
+		// Return the HTTP status code
 		// as a message.
+		if res.StatusCode >= 400 {
+			return statusMsg(res.StatusCode)
+		}
 		decoder := json.NewDecoder(res.Body)
-		var resp sessionsResp
+		var resp jamsResp
 		decoder.Decode(&resp)
-
 		return resp
 	}
 }
 
-type Session struct {
-	Id string `json:"sessionId"` // TODO: Need to fix the API to return "id"
-	// UserCount int    `json:"userCount"`
-}
-
 type Model struct {
 	sessions []Session
+	jamTable table.Model
 	status   int
 	err      error
 }
@@ -71,10 +79,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// status message.
 		m.status = int(msg)
 		cmds = append(cmds, tea.Quit)
-	case sessionsResp:
+	case jamsResp:
 		m.sessions = msg.Sessions
+		m.jamTable = makeJamsTable(m)
+
 		cmds = append(cmds, tea.Quit)
-		fmt.Println(m.sessions)
 	case errMsg:
 		// There was an error. Note it in the model. And tell the runtime
 		// we're done and want to quit.
@@ -97,8 +106,8 @@ func (m Model) View() string {
 		s += fmt.Sprintf("%d %s!", m.status, http.StatusText(m.status))
 	}
 
-	if m.sessions != nil && len(m.sessions) > 0 {
-		s += fmt.Sprintf("Available Sessions: %v", m.sessions)
+	if m.sessions != nil {
+		s += baseStyle.Render(m.jamTable.View()) + "\n"
 	}
 
 	// Send off whatever we came up with above for rendering.
@@ -107,4 +116,42 @@ func (m Model) View() string {
 
 func New() tea.Model {
 	return Model{}
+}
+
+// https://github.com/rog-golang-buddies/rapidmidiex-research/issues/9#issuecomment-1204853876
+func makeJamsTable(m Model) table.Model {
+	columns := []table.Column{
+		{Title: "Name", Width: 15},
+		{Title: "ID", Width: 15},
+		{Title: "Players", Width: 10},
+		// {Title: "Latency", Width: 4},
+	}
+
+	rows := make([]table.Row, 0)
+
+	for _, s := range m.sessions {
+		row := table.Row{"Name Here", s.Id, "0"}
+		rows = append(rows, row)
+	}
+
+	t := table.New(
+		table.WithColumns(columns),
+		table.WithRows(rows),
+		table.WithFocused(true),
+		table.WithHeight(7),
+	)
+
+	s := table.DefaultStyles()
+	s.Header = s.Header.
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		BorderBottom(true).
+		Bold(false)
+	s.Selected = s.Selected.
+		Foreground(lipgloss.Color("229")).
+		Background(lipgloss.Color("57")).
+		Bold(false)
+	t.SetStyles(s)
+
+	return t
 }

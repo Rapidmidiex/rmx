@@ -7,8 +7,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/rog-golang-buddies/rapidmidiex/internal/suid"
+	"github.com/rog-golang-buddies/rapidmidiex/ui/terminal/tui/jamui"
 	"github.com/rog-golang-buddies/rapidmidiex/ui/terminal/tui/lobbyui"
-	lobby "github.com/rog-golang-buddies/rapidmidiex/ui/terminal/tui/lobbyui"
 )
 
 // ********
@@ -46,7 +46,8 @@ func NewModel(serverHostURL string) (mainModel, error) {
 
 	return mainModel{
 		curView:      lobbyView,
-		lobby:        lobby.New(),
+		lobby:        lobbyui.New(),
+		jam:          jamui.New(),
 		RESTendpoint: serverHostURL + "/api/v1",
 		WSendpoint:   wsURL.String() + "/ws",
 	}, nil
@@ -75,15 +76,21 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m.curView {
 	case lobbyView:
 		newLobby, newCmd := m.lobby.Update(msg)
-		lobbyModel, ok := newLobby.(lobby.Model)
+		lobbyModel, ok := newLobby.(lobbyui.Model)
 		if !ok {
 			panic("could not perform assertion on lobbyui model")
 		}
 		m.lobby = lobbyModel
 		cmd = newCmd
 	case jamView:
+		newJam, newCmd := m.jam.Update(msg)
+		jamModel, ok := newJam.(jamui.Model)
+		if !ok {
+			panic("could not perform assertion on jamui model")
+		}
+		m.jam = jamModel
+		cmd = newCmd
 	}
-
 	// Run all commands from sub-model Updates
 	cmds = append(cmds, cmd)
 	return m, tea.Batch(cmds...)
@@ -92,7 +99,8 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m mainModel) View() string {
 	switch m.curView {
-	// TODO: Add JamView
+	case jamView:
+		return m.jam.View()
 	default:
 		return m.lobby.View()
 	}
