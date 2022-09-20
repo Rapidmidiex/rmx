@@ -11,7 +11,7 @@ import (
 
 func (s Service) sessionPool(f http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		uid, err := s.parseUUID(w, r, "id")
+		uid, err := s.parseUUID(w, r)
 		if err != nil {
 			s.respond(w, r, err, http.StatusBadRequest)
 			return

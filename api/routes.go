@@ -43,27 +43,27 @@ func (s *Service) routes() {
 
 func (s *Service) handleJamSession() http.HandlerFunc {
 	type response struct {
-		MessageTyp rmx.MessageType `json:"type"`
-		ID         suid.SUID       `json:"id"`
-		SessionID  suid.SUID       `json:"sessionId"`
+		MessageType rmx.MessageType `json:"type"`
+		ID          suid.SUID       `json:"id"`
+		SessionID   suid.SUID       `json:"sessionId"`
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		c := r.Context().Value(upgradeKey).(*ws.Conn)
 		defer func() {
 			c.SendMessage(response{
-				MessageTyp: rmx.Leave,
-				ID:         c.ID.ShortUUID(),
-				SessionID:  c.Pool().ID.ShortUUID(),
+				MessageType: rmx.Leave,
+				ID:          c.ID.ShortUUID(),
+				SessionID:   c.Pool().ID.ShortUUID(),
 			})
 
 			c.Close()
 		}()
 
 		err := c.SendMessage(response{
-			MessageTyp: rmx.Join,
-			ID:         c.ID.ShortUUID(),
-			SessionID:  c.Pool().ID.ShortUUID(),
+			MessageType: rmx.Join,
+			ID:          c.ID.ShortUUID(),
+			SessionID:   c.Pool().ID.ShortUUID(),
 		})
 
 		if err != nil {
@@ -110,7 +110,7 @@ func (s *Service) createSession() http.HandlerFunc {
 }
 
 func (s *Service) getSessionData(w http.ResponseWriter, r *http.Request) {
-	uid, err := s.parseUUID(w, r, "id")
+	uid, err := s.parseUUID(w, r)
 	if err != nil {
 		s.respond(w, r, err, http.StatusBadRequest)
 		return
@@ -175,7 +175,7 @@ func (s *Service) jamSessionHTML(path string) http.HandlerFunc {
 	// ! I should be rendering a 404 page if there is an error
 	// ! in this layer, but for an MVC this will do
 	return func(w http.ResponseWriter, r *http.Request) {
-		uid, err := s.parseUUID(w, r, "id")
+		uid, err := s.parseUUID(w, r)
 		if err != nil {
 			s.respond(w, r, err, http.StatusBadRequest)
 			return

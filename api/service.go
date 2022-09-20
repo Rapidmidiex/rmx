@@ -35,6 +35,6 @@ func (s *Service) fileServer(prefix string, dirname string) http.Handler {
 	return h.FileServer(prefix, dirname)
 }
 
-func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request, key string) (suid.UUID, error) {
-	return suid.ParseString(chi.URLParam(r, key))
+func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, error) {
+	return suid.ParseString(chi.URLParam(r, "id"))
 }
