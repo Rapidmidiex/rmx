@@ -6,6 +6,7 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/gorilla/websocket"
 	"github.com/rog-golang-buddies/rapidmidiex/internal/suid"
 	"github.com/rog-golang-buddies/rapidmidiex/ui/terminal/tui/jamui"
 	"github.com/rog-golang-buddies/rapidmidiex/ui/terminal/tui/lobbyui"
@@ -35,6 +36,7 @@ type mainModel struct {
 	jam          tea.Model
 	RESTendpoint string
 	WSendpoint   string
+	jamSocket    *websocket.Conn // Websocket connection to a Jam Session
 }
 
 func NewModel(serverHostURL string) (mainModel, error) {
@@ -46,10 +48,9 @@ func NewModel(serverHostURL string) (mainModel, error) {
 
 	return mainModel{
 		curView:      lobbyView,
-		lobby:        lobbyui.New(),
+		lobby:        lobbyui.New(wsURL.String() + "/ws"),
 		jam:          jamui.New(),
 		RESTendpoint: serverHostURL + "/api/v1",
-		WSendpoint:   wsURL.String() + "/ws",
 	}, nil
 }
 
@@ -60,7 +61,7 @@ func (m mainModel) Init() tea.Cmd {
 func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
-	// Handle incoming messages
+	// Handle incoming messages from I/O
 	switch msg := msg.(type) {
 
 	case tea.KeyMsg:
@@ -70,6 +71,9 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Type == tea.KeyCtrlC {
 			return m, tea.Quit
 		}
+	case lobbyui.JamConnected:
+		m.curView = jamView
+		m.jamSocket = msg.WS
 	}
 
 	// Call sub-model Updates

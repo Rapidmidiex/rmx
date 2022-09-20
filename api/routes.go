@@ -15,8 +15,9 @@ import (
 type (
 	session struct {
 		Name      string      `json:"name,omitempty"`
-		SessionID suid.SUID   `json:"sessionId,omitempty"`
+		ID        suid.SUID   `json:"id,omitempty"`
 		Users     []suid.SUID `json:"users,omitempty"`
+		UserCount int         `json:"userCount"`
 	}
 )
 
@@ -124,8 +125,8 @@ func (s *Service) getSessionData(w http.ResponseWriter, r *http.Request) {
 	}
 
 	v := &session{
-		SessionID: p.ID.ShortUUID(),
-		Users:     rmx.FMap(p.Keys(), func(uid suid.UUID) suid.SUID { return uid.ShortUUID() }),
+		ID:    p.ID.ShortUUID(),
+		Users: rmx.FMap(p.Keys(), func(uid suid.UUID) suid.SUID { return uid.ShortUUID() }),
 	}
 
 	s.respond(w, r, v, http.StatusOK)
@@ -143,7 +144,8 @@ func (s *Service) listSessions() http.HandlerFunc {
 		for _, p := range pl {
 			sl = append(sl, session{
 				Name:      "", // name not implemented yet
-				SessionID: p.ID.ShortUUID(),
+				ID:        p.ID.ShortUUID(),
+				UserCount: p.Size(),
 			})
 		}
 

@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/gorilla/websocket"
 )
 
 // Styles
@@ -22,7 +23,8 @@ type statusMsg int
 type errMsg struct{ err error }
 
 type Session struct {
-	Id string `json:"sessionId"` // TODO: Need to fix the API to return "id"
+	Id   string `json:"id"` // TODO: Need to fix the API to return "id"
+	Name string `json:"name"`
 	// UserCount int    `json:"userCount"`
 }
 type jamsResp struct {
@@ -58,6 +60,7 @@ func FetchSessions(baseURL string) tea.Cmd {
 }
 
 type Model struct {
+	wsURL    string
 	sessions []Session
 	jamTable table.Model
 	status   int
@@ -82,14 +85,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case jamsResp:
 		m.sessions = msg.Sessions
 		m.jamTable = makeJamsTable(m)
-
-		cmds = append(cmds, tea.Quit)
+		m.jamTable.Focus()
 	case errMsg:
 		// There was an error. Note it in the model. And tell the runtime
 		// we're done and want to quit.
 		m.err = msg
 		cmds = append(cmds, tea.Quit)
+	case tea.KeyMsg:
+		switch msg.String() {
+		case tea.KeyEnter.String():
+			jamId := m.jamTable.SelectedRow()[1]
+
+			cmds = append(cmds, jamConnect(m.wsURL, jamId))
+		}
 	}
+	newJamTable, cmd := m.jamTable.Update(msg)
+	m.jamTable = newJamTable
+	cmds = append(cmds, cmd)
 	return m, tea.Batch(cmds...)
 }
 
@@ -114,8 +126,10 @@ func (m Model) View() string {
 	return "\n" + s + "\n\n"
 }
 
-func New() tea.Model {
-	return Model{}
+func New(wsURL string) tea.Model {
+	return Model{
+		wsURL: wsURL,
+	}
 }
 
 // https://github.com/rog-golang-buddies/rapidmidiex-research/issues/9#issuecomment-1204853876
@@ -154,4 +168,23 @@ func makeJamsTable(m Model) table.Model {
 	t.SetStyles(s)
 
 	return t
+}
+
+type JamConnected struct {
+	WS *websocket.Conn
+}
+
+func jamConnect(baseURL, jamID string) tea.Cmd {
+	return func() tea.Msg {
+		url := baseURL + "/" + jamID
+		fmt.Println("ws url", url)
+		ws, _, err := websocket.DefaultDialer.Dial(url, nil)
+		if err != nil {
+			return errMsg{fmt.Errorf("jamConnect: %v\n%v", url, err)}
+		}
+		// TODO: Actually connect to Jam Session over websocket
+		return JamConnected{
+			WS: ws,
+		}
+	}
 }
