@@ -1,4 +1,4 @@
-// * In the process of taking useful code from here and moving to the `www` package
+// * In the process of taking useful code from here and moving to the `api` package
 package tmp
 
 import (
@@ -78,7 +78,7 @@ func (s *jamSession) addConn(jc *jamConn) {
 // 	}
 // }
 
-// * I have adapted this slightly inside the `www/ws` pacakge
+// * I have adapted this slightly inside the `api/ws` package
 // iterates through session connections
 // and send provided message to each of them
 func (s *jamSession) broadcast(i interface{}) {
@@ -93,9 +93,9 @@ func (s *jamSession) broadcast(i interface{}) {
 	}
 }
 
-// * Imo, a service should have a `ServeHTTP` method attatched if it is going to be talking
-// * directly to the web, I have adapted this inside `www` pacakge
-// * I have also decoupled the RESTful logic with sessions into a seperate data structure
+// * Imo, a service should have a `ServeHTTP` method attached if it is going to be talking
+// * directly to the web, I have adapted this inside `api` package
+// * I have also decoupled the RESTful logic with sessions into a separate data structure
 // struct type for the Jam service
 // also contains current available sessions created by users
 type JamService struct {
@@ -104,7 +104,7 @@ type JamService struct {
 }
 
 // * Better to define some of these inside the handlers themselves
-// * An example of such pattern can be found inside the `www` pacakge
+// * An example of such pattern can be found inside the `api` package
 // request types
 type (
 	newJamReq struct {

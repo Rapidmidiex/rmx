@@ -3,7 +3,9 @@ module github.com/rog-golang-buddies/rapidmidiex
 go 1.18
 
 require (
+	github.com/charmbracelet/bubbles v0.14.0
 	github.com/charmbracelet/bubbletea v0.22.1
+	github.com/charmbracelet/lipgloss v0.6.0
 	github.com/go-chi/chi v1.5.4
 	github.com/go-chi/chi/v5 v5.0.7
 	github.com/gobwas/ws v1.1.0
@@ -13,6 +15,7 @@ require (
 	github.com/rs/cors v1.8.2
 	github.com/spf13/viper v1.12.0
 	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde
+	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 )
 
 require (
@@ -26,7 +29,6 @@ require (
 	github.com/muesli/reflow v0.3.0 // indirect
 	github.com/muesli/termenv v0.12.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
-	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 )
 
 require (

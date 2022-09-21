@@ -1,6 +1,6 @@
 // * This file is not being used but saving as I have questions regarding the `isEmptyString` function
-// * Parse not required as is the case with the errorResponse as those should really live in the `www` package
-// * As there are function that depend on these utlities, I have refrained from deleting
+// * Parse not required as is the case with the errorResponse as those should really live in the `api` package
+// * As there are function that depend on these utilities, I have refrained from deleting
 package tmp
 
 import (

@@ -14,7 +14,7 @@ import (
 	"github.com/rs/cors"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/rog-golang-buddies/rapidmidiex/www"
+	"github.com/rog-golang-buddies/rapidmidiex/api"
 )
 
 func main() {
@@ -40,7 +40,7 @@ func run() error {
 
 	srv := http.Server{
 		Addr:         ":" + port,
-		Handler:      cors.New(c).Handler(www.NewService(chi.NewMux())),
+		Handler:      cors.New(c).Handler(api.NewService(chi.NewMux())),
 		ReadTimeout:  10 * time.Second,  // max time to read request from the client
 		WriteTimeout: 10 * time.Second,  // max time to write response to the client
 		IdleTimeout:  120 * time.Second, // max time for connections using TCP Keep-Alive
