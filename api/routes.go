@@ -29,9 +29,6 @@ func (s *Service) routes() {
 	s.r.Handle("/assets/*", s.fileServer("/assets/", "assets"))
 	s.r.Get("/", s.indexHTML("ui/www/index.html"))
 	s.r.Get("/play/{id}", s.jamSessionHTML("ui/www/play.html"))
-	// s.r.Get("/api/jam/create", s.createSession())
-	// s.r.Get("/api/jam/{id}", s.getSessionData())
-	// s.r.HandleFunc("/jam/{id}", chain(s.handleJamSession(), s.upgradeHTTP, s.sessionPool))
 
 	// REST v1
 	s.r.Get("/api/v1/jam", s.listSessions())
@@ -39,7 +36,7 @@ func (s *Service) routes() {
 	s.r.Get("/api/v1/jam/{id}", s.getSessionData)
 
 	// Websocket
-	s.r.Get("/ws", chain(s.handleJamSession(), s.upgradeHTTP, s.sessionPool))
+	s.r.Get("/ws/{id}", chain(s.handleJamSession(), s.upgradeHTTP, s.sessionPool))
 }
 
 func (s *Service) handleJamSession() http.HandlerFunc {
