@@ -9,7 +9,7 @@ app.innerHTML = `
     <ul aria-label="users"></ul>
 `;
 
-const ws = new WebSocket(websocketUrl(`/ws`));
+const ws = new WebSocket(websocketUrl(`/api/v1/jam/${sessionId()}/ws`));
 
 ws.addEventListener('open', (e) => {
     document.querySelector('button').disabled = false;

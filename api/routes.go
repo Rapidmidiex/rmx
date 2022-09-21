@@ -1,9 +1,8 @@
 package api
 
 import (
+	"encoding/json"
 	"net/http"
-
-	"github.com/go-chi/chi/v5/middleware"
 
 	t "github.com/hyphengolang/prelude/template"
 
@@ -12,15 +11,32 @@ import (
 	"github.com/rog-golang-buddies/rapidmidiex/internal/suid"
 )
 
+<<<<<<< HEAD:www/routes.go
+func (s *Service) handleP2PComms() http.HandlerFunc {
+	type response[T any] struct {
+		MessageTyp rmx.MessageType `json:"type"`
+		Data       T               `json:"data"`
+=======
 type (
 	session struct {
 		Name      string      `json:"name,omitempty"`
 		ID        suid.SUID   `json:"id,omitempty"`
 		Users     []suid.SUID `json:"users,omitempty"`
 		UserCount int         `json:"userCount"`
+>>>>>>> 0f864c5a2eca7b383b3222a841413f7f644d3541:api/routes.go
 	}
-)
 
+<<<<<<< HEAD:www/routes.go
+	type join struct {
+		ID        suid.SUID `json:"id"`
+		SessionID suid.SUID `json:"sessionId"`
+	}
+
+	type leave struct {
+		ID        suid.SUID `json:"id"`
+		SessionID suid.SUID `json:"sessionId"`
+		Error     any       `json:"err"`
+=======
 func (s *Service) routes() {
 	// middleware
 	s.r.Use(middleware.Logger)
@@ -44,20 +60,34 @@ func (s *Service) handleJamSession() http.HandlerFunc {
 		MessageType rmx.MessageType `json:"type"`
 		ID          suid.SUID       `json:"id"`
 		SessionID   suid.SUID       `json:"sessionId"`
+>>>>>>> 0f864c5a2eca7b383b3222a841413f7f644d3541:api/routes.go
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		c := r.Context().Value(upgradeKey).(*ws.Conn)
 		defer func() {
+<<<<<<< HEAD:www/routes.go
+			// ! send error when Leaving session pool
+			c.SendMessage(response[leave]{
+				MessageTyp: rmx.Leave,
+				Data:       leave{ID: c.ID.ShortUUID(), SessionID: c.Pool().ID.ShortUUID()},
+=======
 			c.SendMessage(response{
 				MessageType: rmx.Leave,
 				ID:          c.ID.ShortUUID(),
 				SessionID:   c.Pool().ID.ShortUUID(),
+>>>>>>> 0f864c5a2eca7b383b3222a841413f7f644d3541:api/routes.go
 			})
 
 			c.Close()
 		}()
 
+<<<<<<< HEAD:www/routes.go
+		if err := c.SendMessage(response[join]{
+			MessageTyp: rmx.Join,
+			Data:       join{ID: c.ID.ShortUUID(), SessionID: c.Pool().ID.ShortUUID()},
+		}); err != nil {
+=======
 		err := c.SendMessage(response{
 			MessageType: rmx.Join,
 			ID:          c.ID.ShortUUID(),
@@ -65,6 +95,7 @@ func (s *Service) handleJamSession() http.HandlerFunc {
 		})
 
 		if err != nil {
+>>>>>>> 0f864c5a2eca7b383b3222a841413f7f644d3541:api/routes.go
 			s.l.Println(err)
 			return
 		}
@@ -73,13 +104,15 @@ func (s *Service) handleJamSession() http.HandlerFunc {
 		// ? this for-loop only needs to read and
 		// ? never touch the code for writing
 		for {
-			var n int
-			if err := c.ReadJSON(&n); err != nil {
+			var msg response[json.RawMessage]
+			if err := c.ReadJSON(&msg); err != nil {
 				s.l.Println(err)
 				return
 			}
 
-			if err := c.SendMessage(n + 10); err != nil {
+			// * here the message will be passed off to a different handler
+			// * via a go routine*
+			if err := c.SendMessage(response[int]{MessageTyp: rmx.Message, Data: 10}); err != nil {
 				s.l.Println(err)
 				return
 			}
@@ -87,11 +120,7 @@ func (s *Service) handleJamSession() http.HandlerFunc {
 	}
 }
 
-func (s *Service) createSession() http.HandlerFunc {
-	type response struct {
-		SessionID suid.SUID `json:"sessionId"`
-	}
-
+func (s *Service) handleCreateRoom() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		uid, err := s.c.NewPool()
 		if err != nil {
@@ -99,42 +128,60 @@ func (s *Service) createSession() http.HandlerFunc {
 			return
 		}
 
-		v := response{
-			SessionID: suid.FromUUID(uid),
-		}
+		v := Session{ID: suid.FromUUID(uid)}
 
 		s.respond(w, r, v, http.StatusOK)
 	}
 }
 
+<<<<<<< HEAD:www/routes.go
+func (s *Service) handleGetRoom() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		uid, err := s.parseUUID(w, r)
+		if err != nil {
+			s.respond(w, r, err, http.StatusBadRequest)
+			return
+		}
+=======
 func (s *Service) getSessionData(w http.ResponseWriter, r *http.Request) {
 	uid, err := s.parseUUID(w, r)
 	if err != nil {
 		s.respond(w, r, err, http.StatusBadRequest)
 		return
 	}
+>>>>>>> 0f864c5a2eca7b383b3222a841413f7f644d3541:api/routes.go
 
-	// ! rename method as `Get` is nondescriptive
-	p, err := s.c.Get(uid)
-	if err != nil {
-		s.respond(w, r, err, http.StatusNotFound)
-		return
-	}
+		// ! rename method as `Get` is nondescriptive
+		p, err := s.c.Get(uid)
+		if err != nil {
+			s.respond(w, r, err, http.StatusNotFound)
+			return
+		}
 
+<<<<<<< HEAD:www/routes.go
+		v := &Session{
+			ID:    p.ID.ShortUUID(),
+			Users: rmx.FMap(p.Keys(), func(uid suid.UUID) suid.SUID { return uid.ShortUUID() }),
+		}
+=======
 	v := &session{
 		ID:    p.ID.ShortUUID(),
 		Users: rmx.FMap(p.Keys(), func(uid suid.UUID) suid.SUID { return uid.ShortUUID() }),
 	}
+>>>>>>> 0f864c5a2eca7b383b3222a841413f7f644d3541:api/routes.go
 
-	s.respond(w, r, v, http.StatusOK)
+		s.respond(w, r, v, http.StatusOK)
+	}
 }
 
-func (s *Service) listSessions() http.HandlerFunc {
+func (s *Service) handleListRooms() http.HandlerFunc {
 	type response struct {
-		Sessions []session `json:"sessions"`
+		Sessions []Session `json:"sessions"`
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
+<<<<<<< HEAD:www/routes.go
+=======
 		pl := s.c.List()
 
 		sl := make([]session, 0, len(pl))
@@ -146,13 +193,16 @@ func (s *Service) listSessions() http.HandlerFunc {
 			})
 		}
 
+>>>>>>> 0f864c5a2eca7b383b3222a841413f7f644d3541:api/routes.go
 		v := &response{
-			Sessions: sl,
+			Sessions: rmx.FMap(s.c.List(), func(p *ws.Pool) Session { return Session{ID: p.ID.ShortUUID()} }),
 		}
 
 		s.respond(w, r, v, http.StatusOK)
 	}
 }
+
+// ! to be discarded
 
 func (s *Service) indexHTML(path string) http.HandlerFunc {
 	render, err := t.Render(path)
