@@ -25,16 +25,16 @@ func main() {
 
 func run() error {
 	// ? want to move to viper ASAP
-	port := getEnv("PORT", "8888")
+	port := getEnv("PORT", "8889")
 
 	sCtx, cancel := signal.NotifyContext(context.Background(), syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer cancel()
 
 	// ? should this defined within the instantiation of a new service
 	c := cors.Options{
-		AllowedOrigins:   []string{"http://localhost:5173"}, // ? band-aid, needs to change to a flag
+		AllowedOrigins:   []string{"*"}, // ? band-aid, needs to change to a flag
 		AllowCredentials: true,
-		AllowedMethods:   []string{http.MethodGet},
+		AllowedMethods:   []string{http.MethodGet, http.MethodPost},
 		AllowedHeaders:   []string{"Origin", "Content-Type", "Accept", "Authorization"},
 	}
 
@@ -76,14 +76,14 @@ func getEnv(key, fallback string) string {
 
 func init() {
 	// // name of config file (without extension)
-	// viper.SetConfigName("config") 
+	// viper.SetConfigName("config")
 	// // REQUIRED if the config file does not have the extension in the name
-	// viper.SetConfigType("env")    
+	// viper.SetConfigType("env")
 	// // optionally look for config in the working directory
-	// viper.AddConfigPath(".")      
+	// viper.AddConfigPath(".")
 
 	//// Set Default variables
-	// viper.SetDefault("PORT", "8080") 
+	// viper.SetDefault("PORT", "8080")
 
 	// viper.AutomaticEnv()
 

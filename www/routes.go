@@ -1,9 +1,8 @@
 package www
 
 import (
+	"encoding/json"
 	"net/http"
-
-	"github.com/go-chi/chi/v5/middleware"
 
 	t "github.com/hyphengolang/prelude/template"
 
@@ -12,55 +11,39 @@ import (
 	ws "github.com/rog-golang-buddies/rapidmidiex/www/websocket"
 )
 
-func (s *Service) routes() {
-	// middleware
-	s.r.Use(middleware.Logger)
-
-	// temporary static files
-	// s.r.Handle("/assets/*", s.fileServer("/assets/", "assets"))
-	// s.r.Get("/", s.indexHTML("ui/www/index.html"))
-	// s.r.Get("/play/{id}", s.jamSessionHTML("ui/www/play.html"))
-
-	// v0
-	// s.r.Get("/api/jam/create", s.createSession())
-	// s.r.Get("/api/jam/{id}", s.getSessionData())
-	// s.r.HandleFunc("/jam/{id}", chain(s.handleJamSession(), s.upgradeHTTP, s.sessionPool))
-
-	// REST v1
-	s.r.Get("/api/v1/jam", s.listSessions())
-	s.r.Post("/api/v1/jam", s.createSession())
-	s.r.Get("/api/v1/jam/{id}", s.getSessionData)
-
-	// Websocket
-	s.r.Get("/ws", chain(s.handleJamSession(), s.upgradeHTTP, s.sessionPool))
-}
-
-func (s *Service) handleJamSession() http.HandlerFunc {
-	type response struct {
+func (s *Service) handleP2PComms() http.HandlerFunc {
+	type response[T any] struct {
 		MessageTyp rmx.MessageType `json:"type"`
-		ID         suid.SUID       `json:"id"`
-		SessionID  suid.SUID       `json:"sessionId"`
+		Data       T               `json:"data"`
+	}
+
+	type join struct {
+		ID        suid.SUID `json:"id"`
+		SessionID suid.SUID `json:"sessionId"`
+	}
+
+	type leave struct {
+		ID        suid.SUID `json:"id"`
+		SessionID suid.SUID `json:"sessionId"`
+		Error     any       `json:"err"`
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		c := r.Context().Value(upgradeKey).(*ws.Conn)
 		defer func() {
-			c.SendMessage(response{
+			// ! send error when Leaving session pool
+			c.SendMessage(response[leave]{
 				MessageTyp: rmx.Leave,
-				ID:         c.ID.ShortUUID(),
-				SessionID:  c.Pool().ID.ShortUUID(),
+				Data:       leave{ID: c.ID.ShortUUID(), SessionID: c.Pool().ID.ShortUUID()},
 			})
 
 			c.Close()
 		}()
 
-		err := c.SendMessage(response{
+		if err := c.SendMessage(response[join]{
 			MessageTyp: rmx.Join,
-			ID:         c.ID.ShortUUID(),
-			SessionID:  c.Pool().ID.ShortUUID(),
-		})
-
-		if err != nil {
+			Data:       join{ID: c.ID.ShortUUID(), SessionID: c.Pool().ID.ShortUUID()},
+		}); err != nil {
 			s.l.Println(err)
 			return
 		}
@@ -69,13 +52,15 @@ func (s *Service) handleJamSession() http.HandlerFunc {
 		// ? this for-loop only needs to read and
 		// ? never touch the code for writing
 		for {
-			var n int
-			if err := c.ReadJSON(&n); err != nil {
+			var msg response[json.RawMessage]
+			if err := c.ReadJSON(&msg); err != nil {
 				s.l.Println(err)
 				return
 			}
 
-			if err := c.SendMessage(n + 10); err != nil {
+			// * here the message will be passed off to a different handler
+			// * via a go routine*
+			if err := c.SendMessage(response[int]{MessageTyp: rmx.Message, Data: 10}); err != nil {
 				s.l.Println(err)
 				return
 			}
@@ -83,11 +68,7 @@ func (s *Service) handleJamSession() http.HandlerFunc {
 	}
 }
 
-func (s *Service) createSession() http.HandlerFunc {
-	// type response struct {
-	// 	SessionID suid.SUID `json:"sessionId"`
-	// }
-
+func (s *Service) handleCreateRoom() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		uid, err := s.c.NewPool()
 		if err != nil {
@@ -95,23 +76,15 @@ func (s *Service) createSession() http.HandlerFunc {
 			return
 		}
 
-		v := Session{
-			SessionID: suid.FromUUID(uid),
-		}
+		v := Session{ID: suid.FromUUID(uid)}
 
 		s.respond(w, r, v, http.StatusOK)
 	}
 }
 
-<<<<<<< HEAD
-func (s *Service) getSessionData() http.HandlerFunc {
-	// type response struct {
-	// 	SessionID suid.SUID   `json:"sessionId"`
-	// 	Users     []suid.SUID `json:"users"`
-	// }
-
+func (s *Service) handleGetRoom() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		uid, err := s.parseUUID(w, r, "id")
+		uid, err := s.parseUUID(w, r)
 		if err != nil {
 			s.respond(w, r, err, http.StatusBadRequest)
 			return
@@ -125,56 +98,29 @@ func (s *Service) getSessionData() http.HandlerFunc {
 		}
 
 		v := &Session{
-			SessionID: p.ID.ShortUUID(),
-			Users:     rmx.FMap(p.Keys(), func(uid suid.UUID) suid.SUID { return uid.ShortUUID() }),
-		}
-=======
-func (s *Service) getSessionData(w http.ResponseWriter, r *http.Request) {
-	uid, err := s.parseUUID(w, r, "id")
-	if err != nil {
-		s.respond(w, r, err, http.StatusBadRequest)
-		return
-	}
-
-	// ! rename method as `Get` is nondescriptive
-	p, err := s.c.Get(uid)
-	if err != nil {
-		s.respond(w, r, err, http.StatusNotFound)
-		return
-	}
->>>>>>> e30b8982b1bdb666dcb0b6858447e305d281de24
-
-	v := &session{
-		SessionID: p.ID.ShortUUID(),
-		Users:     rmx.FMap(p.Keys(), func(uid suid.UUID) suid.SUID { return uid.ShortUUID() }),
-	}
-
-	s.respond(w, r, v, http.StatusOK)
-}
-
-func (s *Service) listSessions() http.HandlerFunc {
-	type response struct {
-		Sessions []Session `json:"sessions"`
-	}
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		// pl := s.c.List()
-
-		// sl := make([]session, 0, len(pl))
-		// for _, p := range pl {
-		// 	sl = append(sl, session{
-		// 		Name:      "", // name not implemented yet
-		// 		SessionID: p.ID.ShortUUID(),
-		// 	})
-		// }
-
-		v := &response{
-			Sessions: rmx.FMap(s.c.List(), func(p *ws.Pool) Session { return Session{SessionID: p.ID.ShortUUID()} }),
+			ID:    p.ID.ShortUUID(),
+			Users: rmx.FMap(p.Keys(), func(uid suid.UUID) suid.SUID { return uid.ShortUUID() }),
 		}
 
 		s.respond(w, r, v, http.StatusOK)
 	}
 }
+
+func (s *Service) handleListRooms() http.HandlerFunc {
+	type response struct {
+		Sessions []Session `json:"sessions"`
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		v := &response{
+			Sessions: rmx.FMap(s.c.List(), func(p *ws.Pool) Session { return Session{ID: p.ID.ShortUUID()} }),
+		}
+
+		s.respond(w, r, v, http.StatusOK)
+	}
+}
+
+// ! to be discarded
 
 func (s *Service) indexHTML(path string) http.HandlerFunc {
 	render, err := t.Render(path)
@@ -196,7 +142,7 @@ func (s *Service) jamSessionHTML(path string) http.HandlerFunc {
 	// ! I should be rendering a 404 page if there is an error
 	// ! in this layer, but for an MVC this will do
 	return func(w http.ResponseWriter, r *http.Request) {
-		uid, err := s.parseUUID(w, r, "id")
+		uid, err := s.parseUUID(w, r)
 		if err != nil {
 			s.respond(w, r, err, http.StatusBadRequest)
 			return

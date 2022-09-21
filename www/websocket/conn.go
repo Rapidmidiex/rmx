@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"github.com/gorilla/websocket"
+	rmx "github.com/rog-golang-buddies/rapidmidiex/internal"
 	"github.com/rog-golang-buddies/rapidmidiex/internal/suid"
 )
 
@@ -24,4 +25,15 @@ func (c Conn) ReadJSON(v any) error { return c.rwc.ReadJSON(v) }
 
 func (c Conn) WriteJSON(v any) error { return c.rwc.WriteJSON(v) }
 
-func (c Conn) SendMessage(v any) error { c.p.msgs <- v; return nil }
+func (c Conn) SendMessage(v any) error {
+	c.p.msgs <- v
+	return nil
+}
+
+func (c Conn) SendMessage2(typ rmx.MessageType, data any) error {
+	v := struct {
+		Typ rmx.MessageType
+	}{}
+	c.p.msgs <- v
+	return nil
+}

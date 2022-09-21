@@ -18,7 +18,13 @@ var (
 func chain(hf http.HandlerFunc, mw ...h.MiddleWare) http.HandlerFunc { return h.Chain(hf, mw...) }
 
 type Session struct {
-	Name      string      `json:"name,omitempty"`
-	SessionID suid.SUID   `json:"sessionId,omitempty"`
-	Users     []suid.SUID `json:"users,omitempty"`
+	ID    suid.SUID   `json:"id"`
+	Name  string      `json:"name,omitempty"`
+	Users []suid.SUID `json:"users,omitempty"`
+}
+
+type User struct {
+	ID   suid.SUID `json:"id"`
+	Name string    `json:"name,omitempty"`
+	/* More fields can belong here */
 }
