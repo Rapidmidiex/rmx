@@ -4,22 +4,55 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/gorilla/websocket"
+	"golang.org/x/term"
+)
+
+const (
+	// In real life situations we'd adjust the document to fit the width we've
+	// detected. In the case of this example we're hardcoding the width, and
+	// later using the detected width only to truncate in order to avoid jaggy
+	// wrapping.
+	width = 96
+
+	columnWidth = 30
 )
 
 // Styles
-var baseStyle = lipgloss.NewStyle().
-	BorderStyle(lipgloss.NormalBorder()).
-	BorderForeground(lipgloss.Color("240"))
+var (
+	baseStyle = lipgloss.NewStyle().
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderForeground(lipgloss.Color("240"))
+
+		// Status Bar.
+	statusBarStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.AdaptiveColor{Light: "#343433", Dark: "#C1C6B2"}).
+			Background(lipgloss.AdaptiveColor{Light: "#D9DCCF", Dark: "#353533"})
+
+	statusStyle = lipgloss.NewStyle().
+			Inherit(statusBarStyle).
+			Foreground(lipgloss.Color("#FFFDF5")).
+			Background(lipgloss.Color("#FF5F87")).
+			Padding(0, 1).
+			MarginRight(1)
+
+	statusText = lipgloss.NewStyle().Inherit(statusBarStyle)
+
+	messageText = lipgloss.NewStyle().Align(lipgloss.Left)
+
+	helpMenu = lipgloss.NewStyle().Align(lipgloss.Center).PaddingTop(2)
+	// Page
+	docStyle = lipgloss.NewStyle().Padding(1, 2, 1, 2)
+)
 
 // Message types
-type statusMsg int
-
 type errMsg struct{ err error }
 
 type Session struct {
@@ -27,6 +60,7 @@ type Session struct {
 	Name string `json:"name"`
 	// UserCount int    `json:"userCount"`
 }
+
 type jamsResp struct {
 	Sessions []Session `json:"sessions"`
 }
@@ -50,7 +84,7 @@ func FetchSessions(baseURL string) tea.Cmd {
 		// Return the HTTP status code
 		// as a message.
 		if res.StatusCode >= 400 {
-			return statusMsg(res.StatusCode)
+			return errMsg{fmt.Errorf("could not get sessions: %d", res.StatusCode)}
 		}
 		decoder := json.NewDecoder(res.Body)
 		var resp jamsResp
@@ -63,8 +97,17 @@ type Model struct {
 	wsURL    string
 	sessions []Session
 	jamTable table.Model
-	status   int
+	help     tea.Model
+	loading  bool
 	err      error
+}
+
+func New(wsURL string) tea.Model {
+	return Model{
+		wsURL:   wsURL,
+		help:    NewHelpModel(),
+		loading: true,
+	}
 }
 
 // Init needed to satisfy Model interface. It doesn't seem to be called on sub-models.
@@ -75,22 +118,16 @@ func (m Model) Init() tea.Cmd {
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	switch msg := msg.(type) {
-	case statusMsg:
-		// The server returned a status message. Save it to our model. Also
-		// tell the Bubble Tea runtime we want to exit because we have nothing
-		// else to do. We'll still be able to render a final view with our
-		// status message.
-		m.status = int(msg)
-		cmds = append(cmds, tea.Quit)
+	case tea.WindowSizeMsg:
+		m.jamTable.SetWidth(msg.Width - 10)
 	case jamsResp:
 		m.sessions = msg.Sessions
 		m.jamTable = makeJamsTable(m)
 		m.jamTable.Focus()
+		m.loading = false
 	case errMsg:
-		// There was an error. Note it in the model. And tell the runtime
-		// we're done and want to quit.
+		// There was an error. Note it in the model.
 		m.err = msg
-		cmds = append(cmds, tea.Quit)
 	case tea.KeyMsg:
 		switch msg.String() {
 		case tea.KeyEnter.String():
@@ -99,37 +136,67 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, jamConnect(m.wsURL, jamId))
 		}
 	}
-	newJamTable, cmd := m.jamTable.Update(msg)
+	newJamTable, jtCmd := m.jamTable.Update(msg)
 	m.jamTable = newJamTable
-	cmds = append(cmds, cmd)
+
+	newHelp, hCmd := m.help.Update(msg)
+	m.help = newHelp
+
+	cmds = append(cmds, jtCmd, hCmd)
 	return m, tea.Batch(cmds...)
 }
 
 func (m Model) View() string {
-	// If there's an error, print it out and don't do anything else.
+	physicalWidth, _, _ := term.GetSize(int(os.Stdout.Fd()))
+	doc := strings.Builder{}
+	status := ""
+
+	if m.loading {
+		status = "Fetching Jam Sessions..."
+	}
+
 	if m.err != nil {
-		return fmt.Sprintf("\nWe had some trouble: %v\n\n", m.err)
+		status = fmt.Sprintf("Error: %v!", m.err)
 	}
 
-	// Tell the user we're doing something.
-	s := fmt.Sprintln("Fetching Jam Sessions...")
-	// When the server responds with a status, add it to the current line.
-	if m.status > 0 {
-		s += fmt.Sprintf("%d %s!", m.status, http.StatusText(m.status))
+	// Jam Session Table
+	{
+		if len(m.sessions) > 0 {
+			jamTable := baseStyle.Width(width).Render(m.jamTable.View())
+			doc.WriteString(jamTable)
+		} else if !m.loading {
+			doc.WriteString(messageText.Render("No Jams Yet. Create one?\n\n"))
+		}
+	}
+	// Status bar
+	{
+		w := lipgloss.Width
+
+		statusKey := statusStyle.Render("STATUS")
+		statusVal := statusText.Copy().
+			Width(width - w(statusKey)).
+			Render(status)
+
+		bar := lipgloss.JoinHorizontal(lipgloss.Top,
+			statusKey,
+			statusVal,
+		)
+
+		doc.WriteString("\n" + statusBarStyle.Width(width).Render(bar))
 	}
 
-	if m.sessions != nil {
-		s += baseStyle.Render(m.jamTable.View()) + "\n"
+	// Help menu
+	{
+
+		doc.WriteString("\n" + helpMenu.Render(m.help.View()))
 	}
 
-	// Send off whatever we came up with above for rendering.
-	return "\n" + s + "\n\n"
-}
-
-func New(wsURL string) tea.Model {
-	return Model{
-		wsURL: wsURL,
+	if physicalWidth > 0 {
+		docStyle = docStyle.MaxWidth(physicalWidth)
 	}
+
+	// Okay, let's print it
+	return docStyle.Render(doc.String())
 }
 
 // https://github.com/rog-golang-buddies/rapidmidiex-research/issues/9#issuecomment-1204853876

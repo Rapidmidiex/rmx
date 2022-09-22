@@ -118,7 +118,8 @@ func Run() {
 		bail(err)
 	}
 
-	if err := tea.NewProgram(m).Start(); err != nil {
+	p := tea.NewProgram(m, tea.WithAltScreen())
+	if err := p.Start(); err != nil {
 		bail(err)
 	}
 }

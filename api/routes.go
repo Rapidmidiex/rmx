@@ -23,22 +23,24 @@ func (s Service) handleP2PComms() http.HandlerFunc {
 	type leave struct {
 		ID        suid.SUID `json:"id"`
 		SessionID suid.SUID `json:"sessionId"`
+		Error     any       `json:"err"`
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		c := r.Context().Value(upgradeKey).(*ws.Conn)
 		defer func() {
-			c.SendMessage(response[join]{
+			// ! send error when Leaving session pool
+			c.SendMessage(response[leave]{
 				Typ:     rmx.Leave,
-				Payload: join{ID: c.ID.ShortUUID(), SessionID: c.Pool().ID.ShortUUID()},
+				Payload: leave{ID: c.ID.ShortUUID(), SessionID: c.Pool().ID.ShortUUID()},
 			})
 
 			c.Close()
 		}()
 
-		if err := c.SendMessage(response[leave]{
+		if err := c.SendMessage(response[join]{
 			Typ:     rmx.Join,
-			Payload: leave{ID: c.ID.ShortUUID(), SessionID: c.Pool().ID.ShortUUID()},
+			Payload: join{ID: c.ID.ShortUUID(), SessionID: c.Pool().ID.ShortUUID()},
 		}); err != nil {
 			s.l.Println(err)
 			return

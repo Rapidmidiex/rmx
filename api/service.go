@@ -32,6 +32,10 @@ func (s *Service) respond(w http.ResponseWriter, r *http.Request, data any, stat
 	h.Respond(w, r, data, status)
 }
 
+func (s *Service) decode(w http.ResponseWriter, r *http.Request, data interface{}) error {
+	return h.Decode(w, r, data)
+}
+
 func (s *Service) fileServer(prefix string, dirname string) http.Handler {
 	return h.FileServer(prefix, dirname)
 }
@@ -44,7 +48,7 @@ func (s *Service) routes() {
 	// middleware
 	s.r.Use(middleware.Logger)
 
-	// static file
+	// temporary static files
 	s.r.Handle("/assets/*", s.fileServer("/assets/", "assets"))
 	s.r.Get("/", s.indexHTML("ui/www/index.html"))
 	s.r.Get("/play/{id}", s.jamSessionHTML("ui/www/play.html"))
