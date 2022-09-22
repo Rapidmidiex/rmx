@@ -46,6 +46,8 @@ var (
 	statusText = lipgloss.NewStyle().Inherit(statusBarStyle)
 
 	messageText = lipgloss.NewStyle().Align(lipgloss.Left)
+
+	helpMenu = lipgloss.NewStyle().Align(lipgloss.Center).PaddingTop(2)
 	// Page
 	docStyle = lipgloss.NewStyle().Padding(1, 2, 1, 2)
 )
@@ -98,6 +100,14 @@ type Model struct {
 	help     tea.Model
 	loading  bool
 	err      error
+}
+
+func New(wsURL string) tea.Model {
+	return Model{
+		wsURL:   wsURL,
+		help:    NewHelpModel(),
+		loading: true,
+	}
 }
 
 // Init needed to satisfy Model interface. It doesn't seem to be called on sub-models.
@@ -177,7 +187,8 @@ func (m Model) View() string {
 
 	// Help menu
 	{
-		doc.WriteString("\n" + m.help.View())
+
+		doc.WriteString("\n" + helpMenu.Render(m.help.View()))
 	}
 
 	if physicalWidth > 0 {
@@ -186,14 +197,6 @@ func (m Model) View() string {
 
 	// Okay, let's print it
 	return docStyle.Render(doc.String())
-}
-
-func New(wsURL string) tea.Model {
-	return Model{
-		wsURL:   wsURL,
-		help:    NewHelpModel(),
-		loading: true,
-	}
 }
 
 // https://github.com/rog-golang-buddies/rapidmidiex-research/issues/9#issuecomment-1204853876

@@ -10,22 +10,26 @@ import (
 // keyMap defines a set of keybindings. To work for help it must satisfy
 // key.Map. It could also very easily be a map[string]key.Binding.
 type keyMap struct {
-	Up    key.Binding
-	Down  key.Binding
-	Left  key.Binding
-	Right key.Binding
-	Help  key.Binding
-	Quit  key.Binding
+	Up      key.Binding
+	Down    key.Binding
+	Left    key.Binding
+	Right   key.Binding
+	Refresh key.Binding
+	New     key.Binding
+	Enter   key.Binding
+	Help    key.Binding
+	Quit    key.Binding
 }
 
 // ShortHelp returns keybindings to be shown in the mini help view. It's part
 // of the key.Map interface.
 func (k keyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Help, k.Quit}
+	return []key.Binding{k.Up, k.Down, k.New, k.Enter, k.Help, k.Quit}
 }
 
 // FullHelp returns keybindings for the expanded help view. It's part of the
 // key.Map interface.
+// TODO: Figure out why FullHelp not rendering correctly
 func (k keyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Up, k.Down, k.Left, k.Right}, // first column
@@ -50,6 +54,13 @@ var keys = keyMap{
 		key.WithKeys("right", "l"),
 		key.WithHelp("→/l", "move right"),
 	),
+	Refresh: key.NewBinding(
+		key.WithKeys("r"),
+		key.WithHelp("r", "refresh")),
+	New: key.NewBinding(key.WithKeys("n"),
+		key.WithHelp("n", "new jam")),
+	Enter: key.NewBinding(key.WithKeys("enter", "space"),
+		key.WithHelp("enter", "select")),
 	Help: key.NewBinding(
 		key.WithKeys("?"),
 		key.WithHelp("?", "toggle help"),
