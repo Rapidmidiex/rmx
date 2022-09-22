@@ -30,9 +30,9 @@ func (c Conn) SendMessage(v any) error {
 	return nil
 }
 
-func (c Conn) SendMessage2(typ rmx.MessageType, data any) error {
+func (c Conn) SendMessage2(typ rmx.MessageTyp, data any) error {
 	v := struct {
-		Typ rmx.MessageType
+		Typ rmx.MessageTyp
 	}{}
 	c.p.msgs <- v
 	return nil

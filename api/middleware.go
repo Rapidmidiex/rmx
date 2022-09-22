@@ -9,7 +9,7 @@ import (
 	ws "github.com/rog-golang-buddies/rapidmidiex/api/websocket"
 )
 
-func (s Service) wsConnectionPool(f http.HandlerFunc) http.HandlerFunc {
+func (s Service) connectionPool(f http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		uid, err := s.parseUUID(w, r)
 		if err != nil {

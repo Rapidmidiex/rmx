@@ -1,6 +1,6 @@
 package internal
 
-type MessageType int
+type MessageTyp int
 
 const (
 	Unknown = iota
@@ -16,7 +16,7 @@ const (
 	NoteOff
 )
 
-func (t MessageType) String() string {
+func (t MessageTyp) String() string {
 	switch t {
 	case Create:
 		return "CREATE"
@@ -38,7 +38,7 @@ func (t MessageType) String() string {
 	}
 }
 
-func (t *MessageType) UnmarshalJSON(b []byte) error {
+func (t *MessageTyp) UnmarshalJSON(b []byte) error {
 	switch s := string(b[1 : len(b)-1]); s {
 	case "CREATE":
 		*t = Create
@@ -61,7 +61,7 @@ func (t *MessageType) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func (t MessageType) MarshalJSON() ([]byte, error) {
+func (t MessageTyp) MarshalJSON() ([]byte, error) {
 	return []byte(`"` + t.String() + `"`), nil
 }
 

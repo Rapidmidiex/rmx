@@ -91,3 +91,21 @@ func init() {
 	// 	panic(err)
 	// }
 }
+
+// func LoadConfig(path string) (config Config, err error) {
+// 	// Read file path
+// 	viper.AddConfigPath(path)
+// 	// set config file and path
+// 	viper.SetConfigName("app")
+// 	viper.SetConfigType("env")
+// 	// watching changes in app.env
+// 	viper.AutomaticEnv()
+// 	// reading the config file
+// 	err = viper.ReadInConfig()
+// 	if err != nil {
+// 		return
+// 	}
+
+// 	err = viper.Unmarshal(&config)
+// 	return
+// }

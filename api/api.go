@@ -21,6 +21,8 @@ type Session struct {
 	ID    suid.SUID   `json:"id"`
 	Name  string      `json:"name,omitempty"`
 	Users []suid.SUID `json:"users,omitempty"`
+	/* Not really required */
+	UserCount int `json:"userCount"`
 }
 
 type User struct {

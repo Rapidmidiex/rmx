@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 
 	h "github.com/hyphengolang/prelude/http"
@@ -37,4 +38,22 @@ func (s *Service) fileServer(prefix string, dirname string) http.Handler {
 
 func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, error) {
 	return suid.ParseString(chi.URLParam(r, "id"))
+}
+
+func (s *Service) routes() {
+	// middleware
+	s.r.Use(middleware.Logger)
+
+	// static file
+	s.r.Handle("/assets/*", s.fileServer("/assets/", "assets"))
+	s.r.Get("/", s.indexHTML("ui/www/index.html"))
+	s.r.Get("/play/{id}", s.jamSessionHTML("ui/www/play.html"))
+
+	// REST v1
+	s.r.Get("/api/v1/jam", s.handleListRooms())
+	s.r.Post("/api/v1/jam", s.handleCreateRoom())
+	s.r.Get("/api/v1/jam/{id}", s.handleGetRoom())
+
+	// Websocket
+	s.r.Get("/ws/{id}", chain(s.handleP2PComms(), s.upgradeHTTP(1024, 1024), s.connectionPool))
 }
