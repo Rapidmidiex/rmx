@@ -5,7 +5,7 @@ import (
 )
 
 var (
-	ErrNoCookie        = errors.New("www: cookie not found")
-	ErrSessionNotFound = errors.New("www: session not found")
-	ErrSessionExists   = errors.New("www: session already exists")
+	ErrNoCookie        = errors.New("api: cookie not found")
+	ErrSessionNotFound = errors.New("api: session not found")
+	ErrSessionExists   = errors.New("api: session already exists")
 )
