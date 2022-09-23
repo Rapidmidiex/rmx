@@ -55,13 +55,9 @@ func (s *Service) respond(w http.ResponseWriter, r *http.Request, data any, stat
 	h.Respond(w, r, data, status)
 }
 
-func (s *Service) decode(w http.ResponseWriter, r *http.Request, data interface{}) error {
-	return h.Decode(w, r, data)
-}
-
-func (s *Service) fileServer(prefix string, dirname string) http.Handler {
-	return h.FileServer(prefix, dirname)
-}
+// ! deprecated
+// func (s *Service) decode(w http.ResponseWriter, r *http.Request, data interface{}) error {	return h.Decode(w, r, data) }
+// func (s *Service) fileServer(prefix string, dirname string) http.Handler {	return h.FileServer(prefix, dirname) }
 
 func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, error) {
 	return suid.ParseString(chi.URLParam(r, "id"))
@@ -75,9 +71,9 @@ func (s *Service) routes() {
 	s.r.Get("/ping", s.handlePing)
 
 	// temporary static files
-	s.r.Handle("/assets/*", s.fileServer("/assets/", "assets"))
-	s.r.Get("/", s.indexHTML("ui/www/index.html"))
-	s.r.Get("/play/{id}", s.jamSessionHTML("ui/www/play.html"))
+	// s.r.Handle("/assets/*", s.fileServer("/assets/", "assets"))
+	// s.r.Get("/", s.indexHTML("ui/www/index.html"))
+	// s.r.Get("/play/{id}", s.jamSessionHTML("ui/www/play.html"))
 
 	// REST v1
 	s.r.Get("/api/v1/jam", s.handleListRooms())
