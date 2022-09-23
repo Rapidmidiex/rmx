@@ -1,70 +1,12 @@
 package service
 
 import (
-	"encoding/json"
 	"net/http"
 
 	rmx "github.com/rog-golang-buddies/rapidmidiex/internal"
 	"github.com/rog-golang-buddies/rapidmidiex/internal/suid"
 	ws "github.com/rog-golang-buddies/rapidmidiex/internal/websocket"
 )
-
-func (s Service) handleP2PComms() http.HandlerFunc {
-	type response[T any] struct {
-		Typ     rmx.MessageTyp `json:"type"`
-		Payload T              `json:"payload"`
-	}
-
-	type join struct {
-		ID        suid.SUID `json:"id"`
-		SessionID suid.SUID `json:"sessionId"`
-	}
-
-	type leave struct {
-		ID        suid.SUID `json:"id"`
-		SessionID suid.SUID `json:"sessionId"`
-		Error     any       `json:"err"`
-	}
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		c := r.Context().Value(upgradeKey).(*ws.Conn)
-		defer func() {
-			// ! send error when Leaving session pool
-			c.SendMessage(response[leave]{
-				Typ:     rmx.Leave,
-				Payload: leave{ID: c.ID.ShortUUID(), SessionID: c.Pool().ID.ShortUUID()},
-			})
-
-			c.Close()
-		}()
-
-		if err := c.SendMessage(response[join]{
-			Typ:     rmx.Join,
-			Payload: join{ID: c.ID.ShortUUID(), SessionID: c.Pool().ID.ShortUUID()},
-		}); err != nil {
-			s.l.Println(err)
-			return
-		}
-
-		// ? could the API be adjusted such that
-		// ? this for-loop only needs to read and
-		// ? never touch the code for writing
-		for {
-			var msg response[json.RawMessage]
-			if err := c.ReadJSON(&msg); err != nil {
-				s.l.Println(err)
-				return
-			}
-
-			// * here the message will be passed off to a different handler
-			// * via a go routine*
-			if err := c.SendMessage(response[int]{Typ: rmx.Message, Payload: 10}); err != nil {
-				s.l.Println(err)
-				return
-			}
-		}
-	}
-}
 
 func (s Service) handleCreateRoom() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
