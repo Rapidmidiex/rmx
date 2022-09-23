@@ -1,4 +1,4 @@
-package api
+package service
 
 import (
 	"log"
@@ -9,8 +9,8 @@ import (
 
 	h "github.com/hyphengolang/prelude/http"
 
-	ws "github.com/rog-golang-buddies/rapidmidiex/api/websocket"
 	"github.com/rog-golang-buddies/rapidmidiex/internal/suid"
+	ws "github.com/rog-golang-buddies/rapidmidiex/service/websocket"
 )
 
 type Service struct {
@@ -22,7 +22,7 @@ type Service struct {
 
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.r.ServeHTTP(w, r) }
 
-func NewService(r chi.Router) *Service {
+func New(r chi.Router) *Service {
 	s := &Service{r, log.Default(), ws.DefaultClient}
 	s.routes()
 	return s
@@ -47,6 +47,9 @@ func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, 
 func (s *Service) routes() {
 	// middleware
 	s.r.Use(middleware.Logger)
+
+	// ping
+	s.r.Get("/ping", s.handlePing)
 
 	// temporary static files
 	s.r.Handle("/assets/*", s.fileServer("/assets/", "assets"))

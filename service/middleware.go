@@ -1,4 +1,4 @@
-package api
+package service
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	ws "github.com/rog-golang-buddies/rapidmidiex/api/websocket"
+	ws "github.com/rog-golang-buddies/rapidmidiex/service/websocket"
 )
 
 func (s Service) connectionPool(f http.HandlerFunc) http.HandlerFunc {

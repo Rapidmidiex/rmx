@@ -1,7 +1,8 @@
-package api
+package service
 
 import "net/http"
 import t "github.com/hyphengolang/prelude/template"
+
 // ! to be discarded
 
 func (s *Service) indexHTML(path string) http.HandlerFunc {

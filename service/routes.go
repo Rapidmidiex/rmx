@@ -1,12 +1,12 @@
-package api
+package service
 
 import (
 	"encoding/json"
 	"net/http"
 
-	ws "github.com/rog-golang-buddies/rapidmidiex/api/websocket"
 	rmx "github.com/rog-golang-buddies/rapidmidiex/internal"
 	"github.com/rog-golang-buddies/rapidmidiex/internal/suid"
+	ws "github.com/rog-golang-buddies/rapidmidiex/service/websocket"
 )
 
 func (s Service) handleP2PComms() http.HandlerFunc {
@@ -111,9 +111,19 @@ func (s Service) handleListRooms() http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		v := &response{
-			Sessions: rmx.FMap(s.c.List(), func(p *ws.Pool) Session { return Session{ID: p.ID.ShortUUID(), UserCount: p.Size()} }),
+			Sessions: rmx.FMap(s.c.List(), func(p *ws.Pool) Session {
+				return Session{
+					ID:        p.ID.ShortUUID(),
+					Users:     rmx.FMap(p.Keys(), func(uid suid.UUID) suid.SUID { return uid.ShortUUID() }),
+					UserCount: p.Size(),
+				}
+			}),
 		}
 
 		s.respond(w, r, v, http.StatusOK)
 	}
+}
+
+func (s Service) handlePing(w http.ResponseWriter, r *http.Request) {
+	s.respond(w, r, nil, http.StatusNoContent)
 }

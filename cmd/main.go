@@ -2,19 +2,23 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"runtime"
 	"syscall"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/cors"
+	"github.com/spf13/viper"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/rog-golang-buddies/rapidmidiex/api"
+	"github.com/rog-golang-buddies/rapidmidiex/service"
 )
 
 func main() {
@@ -39,12 +43,15 @@ func run() error {
 	}
 
 	srv := http.Server{
-		Addr:         ":" + port,
-		Handler:      cors.New(c).Handler(api.NewService(chi.NewMux())),
-		ReadTimeout:  10 * time.Second,  // max time to read request from the client
-		WriteTimeout: 10 * time.Second,  // max time to write response to the client
-		IdleTimeout:  120 * time.Second, // max time for connections using TCP Keep-Alive
-		BaseContext:  func(_ net.Listener) context.Context { return sCtx },
+		Addr:    ":" + port,
+		Handler: cors.New(c).Handler(service.New(chi.NewMux())),
+		// max time to read request from the client
+		ReadTimeout: 10 * time.Second,
+		// max time to write response to the client
+		WriteTimeout: 10 * time.Second,
+		// max time for connections using TCP Keep-Alive
+		IdleTimeout: 120 * time.Second,
+		BaseContext: func(_ net.Listener) context.Context { return sCtx },
 	}
 
 	g, gCtx := errgroup.WithContext(sCtx)
@@ -109,3 +116,18 @@ func init() {
 // 	err = viper.Unmarshal(&config)
 // 	return
 // }
+
+func loadConfig() error {
+	_, b, _, _ := runtime.Caller(0)
+	basepath := filepath.Join(filepath.Dir(b), "../")
+	viper.SetConfigFile(basepath + ".env")
+	// viper.AddConfigPath("../")
+	viper.SetConfigType("dotenv")
+	// viper.SetConfigFile(".env")
+
+	return viper.ReadInConfig()
+}
+
+var (
+	port = flag.Int("SERVER_PORT", 8888, "The port that the server will be running on")
+)

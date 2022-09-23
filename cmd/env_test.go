@@ -2,10 +2,15 @@ package main
 
 import (
 	"testing"
-
-	"github.com/spf13/viper"
 )
 
 func TestEnv(t *testing.T) {
-	viper.SetConfigFile(".env")
+	// backend server address/port flag
+	// frontend address/port flag
+	// timeout - read, write, idle
+	//
+
+	if err := loadConfig(); err != nil {
+		t.Fatal(err)
+	}
 }
