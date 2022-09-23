@@ -95,3 +95,19 @@ func (p *Pool) Close() error {
 
 	return nil
 }
+
+/*
+Experimental: Pub/Sub pattern
+
+func (p *Pool) AddEventListener(eventTyp string, callback func(event any)) {
+	if eventTyp already exists then panic
+	if callback is nil then panic
+
+	type entry struct { eventTyp string; callback func(event any); }
+	add entry to to map[eventType]entry
+}
+
+func (p *Pool) Listen() {
+
+}
+*/

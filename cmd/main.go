@@ -21,6 +21,10 @@ import (
 	"github.com/rog-golang-buddies/rapidmidiex/service"
 )
 
+var (
+	port = flag.Int("SERVER_PORT", 8888, "The port that the server will be running on")
+)
+
 func main() {
 	if err := run(); err != nil {
 		log.Fatalln(err)
@@ -52,13 +56,14 @@ func run() error {
 		// max time for connections using TCP Keep-Alive
 		IdleTimeout: 120 * time.Second,
 		BaseContext: func(_ net.Listener) context.Context { return sCtx },
+		ErrorLog:    log.Default(),
 	}
 
 	g, gCtx := errgroup.WithContext(sCtx)
 
 	g.Go(func() error {
 		// Run the server
-		log.Printf("App server starting on %s", srv.Addr)
+		srv.ErrorLog.Printf("App server starting on %s", srv.Addr)
 		return srv.ListenAndServe()
 	})
 
@@ -67,11 +72,11 @@ func run() error {
 		return srv.Shutdown(context.Background())
 	})
 
-	if err := g.Wait(); err != nil {
-		log.Printf("exit reason: %s \n", err)
-	}
+	// if err := g.Wait(); err != nil {
+	// 	log.Printf("exit reason: %s \n", err)
+	// }
 
-	return nil
+	return g.Wait()
 }
 
 func getEnv(key, fallback string) string {
@@ -127,7 +132,3 @@ func loadConfig() error {
 
 	return viper.ReadInConfig()
 }
-
-var (
-	port = flag.Int("SERVER_PORT", 8888, "The port that the server will be running on")
-)
