@@ -6,7 +6,7 @@ import (
 
 	rmx "github.com/rog-golang-buddies/rapidmidiex/internal"
 	"github.com/rog-golang-buddies/rapidmidiex/internal/suid"
-	ws "github.com/rog-golang-buddies/rapidmidiex/service/websocket"
+	ws "github.com/rog-golang-buddies/rapidmidiex/internal/websocket"
 )
 
 func (s Service) handleP2PComms() http.HandlerFunc {
