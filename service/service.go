@@ -64,13 +64,7 @@ func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, 
 }
 
 func (s *Service) routes() {
-	// middleware
 	s.r.Use(middleware.Logger)
-
-	// temporary static files
-	// s.r.Handle("/assets/*", s.fileServer("/assets/", "assets"))
-	// s.r.Get("/", s.indexHTML("ui/www/index.html"))
-	// s.r.Get("/play/{id}", s.jamSessionHTML("ui/www/play.html"))
 
 	// REST v1
 	s.r.Get("/api/v1/jam", s.handleListRooms())
@@ -82,5 +76,5 @@ func (s *Service) routes() {
 	// Websocket
 	s.r.Get("/ws/jam/{id}", chain(s.handleP2PComms(), s.upgradeHTTP(1024, 1024), s.connectionPool(nil)))
 
-	s.r.Get("/ws/ping", chain(s.handleEcho(), s.upgradeHTTP(1024, 1024), s.connectionPool(ws.DefaultPool())))
+	s.r.Get("/ws/test", chain(s.handleEcho(), s.upgradeHTTP(1024, 1024), s.connectionPool(ws.DefaultPool())))
 }
