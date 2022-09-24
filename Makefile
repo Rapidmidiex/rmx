@@ -37,11 +37,6 @@ fmt:
 	go fmt ./...
 
 ## build_server: Build server binary into bin/ directory
-.PHONY: build_server
-build_server:
-	$(GOFLAGS) $(GO_BUILD) -a -v -ldflags="-w -s" -o bin/server cmd/server/main.go
-
-## build_cli: Build cli binary into bin/ directory
-.PHONY: build_cli
-build_cli:
-	$(GOFLAGS) $(GO_BUILD) -a -v -ldflags="-w -s" -o bin/cli cmd/cli/main.go
+.PHONY: build
+build:
+	$(GOFLAGS) $(GO_BUILD) -a -v -ldflags="-w -s" -o bin/rmx-server cmd/main.go
