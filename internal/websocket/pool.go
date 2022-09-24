@@ -22,6 +22,28 @@ type Pool struct {
 	msgs chan any
 }
 
+func NewPool(maxCount int) *Pool {
+	p := &Pool{
+		ID:      suid.NewUUID(),
+		MaxConn: maxCount,
+		cs:      make(map[suid.UUID]*Conn),
+		msgs:    make(chan any),
+	}
+
+	go func() {
+		defer p.Close()
+
+		for msg := range p.msgs {
+			for _, c := range p.cs {
+				c.WriteJSON(msg)
+			}
+		}
+	}()
+
+	return p
+}
+
+// maybe should just be a variable
 func DefaultPool() *Pool {
 	p := &Pool{
 		ID:      suid.NewUUID(),
@@ -39,7 +61,6 @@ func DefaultPool() *Pool {
 			}
 		}
 
-		// ?why does this pattern not work
 		// for _, c := range p.cs {	c.WriteJSON(<-p.msgs) }
 	}()
 

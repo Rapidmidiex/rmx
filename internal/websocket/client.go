@@ -32,11 +32,11 @@ func (c *Client) Close() error {
 	return rmx.ErrTodo
 }
 
-func (c *Client) NewPool() (suid.UUID, error) {
+func (c *Client) NewPool(maxCount int) (suid.UUID, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	p := DefaultPool()
+	p := NewPool(maxCount)
 
 	c.ps[p.ID] = p
 
