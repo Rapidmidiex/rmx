@@ -33,7 +33,7 @@ const (
 type mainModel struct {
 	curView      appView
 	lobby        tea.Model
-	jam          tea.Model
+	jam          jamui.Model
 	RESTendpoint string
 	WSendpoint   string
 	jamSocket    *websocket.Conn // Websocket connection to a Jam Session
@@ -48,7 +48,7 @@ func NewModel(serverHostURL string) (mainModel, error) {
 
 	return mainModel{
 		curView:      lobbyView,
-		lobby:        lobbyui.New(wsURL.String() + "/ws"),
+		lobby:        lobbyui.New(wsURL.String()+"/ws", serverHostURL+"/api/v1"),
 		jam:          jamui.New(),
 		RESTendpoint: serverHostURL + "/api/v1",
 	}, nil
@@ -73,7 +73,9 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case lobbyui.JamConnected:
 		m.curView = jamView
-		m.jamSocket = msg.WS
+		m.jam.Socket = msg.WS
+		m.jam.ID = msg.JamID
+		cmds = append(cmds, jamui.Enter)
 	}
 
 	// Call sub-model Updates

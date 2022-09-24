@@ -65,6 +65,11 @@ type jamsResp struct {
 	Sessions []Session `json:"sessions"`
 }
 
+type jamCreated struct {
+	ID        string `json:"id"`
+	UserCount int    `json:"userCount"`
+}
+
 // For messages that contain errors it's often handy to also implement the
 // error interface on the message.
 func (e errMsg) Error() string { return e.err.Error() }
@@ -94,7 +99,8 @@ func FetchSessions(baseURL string) tea.Cmd {
 }
 
 type Model struct {
-	wsURL    string
+	wsURL    string // Websocket endpoint
+	apiURL   string // REST API base endpoint
 	sessions []Session
 	jamTable table.Model
 	help     tea.Model
@@ -102,9 +108,10 @@ type Model struct {
 	err      error
 }
 
-func New(wsURL string) tea.Model {
+func New(wsURL, apiURL string) tea.Model {
 	return Model{
 		wsURL:   wsURL,
+		apiURL:  apiURL,
 		help:    NewHelpModel(),
 		loading: true,
 	}
@@ -120,20 +127,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.jamTable.SetWidth(msg.Width - 10)
+	case errMsg:
+		// There was an error. Note it in the model.
+		m.err = msg
 	case jamsResp:
 		m.sessions = msg.Sessions
 		m.jamTable = makeJamsTable(m)
 		m.jamTable.Focus()
 		m.loading = false
-	case errMsg:
-		// There was an error. Note it in the model.
-		m.err = msg
+	case jamCreated:
+		jamID := msg.ID
+		// Auto join the newly created Jam
+		cmds = append(cmds, jamConnect(m.wsURL, jamID))
 	case tea.KeyMsg:
 		switch msg.String() {
 		case tea.KeyEnter.String():
-			jamId := m.jamTable.SelectedRow()[1]
+			jamID := m.jamTable.SelectedRow()[1]
 
-			cmds = append(cmds, jamConnect(m.wsURL, jamId))
+			cmds = append(cmds, jamConnect(m.wsURL, jamID))
+		case "n":
+			// Create new Jam Session
+			cmds = append(cmds, jamCreate(m.apiURL))
 		}
 	}
 	newJamTable, jtCmd := m.jamTable.Update(msg)
@@ -238,9 +252,11 @@ func makeJamsTable(m Model) table.Model {
 }
 
 type JamConnected struct {
-	WS *websocket.Conn
+	WS    *websocket.Conn
+	JamID string
 }
 
+// Commands
 func jamConnect(baseURL, jamID string) tea.Cmd {
 	return func() tea.Msg {
 		url := baseURL + "/" + jamID
@@ -251,7 +267,26 @@ func jamConnect(baseURL, jamID string) tea.Cmd {
 		}
 		// TODO: Actually connect to Jam Session over websocket
 		return JamConnected{
-			WS: ws,
+			WS:    ws,
+			JamID: jamID,
 		}
+	}
+}
+
+func jamCreate(baseURL string) tea.Cmd {
+	// For now, we're just creating the Jam Session without
+	// and options.
+	// Next step would be to show inputs for Jam details
+	// (name, bpm, etc) before creating the Jam.
+	return func() tea.Msg {
+		resp, err := http.Post(baseURL+"/jam", "application/json", strings.NewReader("{}"))
+		if err != nil {
+			return errMsg{err: fmt.Errorf("jamCreate: %v", err)}
+		}
+		var body jamCreated
+		decoder := json.NewDecoder(resp.Body)
+		decoder.Decode(&body)
+
+		return body
 	}
 }

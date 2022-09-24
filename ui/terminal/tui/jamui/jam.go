@@ -7,6 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/gorilla/websocket"
 	"golang.org/x/term"
 )
 
@@ -46,6 +47,9 @@ var (
 		Padding(0, 1)
 )
 
+// Message Types
+type Entered struct{}
+
 type pianoKey struct {
 	noteNumber int    // MIDI note number ie: 72
 	name       string // Name of musical note, ie: "C5"
@@ -55,6 +59,25 @@ type pianoKey struct {
 type Model struct {
 	piano      []pianoKey          // Piano keys. {"q": pianoKey{72, "C5", "q", ...}}
 	activeKeys map[string]struct{} // Currently active piano keys
+	Socket     *websocket.Conn     // Websocket connection for current Jam Session
+	ID         string              // Jam Session ID
+}
+
+func New() Model {
+	return Model{
+		piano: []pianoKey{
+			{72, "C5", "q"},
+			{74, "D5", "w"},
+			{76, "E5", "e"},
+			{77, "F5", "r"},
+			{79, "G5", "t"},
+			{81, "A5", "y"},
+			{83, "B5", "u"},
+			{84, "C6", "i"},
+		},
+
+		activeKeys: make(map[string]struct{}),
+	}
 }
 
 func (m Model) Init() tea.Cmd {
@@ -74,7 +97,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			fmt.Printf("Key press: %s\n", msg.String())
 		}
 
+	// Entered the Jam Session
+	case Entered:
+		fmt.Println(m)
 	}
+
 	return m, nil
 }
 
@@ -101,19 +128,7 @@ func (m Model) View() string {
 	return docStyle.Render(doc.String())
 }
 
-func New() tea.Model {
-	return Model{
-		piano: []pianoKey{
-			{72, "C5", "q"},
-			{74, "D5", "w"},
-			{76, "E5", "e"},
-			{77, "F5", "r"},
-			{79, "G5", "t"},
-			{81, "A5", "y"},
-			{83, "B5", "u"},
-			{84, "C6", "i"},
-		},
-
-		activeKeys: make(map[string]struct{}),
-	}
+// Commands
+func Enter() tea.Msg {
+	return Entered{}
 }
