@@ -1,16 +1,16 @@
 package main
 
-import (
-	"testing"
-)
+// import (
+// 	"testing"
+// )
 
-func TestEnv(t *testing.T) {
-	// backend server address/port flag
-	// frontend address/port flag
-	// timeout - read, write, idle
-	//
+// func TestEnv(t *testing.T) {
+// 	// backend server address/port flag
+// 	// frontend address/port flag
+// 	// timeout - read, write, idle
+// 	//
 
-	if err := loadConfig(); err != nil {
-		t.Fatal(err)
-	}
-}
+// 	if err := loadConfig(); err != nil {
+// 		t.Fatal(err)
+// 	}
+// }

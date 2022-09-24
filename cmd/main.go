@@ -2,39 +2,101 @@ package main
 
 import (
 	"context"
-	"flag"
+	"errors"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
-	"runtime"
+	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/cors"
-	"github.com/spf13/viper"
+	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v2/altsrc"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/rog-golang-buddies/rapidmidiex/service"
 )
 
+// var (
+// 	port = flag.Int("SERVER_PORT", 8888, "The port that the server will be running on")
+// )
+
+type config struct {
+	Port int `json:"port"`
+}
+
 var (
-	port = flag.Int("SERVER_PORT", 8888, "The port that the server will be running on")
+	errInvalidPort = errors.New("invalid port number")
 )
 
 func main() {
-	if err := run(); err != nil {
+	flags := []cli.Flag{
+		altsrc.NewIntFlag(&cli.IntFlag{
+			Name:     "port",
+			Value:    0,
+			Usage:    "Defines the port which server should listen on",
+			Required: false,
+			Aliases:  []string{"p"},
+			EnvVars:  []string{"PORT"},
+		}),
+		&cli.StringFlag{
+			Name:    "load",
+			Aliases: []string{"l"},
+		},
+	}
+
+	c := &cli.App{
+		Name:  "rmx",
+		Usage: "RapidMidiEx Server CLI",
+		Action: func(*cli.Context) error {
+			return nil
+		},
+		Before: altsrc.InitInputSourceWithContext(flags, altsrc.NewYamlSourceFromFlagFunc("load")),
+		Commands: []*cli.Command{
+			{
+				Name:        "start",
+				Category:    "run",
+				Aliases:     []string{"s"},
+				Description: "Starts the server in production mode.",
+				Action: func(cCtx *cli.Context) error {
+					port := cCtx.Int("port")
+					fmt.Println(port)
+					if port < 0 {
+						return errInvalidPort
+					}
+
+					cfg := &config{
+						Port: port,
+					}
+
+					return run(cfg)
+				},
+				Flags: flags,
+			},
+			{
+				Name:        "dev",
+				Category:    "run",
+				Aliases:     []string{"d"},
+				Description: "Starts the server in development mode",
+				Action: func(cCtx *cli.Context) error {
+					return nil
+				},
+				Flags: flags,
+			},
+		},
+	}
+
+	if err := c.Run(os.Args); err != nil {
 		log.Fatalln(err)
 	}
 }
 
-func run() error {
-	// ? want to move to viper ASAP
-	port := getEnv("PORT", "8888")
-
+func run(cfg *config) error {
 	sCtx, cancel := signal.NotifyContext(context.Background(), syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer cancel()
 
@@ -47,7 +109,7 @@ func run() error {
 	}
 
 	srv := http.Server{
-		Addr:    ":" + port,
+		Addr:    ":" + strconv.Itoa(cfg.Port),
 		Handler: cors.New(c).Handler(service.New(chi.NewMux())),
 		// max time to read request from the client
 		ReadTimeout: 10 * time.Second,
@@ -79,56 +141,56 @@ func run() error {
 	return g.Wait()
 }
 
-func getEnv(key, fallback string) string {
-	if value, ok := os.LookupEnv(key); ok {
-		return value
-	}
-	return fallback
-}
-
-func init() {
-	// // name of config file (without extension)
-	// viper.SetConfigName("config")
-	// // REQUIRED if the config file does not have the extension in the name
-	// viper.SetConfigType("env")
-	// // optionally look for config in the working directory
-	// viper.AddConfigPath(".")
-
-	//// Set Default variables
-	// viper.SetDefault("PORT", "8080")
-
-	// viper.AutomaticEnv()
-
-	// if err := viper.ReadInConfig(); err != nil {
-	// 	panic(err)
-	// }
-}
-
-// func LoadConfig(path string) (config Config, err error) {
-// 	// Read file path
-// 	viper.AddConfigPath(path)
-// 	// set config file and path
-// 	viper.SetConfigName("app")
-// 	viper.SetConfigType("env")
-// 	// watching changes in app.env
-// 	viper.AutomaticEnv()
-// 	// reading the config file
-// 	err = viper.ReadInConfig()
-// 	if err != nil {
-// 		return
+// func getEnv(key, fallback string) string {
+// 	if value, ok := os.LookupEnv(key); ok {
+// 		return value
 // 	}
-
-// 	err = viper.Unmarshal(&config)
-// 	return
+// 	return fallback
 // }
 
-func loadConfig() error {
-	_, b, _, _ := runtime.Caller(0)
-	basepath := filepath.Join(filepath.Dir(b), "../")
-	viper.SetConfigFile(basepath + ".env")
-	// viper.AddConfigPath("../")
-	viper.SetConfigType("dotenv")
-	// viper.SetConfigFile(".env")
+// func init() {
+// 	// // name of config file (without extension)
+// 	// viper.SetConfigName("config")
+// 	// // REQUIRED if the config file does not have the extension in the name
+// 	// viper.SetConfigType("env")
+// 	// // optionally look for config in the working directory
+// 	// viper.AddConfigPath(".")
 
-	return viper.ReadInConfig()
-}
+// 	//// Set Default variables
+// 	// viper.SetDefault("PORT", "8080")
+
+// 	// viper.AutomaticEnv()
+
+// 	// if err := viper.ReadInConfig(); err != nil {
+// 	// 	panic(err)
+// 	// }
+// }
+
+// // func LoadConfig(path string) (config Config, err error) {
+// // 	// Read file path
+// // 	viper.AddConfigPath(path)
+// // 	// set config file and path
+// // 	viper.SetConfigName("app")
+// // 	viper.SetConfigType("env")
+// // 	// watching changes in app.env
+// // 	viper.AutomaticEnv()
+// // 	// reading the config file
+// // 	err = viper.ReadInConfig()
+// // 	if err != nil {
+// // 		return
+// // 	}
+
+// // 	err = viper.Unmarshal(&config)
+// // 	return
+// // }
+
+// func loadConfig() error {
+// 	_, b, _, _ := runtime.Caller(0)
+// 	basepath := filepath.Join(filepath.Dir(b), "../")
+// 	viper.SetConfigFile(basepath + ".env")
+// 	// viper.AddConfigPath("../")
+// 	viper.SetConfigType("dotenv")
+// 	// viper.SetConfigFile(".env")
+
+// 	return viper.ReadInConfig()
+// }
