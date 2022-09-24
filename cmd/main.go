@@ -33,7 +33,7 @@ func main() {
 
 func run() error {
 	// ? want to move to viper ASAP
-	port := getEnv("PORT", "8889")
+	port := getEnv("PORT", "8888")
 
 	sCtx, cancel := signal.NotifyContext(context.Background(), syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer cancel()

@@ -51,6 +51,12 @@ func New(r chi.Router) *Service {
 	return s
 }
 
+func DefaultService() *Service {
+	s := &Service{chi.NewMux(), log.Default(), ws.DefaultClient}
+	s.routes()
+	return s
+}
+
 func (s *Service) respond(w http.ResponseWriter, r *http.Request, data any, status int) {
 	h.Respond(w, r, data, status)
 }
