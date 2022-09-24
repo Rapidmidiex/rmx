@@ -13,18 +13,13 @@ import (
 )
 
 func (s Service) connectionPool(p *ws.Pool) func(f http.HandlerFunc) http.HandlerFunc {
-	// * testing/debugging
-	if p != nil {
-		return func(f http.HandlerFunc) http.HandlerFunc {
+	return func(f http.HandlerFunc) http.HandlerFunc {
+		if p != nil {
 			return func(w http.ResponseWriter, r *http.Request) {
-				s.l.Println("default for ping")
-				r = r.WithContext(context.WithValue(r.Context(), roomKey, p))
-				f(w, r)
+				f(w, r.WithContext(context.WithValue(r.Context(), roomKey, p)))
 			}
 		}
-	}
 
-	return func(f http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			uid, err := s.parseUUID(w, r)
 			if err != nil {
