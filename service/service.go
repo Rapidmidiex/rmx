@@ -67,9 +67,6 @@ func (s *Service) routes() {
 	// middleware
 	s.r.Use(middleware.Logger)
 
-	// ping
-	s.r.Get("/ping", s.handlePing)
-
 	// temporary static files
 	// s.r.Handle("/assets/*", s.fileServer("/assets/", "assets"))
 	// s.r.Get("/", s.indexHTML("ui/www/index.html"))
@@ -80,6 +77,10 @@ func (s *Service) routes() {
 	s.r.Post("/api/v1/jam", s.handleCreateRoom())
 	s.r.Get("/api/v1/jam/{id}", s.handleGetRoom())
 
+	s.r.Get("/ping", s.handlePing)
+
 	// Websocket
-	s.r.Get("/ws/{id}", chain(s.handleP2PComms(), s.upgradeHTTP(1024, 1024), s.connectionPool))
+	s.r.Get("/ws/jam/{id}", chain(s.handleP2PComms(), s.upgradeHTTP(1024, 1024), s.connectionPool(nil)))
+
+	s.r.Get("/ws/ping", chain(s.handleEcho(), s.upgradeHTTP(1024, 1024), s.connectionPool(ws.DefaultPool())))
 }

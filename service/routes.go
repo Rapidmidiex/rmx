@@ -10,7 +10,7 @@ import (
 
 func (s Service) handleCreateRoom() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		uid, err := s.c.NewPool()
+		uid, err := s.c.NewPool(4)
 		if err != nil {
 			s.respond(w, r, err, http.StatusInternalServerError)
 			return
