@@ -15,7 +15,7 @@ import (
 	"github.com/rs/cors"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/rog-golang-buddies/rapidmidiex/service"
+	"github.com/rog-golang-buddies/rmx/service"
 )
 
 // var (

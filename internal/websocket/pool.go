@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/gorilla/websocket"
-	"github.com/rog-golang-buddies/rapidmidiex/internal/suid"
+	"github.com/rog-golang-buddies/rmx/internal/suid"
 
 	// https://stackoverflow.com/questions/21362950/getting-a-slice-of-keys-from-a-map
 

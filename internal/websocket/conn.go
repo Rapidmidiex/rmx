@@ -2,8 +2,8 @@ package websocket
 
 import (
 	"github.com/gorilla/websocket"
-	rmx "github.com/rog-golang-buddies/rapidmidiex/internal"
-	"github.com/rog-golang-buddies/rapidmidiex/internal/suid"
+	rmx "github.com/rog-golang-buddies/rmx/internal"
+	"github.com/rog-golang-buddies/rmx/internal/suid"
 )
 
 type Conn struct {

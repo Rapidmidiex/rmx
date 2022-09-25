@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	// "github.com/rog-golang-buddies/rapidmidiex/internal/websocket"
+	// "github.com/rog-golang-buddies/rmx/internal/websocket"
 )
 
 func TestRoutes(t *testing.T) {

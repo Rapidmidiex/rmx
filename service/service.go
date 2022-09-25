@@ -10,8 +10,8 @@ import (
 
 	h "github.com/hyphengolang/prelude/http"
 
-	"github.com/rog-golang-buddies/rapidmidiex/internal/suid"
-	ws "github.com/rog-golang-buddies/rapidmidiex/internal/websocket"
+	"github.com/rog-golang-buddies/rmx/internal/suid"
+	ws "github.com/rog-golang-buddies/rmx/internal/websocket"
 )
 
 type contextKey string

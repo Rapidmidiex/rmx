@@ -7,9 +7,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gorilla/websocket"
-	"github.com/rog-golang-buddies/rapidmidiex/internal/suid"
-	"github.com/rog-golang-buddies/rapidmidiex/ui/terminal/tui/jamui"
-	"github.com/rog-golang-buddies/rapidmidiex/ui/terminal/tui/lobbyui"
+	"github.com/rog-golang-buddies/rmx/internal/suid"
+	"github.com/rog-golang-buddies/rmx/ui/terminal/tui/jamui"
+	"github.com/rog-golang-buddies/rmx/ui/terminal/tui/lobbyui"
 )
 
 // ********

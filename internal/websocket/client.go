@@ -3,8 +3,8 @@ package websocket
 import (
 	"sync"
 
-	rmx "github.com/rog-golang-buddies/rapidmidiex/internal"
-	"github.com/rog-golang-buddies/rapidmidiex/internal/suid"
+	rmx "github.com/rog-golang-buddies/rmx/internal"
+	"github.com/rog-golang-buddies/rmx/internal/suid"
 	"golang.org/x/exp/maps"
 )
 
