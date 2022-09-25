@@ -28,7 +28,7 @@ func main() {
 	}
 }
 
-func run(cfg *config) error {
+func run(cfg *Config) error {
 	sCtx, cancel := signal.NotifyContext(context.Background(), syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer cancel()
 

@@ -9,7 +9,7 @@ import (
 	"github.com/urfave/cli/v2/altsrc"
 )
 
-type config struct {
+type Config struct {
 	Port int `json:"port"`
 }
 
@@ -55,7 +55,7 @@ func initCLI() *cli.App {
 						return ErrInvalidPort
 					}
 
-					cfg := &config{
+					cfg := &Config{
 						Port: port,
 					}
 
