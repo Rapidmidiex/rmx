@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"log"
 	"net/http"
 
@@ -21,6 +22,12 @@ var (
 )
 
 func chain(hf http.HandlerFunc, mw ...h.MiddleWare) http.HandlerFunc { return h.Chain(hf, mw...) }
+
+var (
+	ErrNoCookie        = errors.New("api: cookie not found")
+	ErrSessionNotFound = errors.New("api: session not found")
+	ErrSessionExists   = errors.New("api: session already exists")
+)
 
 type Session struct {
 	ID    suid.SUID   `json:"id"`
@@ -61,9 +68,13 @@ func (s *Service) respond(w http.ResponseWriter, r *http.Request, data any, stat
 	h.Respond(w, r, data, status)
 }
 
-// ! deprecated
-// func (s *Service) decode(w http.ResponseWriter, r *http.Request, data interface{}) error {	return h.Decode(w, r, data) }
-// func (s *Service) fileServer(prefix string, dirname string) http.Handler {	return h.FileServer(prefix, dirname) }
+func (s *Service) decode(w http.ResponseWriter, r *http.Request, data interface{}) error {
+	return h.Decode(w, r, data)
+}
+
+func (s *Service) fileServer(prefix string, dirname string) http.Handler {
+	return h.FileServer(prefix, dirname)
+}
 
 func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, error) {
 	return suid.ParseString(chi.URLParam(r, "id"))
