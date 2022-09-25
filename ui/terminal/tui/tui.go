@@ -40,15 +40,15 @@ type mainModel struct {
 }
 
 func NewModel(serverHostURL string) (mainModel, error) {
-	wsURL, err := url.Parse(serverHostURL)
+	wsHostURL, err := url.Parse(serverHostURL)
 	if err != nil {
 		return mainModel{}, err
 	}
-	wsURL.Scheme = "ws"
+	wsHostURL.Scheme = "ws"
 
 	return mainModel{
 		curView:      lobbyView,
-		lobby:        lobbyui.New(wsURL.String()+"/ws", serverHostURL+"/api/v1"),
+		lobby:        lobbyui.New(wsHostURL.String()+"/ws", serverHostURL+"/api/v1"),
 		jam:          jamui.New(),
 		RESTendpoint: serverHostURL + "/api/v1",
 	}, nil

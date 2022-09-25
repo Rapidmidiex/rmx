@@ -257,9 +257,9 @@ type JamConnected struct {
 }
 
 // Commands
-func jamConnect(baseURL, jamID string) tea.Cmd {
+func jamConnect(wsEndpoint, jamID string) tea.Cmd {
 	return func() tea.Msg {
-		url := baseURL + "/" + jamID
+		url := wsEndpoint + "/jam/" + jamID
 		fmt.Println("ws url", url)
 		ws, _, err := websocket.DefaultDialer.Dial(url, nil)
 		if err != nil {

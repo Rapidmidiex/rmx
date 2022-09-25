@@ -5,13 +5,14 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Start Server",
+            "name": "Start App Server (dev)",
             "type": "go",
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cmd",
             "cwd": "${workspaceFolder}",
-            "envFile": "${workspaceFolder}/cmd/.env"
+            "envFile": "${workspaceFolder}/cmd/.env",
+            "args": ["start", "dev"]
         },
         {
             "name": "TUI Client",
