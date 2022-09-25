@@ -14,7 +14,7 @@ type config struct {
 }
 
 var (
-	errInvalidPort = errors.New("invalid port number")
+	ErrInvalidPort = errors.New("invalid port number")
 )
 
 func initCLI() *cli.App {
@@ -52,7 +52,7 @@ func initCLI() *cli.App {
 					port := cCtx.Int("port")
 					fmt.Println(port)
 					if port < 0 {
-						return errInvalidPort
+						return ErrInvalidPort
 					}
 
 					cfg := &config{
