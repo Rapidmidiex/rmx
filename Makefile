@@ -39,4 +39,4 @@ fmt:
 ## build_server: Build server binary into bin/ directory
 .PHONY: build
 build:
-	$(GOFLAGS) $(GO_BUILD) -a -v -ldflags="-w -s" -o bin/rmx-server cmd/main.go
+	$(GOFLAGS) $(GO_BUILD) -a -v -ldflags="-w -s" -o bin/rmx-server cmd/*.go
