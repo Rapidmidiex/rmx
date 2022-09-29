@@ -14,7 +14,7 @@ import (
 	t "github.com/hyphengolang/prelude/template"
 )
 
-func (s Service) handleCreateRoom() http.HandlerFunc {
+func (s *Service) handleCreateRoom() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		uid, err := s.c.NewPool(4)
 		if err != nil {
@@ -22,13 +22,13 @@ func (s Service) handleCreateRoom() http.HandlerFunc {
 			return
 		}
 
-		v := Session{ID: suid.FromUUID(uid)}
+		v := &session{ID: suid.FromUUID(uid)}
 
 		s.respond(w, r, v, http.StatusOK)
 	}
 }
 
-func (s Service) handleGetRoom() http.HandlerFunc {
+func (s *Service) handleGetRoom() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		uid, err := s.parseUUID(w, r)
 		if err != nil {
@@ -43,7 +43,7 @@ func (s Service) handleGetRoom() http.HandlerFunc {
 			return
 		}
 
-		v := &Session{
+		v := &session{
 			ID:    p.ID.ShortUUID(),
 			Users: rmx.FMap(p.Keys(), func(uid suid.UUID) suid.SUID { return uid.ShortUUID() }),
 		}
@@ -52,15 +52,15 @@ func (s Service) handleGetRoom() http.HandlerFunc {
 	}
 }
 
-func (s Service) handleListRooms() http.HandlerFunc {
+func (s *Service) handleListRooms() http.HandlerFunc {
 	type response struct {
-		Sessions []Session `json:"sessions"`
+		Sessions []session `json:"sessions"`
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		v := &response{
-			Sessions: rmx.FMap(s.c.List(), func(p *ws.Pool) Session {
-				return Session{
+			Sessions: rmx.FMap(s.c.List(), func(p *ws.Pool) session {
+				return session{
 					ID:        p.ID.ShortUUID(),
 					Users:     rmx.FMap(p.Keys(), func(uid suid.UUID) suid.SUID { return uid.ShortUUID() }),
 					UserCount: p.Size(),
@@ -72,11 +72,11 @@ func (s Service) handleListRooms() http.HandlerFunc {
 	}
 }
 
-func (s Service) handlePing(w http.ResponseWriter, r *http.Request) {
+func (s *Service) handlePing(w http.ResponseWriter, r *http.Request) {
 	s.respond(w, r, nil, http.StatusNoContent)
 }
 
-func (s Service) connectionPool(p *ws.Pool) func(f http.HandlerFunc) http.HandlerFunc {
+func (s *Service) connectionPool(p *ws.Pool) func(f http.HandlerFunc) http.HandlerFunc {
 	return func(f http.HandlerFunc) http.HandlerFunc {
 		if p != nil {
 			return func(w http.ResponseWriter, r *http.Request) {
@@ -103,7 +103,7 @@ func (s Service) connectionPool(p *ws.Pool) func(f http.HandlerFunc) http.Handle
 	}
 }
 
-func (s Service) upgradeHTTP(readBuf, writeBuf int) func(f http.HandlerFunc) http.HandlerFunc {
+func (s *Service) upgradeHTTP(readBuf, writeBuf int) func(f http.HandlerFunc) http.HandlerFunc {
 	return func(f http.HandlerFunc) http.HandlerFunc {
 		u := &websocket.Upgrader{
 			ReadBufferSize:  readBuf,
@@ -130,7 +130,7 @@ func (s Service) upgradeHTTP(readBuf, writeBuf int) func(f http.HandlerFunc) htt
 	}
 }
 
-func (s Service) handleP2PComms() http.HandlerFunc {
+func (s *Service) handleP2PComms() http.HandlerFunc {
 	type response[T any] struct {
 		Typ     rmx.MessageTyp `json:"type"`
 		Payload T              `json:"payload"`
@@ -187,7 +187,7 @@ func (s Service) handleP2PComms() http.HandlerFunc {
 	}
 }
 
-func (s Service) handleEcho() http.HandlerFunc {
+func (s *Service) handleEcho() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		c := r.Context().Value(upgradeKey).(*ws.Conn)
 		defer func() {

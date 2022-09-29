@@ -29,7 +29,13 @@ var (
 	ErrSessionExists   = errors.New("api: session already exists")
 )
 
-type Session struct {
+type jam struct {
+	Name string `json:"name"`
+	BPM  int    `json:"bpm"`
+	ws.Pool
+}
+
+type session struct {
 	ID    suid.SUID   `json:"id"`
 	Name  string      `json:"name,omitempty"`
 	Users []suid.SUID `json:"users,omitempty"`
