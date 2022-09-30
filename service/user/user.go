@@ -33,7 +33,7 @@ type Service struct {
 	l *log.Logger
 }
 
-func (s Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.r.ServeHTTP(w, r) }
+func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.r.ServeHTTP(w, r) }
 
 func NewService(r chi.Router) *Service {
 	s := &Service{r, log.Default()}
@@ -47,19 +47,19 @@ func DefaultService() *Service {
 	return s
 }
 
-func (s Service) respond(w http.ResponseWriter, r *http.Request, data any, status int) {
+func (s *Service) respond(w http.ResponseWriter, r *http.Request, data any, status int) {
 	h.Respond(w, r, data, status)
 }
 
-func (s Service) decode(w http.ResponseWriter, r *http.Request, data interface{}) error {
+func (s *Service) decode(w http.ResponseWriter, r *http.Request, data interface{}) error {
 	return h.Decode(w, r, data)
 }
 
-func (s Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, error) {
+func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, error) {
 	return suid.ParseString(chi.URLParam(r, "id"))
 }
 
-func (s Service) routes() {
+func (s *Service) routes() {
 	s.r.Route("/api/v1/user", func(r chi.Router) {
 		r.Get("/tba", s.handleUserLogin())
 		r.Post("/tba", s.handleUserSignUp())
@@ -69,6 +69,6 @@ func (s Service) routes() {
 	})
 }
 
-func (s Service) handlePing(w http.ResponseWriter, r *http.Request) {
+func (s *Service) handlePing(w http.ResponseWriter, r *http.Request) {
 	s.respond(w, r, nil, http.StatusNoContent)
 }
