@@ -1,4 +1,4 @@
-package service
+package jam
 
 import (
 	"net/http"
@@ -8,6 +8,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	rmx "github.com/rog-golang-buddies/rmx/internal"
+	"github.com/rog-golang-buddies/rmx/internal/fp"
 	"github.com/rog-golang-buddies/rmx/internal/suid"
 	ws "github.com/rog-golang-buddies/rmx/internal/websocket"
 
@@ -45,7 +46,7 @@ func (s *Service) handleGetRoom() http.HandlerFunc {
 
 		v := &session{
 			ID:    p.ID.ShortUUID(),
-			Users: rmx.FMap(p.Keys(), func(uid suid.UUID) suid.SUID { return uid.ShortUUID() }),
+			Users: fp.FMap(p.Keys(), func(uid suid.UUID) suid.SUID { return uid.ShortUUID() }),
 		}
 
 		s.respond(w, r, v, http.StatusOK)
@@ -59,10 +60,10 @@ func (s *Service) handleListRooms() http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		v := &response{
-			Sessions: rmx.FMap(s.c.List(), func(p *ws.Pool) session {
+			Sessions: fp.FMap(s.c.List(), func(p *ws.Pool) session {
 				return session{
 					ID:        p.ID.ShortUUID(),
-					Users:     rmx.FMap(p.Keys(), func(uid suid.UUID) suid.SUID { return uid.ShortUUID() }),
+					Users:     fp.FMap(p.Keys(), func(uid suid.UUID) suid.SUID { return uid.ShortUUID() }),
 					UserCount: p.Size(),
 				}
 			}),

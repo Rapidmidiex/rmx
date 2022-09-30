@@ -1,4 +1,4 @@
-package internal
+package fp
 
 func FMap[T any, U any](vs []T, f func(T) U) (us []U) {
 	us = make([]U, len(vs))
