@@ -9,7 +9,9 @@ import (
 
 	h "github.com/hyphengolang/prelude/http"
 
+	"github.com/rog-golang-buddies/rmx/internal"
 	"github.com/rog-golang-buddies/rmx/internal/suid"
+	"github.com/rog-golang-buddies/rmx/test/mock"
 )
 
 type contextKey string
@@ -29,20 +31,23 @@ type User struct {
 }
 
 type Service struct {
-	r chi.Router
+	m chi.Router
+	r internal.RUserRepo
+
 	l *log.Logger
 }
 
-func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.r.ServeHTTP(w, r) }
+func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.m.ServeHTTP(w, r) }
 
-func NewService(r chi.Router) *Service {
-	s := &Service{r, log.Default()}
+func NewService(m chi.Router, r internal.RUserRepo) *Service {
+	s := &Service{m, r, log.Default()}
 	s.routes()
 	return s
 }
 
 func DefaultService() *Service {
-	s := &Service{chi.NewMux(), log.Default()}
+
+	s := &Service{chi.NewMux(), mock.UserRepo(), log.Default()}
 	s.routes()
 	return s
 }
@@ -60,7 +65,7 @@ func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, 
 }
 
 func (s *Service) routes() {
-	s.r.Route("/api/v1/user", func(r chi.Router) {
+	s.m.Route("/api/v1/user", func(r chi.Router) {
 		r.Get("/tba", s.handleUserLogin())
 		r.Post("/tba", s.handleUserSignUp())
 

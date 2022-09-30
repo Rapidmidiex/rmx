@@ -50,13 +50,13 @@ type User struct {
 }
 
 type Service struct {
-	r chi.Router
+	m chi.Router
 	l *log.Logger
 
 	c *ws.Client
 }
 
-func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.r.ServeHTTP(w, r) }
+func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.m.ServeHTTP(w, r) }
 
 func NewService(r chi.Router) *Service {
 	s := &Service{r, log.Default(), ws.DefaultClient}
@@ -79,23 +79,23 @@ func (s *Service) decode(w http.ResponseWriter, r *http.Request, data interface{
 }
 
 func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, error) {
-	return suid.ParseString(chi.URLParam(r, "id"))
+	return suid.ParseString(chi.URLParam(r, "uuid"))
 }
 
 func (s *Service) routes() {
-	s.r.Use(middleware.Logger)
+	s.m.Use(middleware.Logger)
 
-	s.r.Route("/api/v1/jam", func(r chi.Router) {
+	s.m.Route("/api/v1/jam", func(r chi.Router) {
 		r.Get("/", s.handleListRooms())
 		r.Post("/", s.handleCreateRoom())
-		r.Get("/{id}", s.handleGetRoom())
+		r.Get("/{uuid}", s.handleGetRoom())
 
 		// health
 		r.Get("/ping", s.handlePing)
 	})
 
 	// Websocket
-	s.r.Get("/ws/jam/{id}", chain(s.handleP2PComms(), s.upgradeHTTP(1024, 1024), s.connectionPool(nil)))
+	s.m.Get("/ws/jam/{id}", chain(s.handleP2PComms(), s.upgradeHTTP(1024, 1024), s.connectionPool(nil)))
 }
 
 func (s *Service) handlePing(w http.ResponseWriter, r *http.Request) {

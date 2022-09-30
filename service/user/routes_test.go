@@ -3,12 +3,10 @@ package user
 import (
 	"net/http/httptest"
 	"testing"
-
-	"github.com/go-chi/chi/v5"
 )
 
 func TestRoutes(t *testing.T) {
-	srv := NewService(chi.NewMux())
+	srv := DefaultService()
 
 	s := httptest.NewServer(srv)
 	t.Cleanup(func() { s.Close() })

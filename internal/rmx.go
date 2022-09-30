@@ -2,6 +2,8 @@ package internal
 
 import (
 	"errors"
+
+	"github.com/rog-golang-buddies/rmx/internal/suid"
 )
 
 var ErrTodo = errors.New("rmx: not yet implemented")
@@ -71,8 +73,28 @@ func (t MessageTyp) MarshalJSON() ([]byte, error) {
 	return []byte(`"` + t.String() + `"`), nil
 }
 
+// TODO
+type Email string
+
 type JamRepo interface {
 }
 
+type User struct {
+	ID    suid.UUID
+	Email Email
+}
+
 type UserRepo interface {
+	RUserRepo
+	WUserRepo
+}
+
+type RUserRepo interface {
+	Lookup(id suid.UUID) (*User, error)
+	LookupEmail(email Email) (*User, error)
+	ListAll() ([]*User, error)
+}
+
+type WUserRepo interface {
+	SignUp(u *User) error
 }
