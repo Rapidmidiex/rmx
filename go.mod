@@ -14,6 +14,7 @@ require (
 	github.com/lithammer/shortuuid/v4 v4.0.0
 	github.com/rs/cors v1.8.2
 	github.com/urfave/cli/v2 v2.16.3
+	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
 	golang.org/x/exp v0.0.0-20220921164117-439092de6870
 	golang.org/x/sync v0.0.0-20220923202941-7f9b1623fab7
 	golang.org/x/term v0.0.0-20220919170432-7a66f970e087
@@ -33,6 +34,7 @@ require (
 	github.com/muesli/termenv v0.11.1-0.20220212125758-44cd13922739 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
+	github.com/wagslane/go-password-validator v0.3.0
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	golang.org/x/sys v0.0.0-20220811171246-fbc7d0a398ab // indirect
 	golang.org/x/text v0.3.7 // indirect

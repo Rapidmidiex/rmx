@@ -1,15 +1,15 @@
-version: '2'
+version: "2"
 sql:
-    - schema: 'internal/db/schema/user_schema.sql'
-      queries: 'internal/db/schema/user_query.sql'
-      engine: 'mysql'
-      gen:
-          go:
-              package: 'user'
-              out: 'internal/db/user'
-              emit_db_tags: true
-              emit_prepared_queries: true
-              emit_empty_slices: true
-              emit_params_struct_pointers: true
-              emit_json_tags: true
-              json_tags_case_style: 'camel'
+  - schema: "idb/schema/user_schema.sql"
+    queries: "db/schema/user_query.sql"
+    engine: "mysql"
+    gen:
+      go:
+        package: "user"
+        out: "db/user"
+        emit_db_tags: true
+        emit_prepared_queries: true
+        emit_empty_slices: true
+        emit_params_struct_pointers: true
+        emit_json_tags: true
+        json_tags_case_style: "camel"

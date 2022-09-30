@@ -29,7 +29,7 @@ func NewClient() *Client {
 func (c *Client) Size() int { return len(c.ps) }
 
 func (c *Client) Close() error {
-	return rmx.ErrTodo
+	return rmx.ErrNotImplemented
 }
 
 func (c *Client) NewPool(maxCount int) (suid.UUID, error) {

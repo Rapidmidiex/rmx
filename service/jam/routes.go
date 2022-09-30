@@ -131,8 +131,8 @@ func (s Service) handleP2PComms() http.HandlerFunc {
 	// was just my way of getting things working, not yet
 	// full agreement with this.
 	type response[T any] struct {
-		Typ     rmx.MessageTyp `json:"type"`
-		Payload T              `json:"payload"`
+		Typ     rmx.MsgTyp `json:"type"`
+		Payload T          `json:"payload"`
 	}
 
 	type join struct {
