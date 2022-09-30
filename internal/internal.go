@@ -13,6 +13,31 @@ import (
 var ErrInvalidEmail = errors.New("rmx: invalid email")
 var ErrNotImplemented = errors.New("rmx: not yet implemented")
 
+type JamRepo interface {
+}
+
+type User struct {
+	ID       suid.UUID
+	Email    Email
+	Username string
+	Password PasswordHash
+}
+
+type UserRepo interface {
+	RUserRepo
+	WUserRepo
+}
+
+type RUserRepo interface {
+	Lookup(id suid.UUID) (*User, error)
+	LookupEmail(email Email) (*User, error)
+	ListAll() ([]*User, error)
+}
+
+type WUserRepo interface {
+	SignUp(u *User) error
+}
+
 type MsgTyp int
 
 const (
@@ -122,29 +147,4 @@ func newPasswordHash(pw Password) (PasswordHash, error) {
 
 func (pw PasswordHash) Compare(cmp Password) error {
 	return bcrypt.CompareHashAndPassword(pw, []byte(cmp))
-}
-
-type JamRepo interface {
-}
-
-type User struct {
-	ID       suid.UUID
-	Email    Email
-	Username string
-	Password PasswordHash
-}
-
-type UserRepo interface {
-	RUserRepo
-	WUserRepo
-}
-
-type RUserRepo interface {
-	Lookup(id suid.UUID) (*User, error)
-	LookupEmail(email Email) (*User, error)
-	ListAll() ([]*User, error)
-}
-
-type WUserRepo interface {
-	SignUp(u *User) error
 }
