@@ -14,32 +14,26 @@ import (
 	"github.com/rog-golang-buddies/rmx/test/mock"
 )
 
-type contextKey string
+// type contextKey string
 
-func chain(hf http.HandlerFunc, mw ...h.MiddleWare) http.HandlerFunc { return h.Chain(hf, mw...) }
+// func chain(hf http.HandlerFunc, mw ...h.MiddleWare) http.HandlerFunc { return h.Chain(hf, mw...) }
 
 var (
-	ErrNoCookie        = errors.New("api: cookie not found")
-	ErrSessionNotFound = errors.New("api: session not found")
-	ErrSessionExists   = errors.New("api: session already exists")
+	ErrNoCookie        = errors.New("user: cookie not found")
+	ErrSessionNotFound = errors.New("user: session not found")
+	ErrSessionExists   = errors.New("user: session already exists")
 )
-
-type User struct {
-	ID   suid.SUID `json:"id"`
-	Name string    `json:"name,omitempty"`
-	/* More fields can belong here */
-}
 
 type Service struct {
 	m chi.Router
-	r internal.RUserRepo
+	r internal.UserRepo
 
 	l *log.Logger
 }
 
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.m.ServeHTTP(w, r) }
 
-func NewService(m chi.Router, r internal.RUserRepo) *Service {
+func NewService(m chi.Router, r internal.UserRepo) *Service {
 	s := &Service{m, r, log.Default()}
 	s.routes()
 	return s
@@ -56,6 +50,10 @@ func (s *Service) respond(w http.ResponseWriter, r *http.Request, data any, stat
 	h.Respond(w, r, data, status)
 }
 
+func (s *Service) created(w http.ResponseWriter, r *http.Request, id string) {
+	h.Created(w, r, id)
+}
+
 func (s *Service) decode(w http.ResponseWriter, r *http.Request, data interface{}) error {
 	return h.Decode(w, r, data)
 }
@@ -66,8 +64,8 @@ func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, 
 
 func (s *Service) routes() {
 	s.m.Route("/api/v1/user", func(r chi.Router) {
-		r.Get("/tba", s.handleUserLogin())
-		r.Post("/tba", s.handleUserSignUp())
+		r.Get("/", s.handleUserLogin())
+		r.Post("/", s.handleUserSignUp())
 
 		// health
 		r.Get("/ping", s.handlePing)

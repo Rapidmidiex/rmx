@@ -60,14 +60,14 @@ func (r *userRepo) LookupEmail(email internal.Email) (*internal.User, error) {
 	return nil, errNotFound
 }
 
-func (r *userRepo) SignUp(u *internal.User) error {
+func (r *userRepo) SignUp(u internal.User) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if _, found := r.us[u.ID]; found {
 		return errExists
 	} else {
-		r.us[u.ID] = u
+		r.us[u.ID] = &u
 	}
 
 	return nil

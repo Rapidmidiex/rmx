@@ -35,7 +35,7 @@ type RUserRepo interface {
 }
 
 type WUserRepo interface {
-	SignUp(u *User) error
+	SignUp(u User) error
 }
 
 type MsgTyp int
