@@ -62,4 +62,9 @@ func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, 
 
 func (s *Service) routes() {
 	s.r.Use(middleware.Logger)
+
+	s.r.Route("/api/v1", func(r chi.Router) {
+		// health
+		r.Get("/ping", s.handlePing)
+	})
 }

@@ -37,7 +37,7 @@ func (s *Service) handleGetRoom() http.HandlerFunc {
 			return
 		}
 
-		// ! rename method as `Get` is nondescriptive
+		// TODO rename method as `Get` is nondescriptive
 		p, err := s.c.Get(uid)
 		if err != nil {
 			s.respond(w, r, err, http.StatusNotFound)
