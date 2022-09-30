@@ -56,7 +56,7 @@ type Service struct {
 	c *ws.Client
 }
 
-func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.r.ServeHTTP(w, r) }
+func (s Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.r.ServeHTTP(w, r) }
 
 func New(r chi.Router) *Service {
 	s := &Service{r, log.Default(), ws.DefaultClient}
@@ -70,19 +70,19 @@ func DefaultService() *Service {
 	return s
 }
 
-func (s *Service) respond(w http.ResponseWriter, r *http.Request, data any, status int) {
+func (s Service) respond(w http.ResponseWriter, r *http.Request, data any, status int) {
 	h.Respond(w, r, data, status)
 }
 
-func (s *Service) decode(w http.ResponseWriter, r *http.Request, data interface{}) error {
+func (s Service) decode(w http.ResponseWriter, r *http.Request, data interface{}) error {
 	return h.Decode(w, r, data)
 }
 
-func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, error) {
+func (s Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, error) {
 	return suid.ParseString(chi.URLParam(r, "id"))
 }
 
-func (s *Service) routes() {
+func (s Service) routes() {
 	s.r.Use(middleware.Logger)
 
 	s.r.Route("/api/v1", func(r chi.Router) {
@@ -96,4 +96,8 @@ func (s *Service) routes() {
 
 	// Websocket
 	s.r.Get("/ws/jam/{id}", chain(s.handleP2PComms(), s.upgradeHTTP(1024, 1024), s.connectionPool(nil)))
+}
+
+func (s Service) handlePing(w http.ResponseWriter, r *http.Request) {
+	s.respond(w, r, nil, http.StatusNoContent)
 }

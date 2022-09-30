@@ -70,3 +70,9 @@ func (t *MessageTyp) UnmarshalJSON(b []byte) error {
 func (t MessageTyp) MarshalJSON() ([]byte, error) {
 	return []byte(`"` + t.String() + `"`), nil
 }
+
+type JamRepo interface {
+}
+
+type UserRepo interface {
+}

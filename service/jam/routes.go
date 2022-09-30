@@ -11,8 +11,6 @@ import (
 	"github.com/rog-golang-buddies/rmx/internal/fp"
 	"github.com/rog-golang-buddies/rmx/internal/suid"
 	ws "github.com/rog-golang-buddies/rmx/internal/websocket"
-
-	t "github.com/hyphengolang/prelude/template"
 )
 
 func (s *Service) handleCreateRoom() http.HandlerFunc {
@@ -37,7 +35,8 @@ func (s *Service) handleGetRoom() http.HandlerFunc {
 			return
 		}
 
-		// TODO rename method as `Get` is nondescriptive
+		// FIXME possible rename
+		// method as `Get` is nondescriptive
 		p, err := s.c.Get(uid)
 		if err != nil {
 			s.respond(w, r, err, http.StatusNotFound)
@@ -53,7 +52,7 @@ func (s *Service) handleGetRoom() http.HandlerFunc {
 	}
 }
 
-func (s *Service) handleListRooms() http.HandlerFunc {
+func (s Service) handleListRooms() http.HandlerFunc {
 	type response struct {
 		Sessions []session `json:"sessions"`
 	}
@@ -71,10 +70,6 @@ func (s *Service) handleListRooms() http.HandlerFunc {
 
 		s.respond(w, r, v, http.StatusOK)
 	}
-}
-
-func (s *Service) handlePing(w http.ResponseWriter, r *http.Request) {
-	s.respond(w, r, nil, http.StatusNoContent)
 }
 
 func (s *Service) connectionPool(p *ws.Pool) func(f http.HandlerFunc) http.HandlerFunc {
@@ -104,7 +99,7 @@ func (s *Service) connectionPool(p *ws.Pool) func(f http.HandlerFunc) http.Handl
 	}
 }
 
-func (s *Service) upgradeHTTP(readBuf, writeBuf int) func(f http.HandlerFunc) http.HandlerFunc {
+func (s Service) upgradeHTTP(readBuf, writeBuf int) func(f http.HandlerFunc) http.HandlerFunc {
 	return func(f http.HandlerFunc) http.HandlerFunc {
 		u := &websocket.Upgrader{
 			ReadBufferSize:  readBuf,
@@ -131,7 +126,10 @@ func (s *Service) upgradeHTTP(readBuf, writeBuf int) func(f http.HandlerFunc) ht
 	}
 }
 
-func (s *Service) handleP2PComms() http.HandlerFunc {
+func (s Service) handleP2PComms() http.HandlerFunc {
+	// FIXME we will change this as I know this hasn't been
+	// was just my way of getting things working, not yet
+	// full agreement with this.
 	type response[T any] struct {
 		Typ     rmx.MessageTyp `json:"type"`
 		Payload T              `json:"payload"`
@@ -151,7 +149,7 @@ func (s *Service) handleP2PComms() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		c := r.Context().Value(upgradeKey).(*ws.Conn)
 		defer func() {
-			// ! send error when Leaving session pool
+			// FIXME send error when Leaving session pool
 			c.SendMessage(response[leave]{
 				Typ:     rmx.Leave,
 				Payload: leave{ID: c.ID.ShortUUID(), SessionID: c.Pool().ID.ShortUUID()},
@@ -168,9 +166,9 @@ func (s *Service) handleP2PComms() http.HandlerFunc {
 			return
 		}
 
-		// ? could the API be adjusted such that
-		// ? this for-loop only needs to read and
-		// ? never touch the code for writing
+		// TODO could the API be adjusted such that
+		// this for-loop only needs to read and
+		// never touch the code for writing
 		for {
 			var msg response[json.RawMessage]
 			if err := c.ReadJSON(&msg); err != nil {
@@ -178,8 +176,8 @@ func (s *Service) handleP2PComms() http.HandlerFunc {
 				return
 			}
 
-			// * here the message will be passed off to a different handler
-			// * via a go routine*
+			// TODO here the message will be passed off to a different handler
+			// via a go routine*
 			if err := c.SendMessage(response[int]{Typ: rmx.Message, Payload: 10}); err != nil {
 				s.l.Println(err)
 				return
@@ -188,7 +186,8 @@ func (s *Service) handleP2PComms() http.HandlerFunc {
 	}
 }
 
-func (s *Service) handleEcho() http.HandlerFunc {
+/* TODO only here due to testing but will leave out for now
+func (s Service) handleEcho() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		c := r.Context().Value(upgradeKey).(*ws.Conn)
 		defer func() {
@@ -221,40 +220,4 @@ func (s *Service) handleEcho() http.HandlerFunc {
 		}
 	}
 }
-
-// ! to be discarded
-
-func (s *Service) indexHTML(path string) http.HandlerFunc {
-	render, err := t.Render(path)
-	if err != nil {
-		panic(err)
-	}
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		render(w, r, nil)
-	}
-}
-
-func (s *Service) jamSessionHTML(path string) http.HandlerFunc {
-	render, err := t.Render(path)
-	if err != nil {
-		panic(err)
-	}
-
-	// ! I should be rendering a 404 page if there is an error
-	// ! in this layer, but for an MVC this will do
-	return func(w http.ResponseWriter, r *http.Request) {
-		uid, err := s.parseUUID(w, r)
-		if err != nil {
-			s.respond(w, r, err, http.StatusBadRequest)
-			return
-		}
-
-		if _, err = s.c.Get(uid); err != nil {
-			s.respond(w, r, err, http.StatusNotFound)
-			return
-		}
-
-		render(w, r, nil)
-	}
-}
+*/
