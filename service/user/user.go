@@ -35,7 +35,7 @@ type Service struct {
 
 func (s Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.r.ServeHTTP(w, r) }
 
-func New(r chi.Router) *Service {
+func NewService(r chi.Router) *Service {
 	s := &Service{r, log.Default()}
 	s.routes()
 	return s
@@ -60,7 +60,7 @@ func (s Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, e
 }
 
 func (s Service) routes() {
-	s.r.Route("/api/v1", func(r chi.Router) {
+	s.r.Route("/api/v1/user", func(r chi.Router) {
 		r.Get("/tba", s.handleUserLogin())
 		r.Post("/tba", s.handleUserSignUp())
 

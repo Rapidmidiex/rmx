@@ -58,7 +58,7 @@ type Service struct {
 
 func (s Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.r.ServeHTTP(w, r) }
 
-func New(r chi.Router) *Service {
+func NewService(r chi.Router) *Service {
 	s := &Service{r, log.Default(), ws.DefaultClient}
 	s.routes()
 	return s
@@ -85,10 +85,10 @@ func (s Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, e
 func (s Service) routes() {
 	s.r.Use(middleware.Logger)
 
-	s.r.Route("/api/v1", func(r chi.Router) {
-		r.Get("/jam", s.handleListRooms())
-		r.Post("/jam", s.handleCreateRoom())
-		r.Get("/jam/{id}", s.handleGetRoom())
+	s.r.Route("/api/v1/jam", func(r chi.Router) {
+		r.Get("/", s.handleListRooms())
+		r.Post("/", s.handleCreateRoom())
+		r.Get("/{id}", s.handleGetRoom())
 
 		// health
 		r.Get("/ping", s.handlePing)

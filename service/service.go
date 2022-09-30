@@ -4,7 +4,10 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
+	"github.com/rog-golang-buddies/rmx/service/jam"
+	"github.com/rog-golang-buddies/rmx/service/user"
 )
 
 type Service struct {
@@ -16,11 +19,15 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.m.ServeH
 
 func New(r chi.Router) *Service {
 	s := &Service{r, log.Default()}
+	s.m.Use(middleware.Logger)
+
+	// NOTE unsure how much is gained using a goroutine
+	// will have to investigate
+	go jam.NewService(s.m)
+	go user.NewService(s.m)
 	return s
 }
 
 func Default() *Service {
-	s := &Service{chi.NewMux(), log.Default()}
-	//
-	return s
+	return New(chi.NewMux())
 }

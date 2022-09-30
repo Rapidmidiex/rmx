@@ -9,14 +9,14 @@ import (
 )
 
 func TestRoutes(t *testing.T) {
-	srv := New(chi.NewMux())
+	srv := NewService(chi.NewMux())
 
 	// srv.r.Get("/ws/echo", chain(srv.handleEcho(),srv.upgradeHTTP(1024,1024),srv.connectionPool(websocket.DefaultPool())))
 
 	s := httptest.NewServer(srv)
 	t.Cleanup(func() { s.Close() })
 
-	r, err := s.Client().Get(s.URL + "/api/v1/ping/")
+	r, err := s.Client().Get(s.URL + "/api/v1/jam/ping")
 	if err != nil {
 		t.Fatal(err)
 	}

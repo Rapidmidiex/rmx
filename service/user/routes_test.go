@@ -8,12 +8,12 @@ import (
 )
 
 func TestRoutes(t *testing.T) {
-	srv := New(chi.NewMux())
+	srv := NewService(chi.NewMux())
 
 	s := httptest.NewServer(srv)
 	t.Cleanup(func() { s.Close() })
 
-	r, err := s.Client().Get(s.URL + "/api/v1/ping")
+	r, err := s.Client().Get(s.URL + "/api/v1/user/ping")
 	if err != nil {
 		t.Fatal(err)
 	}
