@@ -31,7 +31,7 @@ func (r *userRepo) ListAll() ([]*internal.User, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	return maps.Values(r.us), errTodo
+	return maps.Values(r.us), nil
 }
 
 func (r *userRepo) Lookup(uid suid.UUID) (*internal.User, error) {
@@ -57,7 +57,7 @@ func (r *userRepo) LookupEmail(email internal.Email) (*internal.User, error) {
 		}
 	}
 
-	return nil, errTodo
+	return nil, errNotFound
 }
 
 func (r *userRepo) SignUp(u *internal.User) error {
