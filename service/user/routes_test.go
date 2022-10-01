@@ -13,7 +13,7 @@ func TestRoutes(t *testing.T) {
 	s := httptest.NewServer(srv)
 	t.Cleanup(func() { s.Close() })
 
-	// TODO|FIXME needs to return an error if
+	// TODO add tests when -
 	// `password`, `email` or `username` is not present
 	payload := `
 {
@@ -28,6 +28,21 @@ func TestRoutes(t *testing.T) {
 	}
 
 	if r.StatusCode != http.StatusCreated {
+		t.Fatalf("expected %d; got %d", http.StatusCreated, r.StatusCode)
+	}
+
+	payload = `
+{
+	"email":"user@gmail.com",
+	"password":"difficultPassword"
+}`
+
+	r, err = s.Client().Post(s.URL+"/api/v1/auth/login", "application/json", strings.NewReader(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if r.StatusCode != http.StatusOK {
 		t.Fatalf("expected %d; got %d", http.StatusCreated, r.StatusCode)
 	}
 }

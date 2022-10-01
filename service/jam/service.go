@@ -78,8 +78,6 @@ func (s *Service) decode(w http.ResponseWriter, r *http.Request, data interface{
 }
 
 func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, error) {
-	ctx := chi.RouteContext(r.Context())
-	s.l.Println(ctx.URLParams.Values, len(ctx.URLParams.Values))
 	return suid.ParseString(chi.URLParam(r, "uuid"))
 }
 

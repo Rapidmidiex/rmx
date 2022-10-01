@@ -122,9 +122,9 @@ func (s *Service) handleLogin() http.HandlerFunc {
 func (s *Service) handleLogout() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cookie := &http.Cookie{
-			Path:     "REFRESH_TOKEN_COOKIE_PATH",
-			Name:     "REFRESH_TOKEN_COOKIE_NAME",
-			Value:    "",
+			Path: "REFRESH_TOKEN_COOKIE_PATH",
+			Name: "REFRESH_TOKEN_COOKIE_NAME",
+			// Value:    "",
 			HttpOnly: true,
 			Secure:   r.TLS != nil,
 			SameSite: http.SameSiteLaxMode,
@@ -171,9 +171,10 @@ func (s *Service) handleRefresh() http.HandlerFunc {
 	}
 }
 
-func (s *Service) authenticate() func(f http.HandlerFunc) http.HandlerFunc {
-	return func(f http.HandlerFunc) http.HandlerFunc {
-		return func(w http.ResponseWriter, r *http.Request) {
+// get the Bearer
+func (s *Service) authenticate() func(f http.Handler) http.Handler {
+	return func(f http.Handler) http.Handler {
+		fn := func(w http.ResponseWriter, r *http.Request) {
 			bearer := strings.Split(r.Header.Get("Authorization"), " ")
 
 			if len(bearer) <= 1 {
@@ -182,8 +183,10 @@ func (s *Service) authenticate() func(f http.HandlerFunc) http.HandlerFunc {
 			}
 
 			// context with value
-			f(w, r)
+			f.ServeHTTP(w, r)
 		}
+
+		return http.HandlerFunc(fn)
 	}
 }
 

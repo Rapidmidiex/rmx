@@ -64,24 +64,30 @@ func (s *Service) decode(w http.ResponseWriter, r *http.Request, data interface{
 }
 
 func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, error) {
-	return suid.ParseString(chi.URLParam(r, "id"))
+	return suid.ParseString(chi.URLParam(r, "uuid"))
 }
 
 func (s *Service) routes() {
 	s.m.Route("/api/v1/user", func(r chi.Router) {
+		auth := r.With(s.authenticate())
+		auth.Get("/me", func(w http.ResponseWriter, r *http.Request) {
+			// authorization required
+			s.respond(w, r, nil, http.StatusNotImplemented)
+		})
+
+		r.Post("/", s.handleRegistration())
 
 		// health
 		r.Get("/ping", s.handlePing)
+
 	})
 
 	s.m.Route("/api/v1/auth", func(r chi.Router) {
-		// r.Use(authService.CheckAuth)
-
-		r.Post("/register", s.handleRegistration())
-		r.Get("/refresh", s.handleRefresh())
-
 		r.Post("/login", s.handleLogin())
-		r.Get("/logout", s.handleLogout())
+
+		auth := r.With(s.authenticate())
+		auth.Get("/refresh", s.handleRefresh())
+		auth.Post("/logout", s.handleLogout())
 	})
 }
 
