@@ -1,13 +1,15 @@
 package user
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 )
 
-func TestRoutes(t *testing.T) {
+func TestLogin(t *testing.T) {
 	srv := DefaultService()
 
 	s := httptest.NewServer(srv)
@@ -41,8 +43,50 @@ func TestRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer r.Body.Close()
+
+	type response struct {
+		IDToken     string `json:"idToken"`
+		AccessToken string `json:"accessToken"`
+		// PublicKey   string `json:"publicKey"`
+	}
+
+	var tokens response
+	if err := json.NewDecoder(r.Body).Decode(&tokens); err != nil {
+		t.Fatal(err)
+	}
 
 	if r.StatusCode != http.StatusOK {
-		t.Fatalf("expected %d; got %d", http.StatusCreated, r.StatusCode)
+		t.Fatalf("expected %d; got %d", http.StatusOK, r.StatusCode)
 	}
+
+	// get my user info
+	req, _ := http.NewRequest(http.MethodGet, s.URL+"/api/v1/user/me", nil)
+	req.Header.Set(`Authorization`, fmt.Sprintf(`Bearer %s`, tokens.IDToken))
+
+	r, err = s.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if r.StatusCode != http.StatusOK {
+		t.Fatalf("expected %d; got %d", http.StatusOK, r.StatusCode)
+	}
+}
+
+func TestAuthMe(t *testing.T) {
+	srv := DefaultService()
+
+	s := httptest.NewServer(srv)
+	t.Cleanup(func() { s.Close() })
+
+	r, err := s.Client().Get(s.URL + "/api/v1/user/me")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if r.StatusCode != http.StatusOK {
+		t.Fatalf("expected %d; got %d", http.StatusOK, r.StatusCode)
+	}
+
 }
