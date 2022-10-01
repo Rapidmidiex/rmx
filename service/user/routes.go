@@ -76,8 +76,6 @@ func (s *Service) handleIdentity() http.HandlerFunc {
 }
 
 func (s *Service) signedTokens(key jwk.Key, now time.Time, email, uuid string) (its, ats, rts []byte, err error) {
-	// -- Generate Tokens --
-	// var now = time.Now().UTC()
 	var jwb = jwt.NewBuilder().Issuer("github.com/rog-golang-buddies/rmx").IssuedAt(now).Claim("email", email)
 	// Audience([]string{"http://localhost:3000"}).
 

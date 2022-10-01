@@ -43,6 +43,10 @@ func TestLogin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if r.StatusCode != http.StatusOK {
+		t.Fatalf("expected %d; got %d", http.StatusOK, r.StatusCode)
+	}
+
 	defer r.Body.Close()
 
 	type response struct {
@@ -54,10 +58,6 @@ func TestLogin(t *testing.T) {
 	var tokens response
 	if err := json.NewDecoder(r.Body).Decode(&tokens); err != nil {
 		t.Fatal(err)
-	}
-
-	if r.StatusCode != http.StatusOK {
-		t.Fatalf("expected %d; got %d", http.StatusOK, r.StatusCode)
 	}
 
 	// get my user info

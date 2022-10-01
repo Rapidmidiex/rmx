@@ -15,6 +15,7 @@ import (
 	"github.com/rog-golang-buddies/rmx/test/mock"
 )
 
+// TODO use os/viper to get `key.pem` body
 var secretTest = `-----BEGIN PRIVATE KEY-----
 MIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAML5MHFgqUlZcENS
 hHZ83yXfoUpqaMfp5/UdgMIJ0S5DW5QEON6reAsDu6zP0BEVZhg65pEYWEraBrGK
@@ -59,7 +60,6 @@ func NewService(m chi.Router, r internal.UserRepo) *Service {
 }
 
 func DefaultService() *Service {
-
 	s := &Service{chi.NewMux(), mock.UserRepo(), log.Default()}
 	s.routes()
 	return s
@@ -87,7 +87,8 @@ func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, 
 }
 
 func (s *Service) routes() {
-	// setup auth private/public key pair from key.pem
+	// panic should be ok as we need this to return no error
+	// else it'll completely break our auth model
 	private, err := jwk.ParseKey([]byte(secretTest), jwk.WithPEM(true))
 	if err != nil {
 		panic(err)
@@ -97,11 +98,10 @@ func (s *Service) routes() {
 	if err != nil {
 		panic(err)
 	}
-	// setup auth here
 
 	s.m.Route("/api/v1/user", func(r chi.Router) {
-		auth := r.With(s.authenticate(private, public))
-		auth.Get("/me", s.handleMyInfo())
+		auth := r.With(s.authenticate(public))
+		auth.Get("/me", s.handleIdentity())
 
 		r.Post("/", s.handleRegistration())
 
@@ -110,9 +110,9 @@ func (s *Service) routes() {
 	})
 
 	s.m.Route("/api/v1/auth", func(r chi.Router) {
-		r.Post("/login", s.handleLogin(private, public))
+		r.Post("/login", s.handleLogin(private))
 
-		auth := r.With(s.authenticate(private, public))
+		auth := r.With(s.authenticate(public))
 		auth.Get("/refresh", s.handleRefresh())
 		auth.Post("/logout", s.handleLogout())
 	})
