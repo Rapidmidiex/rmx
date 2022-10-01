@@ -75,48 +75,7 @@ func (s *Service) handleIdentity() http.HandlerFunc {
 	}
 }
 
-func (s *Service) signedTokens(key jwk.Key, now time.Time, email, uuid string) (its, ats, rts []byte, err error) {
-	var jwb = jwt.NewBuilder().Issuer("github.com/rog-golang-buddies/rmx").IssuedAt(now).Claim("email", email)
-	// Audience([]string{"http://localhost:3000"}).
-
-	it, err := jwb.Subject(email).Expiration(now.Add(time.Hour * 10)).Build()
-	if err != nil {
-		return nil, nil, nil, err
-
-	}
-
-	its, err = jwt.Sign(it, jwt.WithKey(jwa.RS256, key))
-	if err != nil {
-		return nil, nil, nil, err
-
-	}
-
-	at, err := jwt.NewBuilder().Subject(uuid).Expiration(now.Add(time.Minute * 5)).Build()
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	ats, err = jwt.Sign(at, jwt.WithKey(jwa.RS256, key))
-	if err != nil {
-		return nil, nil, nil, err
-
-	}
-
-	rt, err := jwt.NewBuilder().Subject(uuid).Expiration(now.Add(time.Hour * 24 * 7)).Build()
-	if err != nil {
-		return nil, nil, nil, err
-
-	}
-
-	rts, err = jwt.Sign(rt, jwt.WithKey(jwa.RS256, key))
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	return its, ats, rts, nil
-}
-
-func (s *Service) handleLogin(privateKey jwk.Key) http.HandlerFunc {
+func (s *Service) handleLogin(key jwk.Key) http.HandlerFunc {
 	type loginUser struct {
 		Email    internal.Email    `json:"email"`
 		Password internal.Password `json:"password"`
@@ -147,7 +106,7 @@ func (s *Service) handleLogin(privateKey jwk.Key) http.HandlerFunc {
 
 		// -- Generate Tokens --
 		var now = time.Now().UTC()
-		its, ats, rts, err := s.signedTokens(privateKey, now, string(u.Email), u.ID.String())
+		its, ats, rts, err := s.signedTokens(key, now, string(u.Email), u.ID.String())
 		if err != nil {
 			s.respond(w, r, err, http.StatusInternalServerError)
 			return
@@ -186,6 +145,7 @@ func (s *Service) handleLogout() http.HandlerFunc {
 	}
 }
 
+// still to develop
 func (s *Service) handleRefresh() http.HandlerFunc {
 	type response struct {
 		AccessToken string `json:"accessToken"`

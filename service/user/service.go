@@ -4,9 +4,12 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 
 	h "github.com/hyphengolang/prelude/http"
 
@@ -84,6 +87,47 @@ func (s *Service) decode(w http.ResponseWriter, r *http.Request, data interface{
 
 func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, error) {
 	return suid.ParseString(chi.URLParam(r, "uuid"))
+}
+
+func (s *Service) signedTokens(key jwk.Key, now time.Time, email, uuid string) (its, ats, rts []byte, err error) {
+	var jwb = jwt.NewBuilder().Issuer("github.com/rog-golang-buddies/rmx").IssuedAt(now).Claim("email", email)
+	// Audience([]string{"http://localhost:3000"}).
+
+	it, err := jwb.Subject(email).Expiration(now.Add(time.Hour * 10)).Build()
+	if err != nil {
+		return nil, nil, nil, err
+
+	}
+
+	its, err = jwt.Sign(it, jwt.WithKey(jwa.RS256, key))
+	if err != nil {
+		return nil, nil, nil, err
+
+	}
+
+	at, err := jwt.NewBuilder().Subject(uuid).Expiration(now.Add(time.Minute * 5)).Build()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	ats, err = jwt.Sign(at, jwt.WithKey(jwa.RS256, key))
+	if err != nil {
+		return nil, nil, nil, err
+
+	}
+
+	rt, err := jwt.NewBuilder().Subject(uuid).Expiration(now.Add(time.Hour * 24 * 7)).Build()
+	if err != nil {
+		return nil, nil, nil, err
+
+	}
+
+	rts, err = jwt.Sign(rt, jwt.WithKey(jwa.RS256, key))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	return its, ats, rts, nil
 }
 
 func (s *Service) routes() {
