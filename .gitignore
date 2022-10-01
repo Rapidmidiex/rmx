@@ -23,6 +23,7 @@ bin/
 .DS_Store
 *.env
 cmd/**/config
+certs
 
 # NPM
 node_modules

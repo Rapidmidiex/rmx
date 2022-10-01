@@ -5,15 +5,14 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/rs/cors"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/rog-golang-buddies/rmx/service"
 )
 
 // var (
@@ -21,12 +20,12 @@ import (
 // )
 
 func main() {
-	if err := initCLI().Run(os.Args); err != nil {
+	if err := run(); err != nil {
 		log.Fatalln(err)
 	}
 }
 
-func run(cfg *Config) error {
+func run() error {
 	sCtx, cancel := signal.NotifyContext(context.Background(), syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer cancel()
 
@@ -39,8 +38,8 @@ func run(cfg *Config) error {
 	}
 
 	srv := http.Server{
-		Addr:    ":" + strconv.Itoa(cfg.Port),
-		Handler: cors.New(c).Handler(chi.NewMux()),
+		Addr:    ":8080",
+		Handler: cors.New(c).Handler(service.Default()),
 		// max time to read request from the client
 		ReadTimeout: 10 * time.Second,
 		// max time to write response to the client

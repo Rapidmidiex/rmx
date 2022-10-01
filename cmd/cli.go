@@ -59,7 +59,9 @@ func initCLI() *cli.App {
 						Port: port,
 					}
 
-					return run(cfg)
+					_ = cfg
+
+					return run()
 				},
 				Flags: flags,
 			},

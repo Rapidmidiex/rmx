@@ -59,11 +59,6 @@ func (s *Service) created(w http.ResponseWriter, r *http.Request, id string) {
 	h.Created(w, r, id)
 }
 
-func (s *Service) createdCookie(w http.ResponseWriter, r *http.Request, id string, c *http.Cookie) {
-	http.SetCookie(w, c)
-	h.Created(w, r, id)
-}
-
 func (s *Service) decode(w http.ResponseWriter, r *http.Request, data interface{}) error {
 	return h.Decode(w, r, data)
 }

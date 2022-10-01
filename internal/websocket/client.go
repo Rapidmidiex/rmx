@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"log"
 	"sync"
 
 	rmx "github.com/rog-golang-buddies/rmx/internal"
@@ -48,6 +49,7 @@ func (c *Client) Get(uid suid.UUID) (*Pool, error) {
 	defer c.mu.Unlock()
 
 	for id, p := range c.ps {
+		log.Println("is match?", id, uid, id == uid)
 		if id == uid {
 			return p, nil
 		}

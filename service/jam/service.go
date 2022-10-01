@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 
 	h "github.com/hyphengolang/prelude/http"
@@ -79,23 +78,25 @@ func (s *Service) decode(w http.ResponseWriter, r *http.Request, data interface{
 }
 
 func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, error) {
+	ctx := chi.RouteContext(r.Context())
+	s.l.Println(ctx.URLParams.Values, len(ctx.URLParams.Values))
 	return suid.ParseString(chi.URLParam(r, "uuid"))
 }
 
 func (s *Service) routes() {
-	s.m.Use(middleware.Logger)
-
 	s.m.Route("/api/v1/jam", func(r chi.Router) {
 		r.Get("/", s.handleListRooms())
 		r.Post("/", s.handleCreateRoom())
 		r.Get("/{uuid}", s.handleGetRoom())
 
-		// health
 		r.Get("/ping", s.handlePing)
 	})
 
-	// Websocket
-	s.m.Get("/ws/jam/{id}", chain(s.handleP2PComms(), s.upgradeHTTP(1024, 1024), s.connectionPool(nil)))
+	// s.m.Get("/ws/jam/{uuid}", chain(s.handleP2PComms(), s.upgradeHTTP(1024, 1024), s.connectionPool(nil)))
+	s.m.Route("/ws/jam", func(r chi.Router) {
+		r = r.With(s._connectionPool(nil), s._upgradeHTTP(1024, 1024))
+		r.Get("/{uuid}", s.handleP2PComms())
+	})
 }
 
 func (s *Service) handlePing(w http.ResponseWriter, r *http.Request) {

@@ -40,3 +40,8 @@ fmt:
 .PHONY: build
 build:
 	$(GOFLAGS) $(GO_BUILD) -a -v -ldflags="-w -s" -o bin/rmx-server cmd/*.go
+
+# --host should be from ENV
+.PHONT: tls
+tls:
+	go run /usr/local/go/src/crypto/tls/generate_cert.go --host=$(HOSTNAME)
