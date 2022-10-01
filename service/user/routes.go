@@ -67,7 +67,7 @@ func (s *Service) handleRegistration() http.HandlerFunc {
 	}
 }
 
-func (s *Service) handleMyInfo() http.HandlerFunc {
+func (s *Service) handleIdentity() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		email := r.Context().Value(emailKey).(string)
 
@@ -75,19 +75,62 @@ func (s *Service) handleMyInfo() http.HandlerFunc {
 	}
 }
 
-func (s *Service) handleLogin(privateKey, publicKey jwk.Key) http.HandlerFunc {
-	type login struct {
+func (s *Service) signedTokens(key jwk.Key, now time.Time, email, uuid string) (its, ats, rts []byte, err error) {
+	// -- Generate Tokens --
+	// var now = time.Now().UTC()
+	var jwb = jwt.NewBuilder().Issuer("github.com/rog-golang-buddies/rmx").IssuedAt(now).Claim("email", email)
+	// Audience([]string{"http://localhost:3000"}).
+
+	it, err := jwb.Subject(email).Expiration(now.Add(time.Hour * 10)).Build()
+	if err != nil {
+		return nil, nil, nil, err
+
+	}
+
+	its, err = jwt.Sign(it, jwt.WithKey(jwa.RS256, key))
+	if err != nil {
+		return nil, nil, nil, err
+
+	}
+
+	at, err := jwt.NewBuilder().Subject(uuid).Expiration(now.Add(time.Minute * 5)).Build()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	ats, err = jwt.Sign(at, jwt.WithKey(jwa.RS256, key))
+	if err != nil {
+		return nil, nil, nil, err
+
+	}
+
+	rt, err := jwt.NewBuilder().Subject(uuid).Expiration(now.Add(time.Hour * 24 * 7)).Build()
+	if err != nil {
+		return nil, nil, nil, err
+
+	}
+
+	rts, err = jwt.Sign(rt, jwt.WithKey(jwa.RS256, key))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	return its, ats, rts, nil
+}
+
+func (s *Service) handleLogin(privateKey jwk.Key) http.HandlerFunc {
+	type loginUser struct {
 		Email    internal.Email    `json:"email"`
 		Password internal.Password `json:"password"`
 	}
 
-	type response struct {
+	type authTokens struct {
 		IDToken     string `json:"idToken"`
 		AccessToken string `json:"accessToken"`
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		var v login
+		var v loginUser
 		if err := s.decode(w, r, &v); err != nil {
 			s.respond(w, r, err, http.StatusBadRequest)
 			return
@@ -106,59 +149,24 @@ func (s *Service) handleLogin(privateKey, publicKey jwk.Key) http.HandlerFunc {
 
 		// -- Generate Tokens --
 		var now = time.Now().UTC()
-		var jwb = jwt.NewBuilder().Issuer("github.com/rog-golang-buddies/rmx").IssuedAt(now).Claim("email", u.Email)
-		// Audience([]string{"http://localhost:3000"}).
-		_ = jwb
-
-		idToken, err := jwb.Subject(string(u.Email)).Expiration(now.Add(time.Hour * 10)).Build()
+		its, ats, rts, err := s.signedTokens(privateKey, now, string(u.Email), u.ID.String())
 		if err != nil {
 			s.respond(w, r, err, http.StatusInternalServerError)
 			return
 		}
-
-		idTokenSigned, err := jwt.Sign(idToken, jwt.WithKey(jwa.RS256, privateKey))
-		if err != nil {
-			s.respond(w, r, err, http.StatusInternalServerError)
-			return
-		}
-
-		accessToken, err := jwt.NewBuilder().Subject(u.ID.String()).Expiration(now.Add(time.Minute * 5)).Build()
-		if err != nil {
-			s.respond(w, r, err, http.StatusInternalServerError)
-			return
-		}
-
-		accessTokenSigned, err := jwt.Sign(accessToken, jwt.WithKey(jwa.RS256, privateKey))
-		if err != nil {
-			s.respond(w, r, err, http.StatusInternalServerError)
-			return
-		}
-
-		refreshToken, err := jwt.NewBuilder().Subject(u.ID.String()).Expiration(now.Add(time.Hour * 24 * 7)).Build()
-		if err != nil {
-			s.respond(w, r, err, http.StatusInternalServerError)
-			return
-		}
-
-		refreshTokenSigned, err := jwt.Sign(refreshToken, jwt.WithKey(jwa.RS256, privateKey))
-		if err != nil {
-			s.respond(w, r, err, http.StatusInternalServerError)
-			return
-		}
-		// -- Generate Tokens --
 
 		cookie := &http.Cookie{
 			Name:     "RMX_DIRECT_RT",
-			Value:    string(refreshTokenSigned),
+			Value:    string(rts),
 			HttpOnly: true,
 			Secure:   r.TLS != nil,
 			SameSite: http.SameSiteLaxMode,
-			Expires:  time.Now().UTC().Add(time.Hour * 24 * 7),
+			Expires:  now.Add(time.Hour * 24 * 7),
 		}
 
-		var data = response{
-			IDToken:     string(idTokenSigned),
-			AccessToken: string(accessTokenSigned),
+		var data = authTokens{
+			IDToken:     string(its),
+			AccessToken: string(ats),
 		}
 
 		s.respondCookie(w, r, data, cookie)
@@ -168,7 +176,6 @@ func (s *Service) handleLogin(privateKey, publicKey jwk.Key) http.HandlerFunc {
 func (s *Service) handleLogout() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cookie := &http.Cookie{
-			// Path: "REFRESH_TOKEN_COOKIE_PATH",
 			Name:     "RMX_DIRECT_RT",
 			Value:    "",
 			HttpOnly: true,
@@ -217,7 +224,7 @@ func (s *Service) handleRefresh() http.HandlerFunc {
 	}
 }
 
-func (s *Service) authenticate(privateKey, publicKey jwk.Key) func(f http.Handler) http.Handler {
+func (s *Service) authenticate(publicKey jwk.Key) func(f http.Handler) http.Handler {
 	return func(f http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
 			token, err := jwt.ParseRequest(r, jwt.WithKey(jwa.RS256, publicKey), jwt.WithValidate(true))
@@ -232,6 +239,7 @@ func (s *Service) authenticate(privateKey, publicKey jwk.Key) func(f http.Handle
 				return
 			}
 
+			// Convert email from `string` type to `internal.Email` ?
 			r = r.WithContext(context.WithValue(r.Context(), emailKey, email))
 			f.ServeHTTP(w, r)
 		}
