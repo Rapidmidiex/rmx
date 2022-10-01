@@ -72,8 +72,8 @@ func (s *Service) handleLogin() http.HandlerFunc {
 	}
 
 	type response struct {
-		IDToken     string `json:"id_token"`
-		AccessToken string `json:"access_token"`
+		IDToken     string `json:"idToken"`
+		AccessToken string `json:"accessToken"`
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -137,7 +137,7 @@ func (s *Service) handleLogout() http.HandlerFunc {
 
 func (s *Service) handleRefresh() http.HandlerFunc {
 	type response struct {
-		AccessToken string
+		AccessToken string `json:"accessToken"`
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -173,12 +173,8 @@ func (s *Service) handleRefresh() http.HandlerFunc {
 
 func (s *Service) authenticate() func(f http.HandlerFunc) http.HandlerFunc {
 	return func(f http.HandlerFunc) http.HandlerFunc {
-		const (
-			Auth = "Authorization"
-		)
-
 		return func(w http.ResponseWriter, r *http.Request) {
-			bearer := strings.Split(r.Header.Get(Auth), " ")
+			bearer := strings.Split(r.Header.Get("Authorization"), " ")
 
 			if len(bearer) <= 1 {
 				s.respond(w, r, errors.New("invalid session"), http.StatusUnauthorized)
