@@ -233,7 +233,7 @@ func (s *Service) authenticate(publicKey jwk.Key) func(f http.Handler) http.Hand
 
 			email, ok := token.PrivateClaims()["email"].(string)
 			if !ok {
-				s.respond(w, r, "unauthorized", http.StatusUnauthorized)
+				s.respond(w, r, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 				return
 			}
 
