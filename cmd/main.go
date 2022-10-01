@@ -5,7 +5,9 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -20,12 +22,12 @@ import (
 // )
 
 func main() {
-	if err := run(); err != nil {
+	if err := initCLI().Run(os.Args); err != nil {
 		log.Fatalln(err)
 	}
 }
 
-func run() error {
+func run(cfg *Config) error {
 	sCtx, cancel := signal.NotifyContext(context.Background(), syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer cancel()
 
@@ -38,7 +40,7 @@ func run() error {
 	}
 
 	srv := http.Server{
-		Addr:    ":8080",
+		Addr:    ":" + strconv.Itoa(cfg.Port),
 		Handler: cors.New(c).Handler(service.Default()),
 		// max time to read request from the client
 		ReadTimeout: 10 * time.Second,
