@@ -72,6 +72,13 @@ func TestLogin(t *testing.T) {
 	if r.StatusCode != http.StatusOK {
 		t.Fatalf("expected %d; got %d", http.StatusOK, r.StatusCode)
 	}
+
+	var str string
+	if err := json.NewDecoder(r.Body).Decode(&str); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log(str)
 }
 
 func TestAuthMe(t *testing.T) {
@@ -85,8 +92,8 @@ func TestAuthMe(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if r.StatusCode != http.StatusOK {
-		t.Fatalf("expected %d; got %d", http.StatusOK, r.StatusCode)
+	if r.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected %d; got %d", http.StatusUnauthorized, r.StatusCode)
 	}
 
 }

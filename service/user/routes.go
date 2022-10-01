@@ -22,24 +22,13 @@ import (
 // 412 - Invalid precondition
 // 422 - Unprocessable
 
-func (s *Service) handleMyInfo() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		payload := `
-{
-	"name":"foobar"
-}`
-
-		s.respond(w, r, payload, http.StatusOK)
-	}
-}
-
-type signup struct {
+type signupUser struct {
 	Email    internal.Email    `json:"email"`
 	Username string            `json:"username"`
 	Password internal.Password `json:"password"`
 }
 
-func (v signup) decode(iu *internal.User) error {
+func (v signupUser) decode(iu *internal.User) error {
 	h, err := v.Password.Hash()
 	if err != nil {
 		return err
@@ -57,7 +46,7 @@ func (v signup) decode(iu *internal.User) error {
 
 func (s *Service) handleRegistration() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var v signup
+		var v signupUser
 		if err := s.decode(w, r, &v); err != nil {
 			s.respond(w, r, err, http.StatusBadRequest)
 			return
@@ -75,6 +64,14 @@ func (s *Service) handleRegistration() http.HandlerFunc {
 		}
 
 		s.created(w, r, u.ID.String())
+	}
+}
+
+func (s *Service) handleMyInfo() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		email := r.Context().Value(emailKey).(string)
+
+		s.respond(w, r, email, http.StatusOK)
 	}
 }
 
@@ -229,8 +226,7 @@ func (s *Service) authenticate(privateKey, publicKey jwk.Key) func(f http.Handle
 				return
 			}
 
-			claims := token.PrivateClaims()
-			email, ok := claims["email"].(string)
+			email, ok := token.PrivateClaims()["email"].(string)
 			if !ok {
 				s.respond(w, r, "unauthorized", http.StatusUnauthorized)
 				return
