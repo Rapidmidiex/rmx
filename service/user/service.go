@@ -14,7 +14,7 @@ import (
 	"github.com/rog-golang-buddies/rmx/test/mock"
 )
 
-// type contextKey string
+type contextKey string
 
 // func chain(hf http.HandlerFunc, mw ...h.MiddleWare) http.HandlerFunc { return h.Chain(hf, mw...) }
 
@@ -50,7 +50,17 @@ func (s *Service) respond(w http.ResponseWriter, r *http.Request, data any, stat
 	h.Respond(w, r, data, status)
 }
 
+func (s *Service) respondCookie(w http.ResponseWriter, r *http.Request, data any, c *http.Cookie) {
+	http.SetCookie(w, c)
+	s.respond(w, r, data, http.StatusOK)
+}
+
 func (s *Service) created(w http.ResponseWriter, r *http.Request, id string) {
+	h.Created(w, r, id)
+}
+
+func (s *Service) createdCookie(w http.ResponseWriter, r *http.Request, id string, c *http.Cookie) {
+	http.SetCookie(w, c)
 	h.Created(w, r, id)
 }
 
@@ -64,11 +74,19 @@ func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, 
 
 func (s *Service) routes() {
 	s.m.Route("/api/v1/user", func(r chi.Router) {
-		r.Get("/", s.handleUserLogin())
-		r.Post("/", s.handleUserSignUp())
 
 		// health
 		r.Get("/ping", s.handlePing)
+	})
+
+	s.m.Route("/api/v1/auth", func(r chi.Router) {
+		// r.Use(authService.CheckAuth)
+
+		r.Post("/register", s.handleRegistration())
+		r.Get("/refresh", s.handleRefresh())
+
+		r.Post("/login", s.handleLogin())
+		r.Get("/logout", s.handleLogout())
 	})
 }
 
