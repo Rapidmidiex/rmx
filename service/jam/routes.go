@@ -54,7 +54,7 @@ func (s *Service) handleGetRoom() http.HandlerFunc {
 	}
 }
 
-func (s Service) handleListRooms() http.HandlerFunc {
+func (s *Service) handleListRooms() http.HandlerFunc {
 	type response struct {
 		Sessions []session `json:"sessions"`
 	}
@@ -75,7 +75,7 @@ func (s Service) handleListRooms() http.HandlerFunc {
 }
 
 // Works with `chi.With`
-func (s *Service) _connectionPool(p *ws.Pool) func(f http.Handler) http.Handler {
+func (s *Service) connectionPool(p *ws.Pool) func(f http.Handler) http.Handler {
 	return func(f http.Handler) http.Handler {
 		var fn func(w http.ResponseWriter, r *http.Request)
 		if p != nil {
@@ -107,7 +107,7 @@ func (s *Service) _connectionPool(p *ws.Pool) func(f http.Handler) http.Handler 
 	}
 }
 
-func (s Service) _upgradeHTTP(readBuf, writeBuf int) func(f http.Handler) http.Handler {
+func (s *Service) upgradeHTTP(readBuf, writeBuf int) func(f http.Handler) http.Handler {
 	return func(f http.Handler) http.Handler {
 		u := &websocket.Upgrader{
 			ReadBufferSize:  readBuf,
@@ -138,61 +138,7 @@ func (s Service) _upgradeHTTP(readBuf, writeBuf int) func(f http.Handler) http.H
 
 // converting to handler for middleware, in order to use Chi's default type
 
-func (s *Service) connectionPool(p *ws.Pool) func(f http.HandlerFunc) http.HandlerFunc {
-	return func(f http.HandlerFunc) http.HandlerFunc {
-		if p != nil {
-			return func(w http.ResponseWriter, r *http.Request) {
-				f(w, r.WithContext(context.WithValue(r.Context(), roomKey, p)))
-			}
-		}
-
-		return func(w http.ResponseWriter, r *http.Request) {
-			uid, err := s.parseUUID(w, r)
-			if err != nil {
-				s.respond(w, r, err, http.StatusBadRequest)
-				return
-			}
-
-			p, err := s.c.Get(uid)
-			if err != nil {
-				s.respond(w, r, err, http.StatusNotFound)
-				return
-			}
-
-			r = r.WithContext(context.WithValue(r.Context(), roomKey, p))
-			f(w, r)
-		}
-	}
-}
-
-func (s Service) upgradeHTTP(readBuf, writeBuf int) func(f http.HandlerFunc) http.HandlerFunc {
-	return func(f http.HandlerFunc) http.HandlerFunc {
-		u := &websocket.Upgrader{
-			ReadBufferSize:  readBuf,
-			WriteBufferSize: writeBuf,
-			CheckOrigin:     func(r *http.Request) bool { return true },
-		}
-
-		return func(w http.ResponseWriter, r *http.Request) {
-			p := r.Context().Value(roomKey).(*ws.Pool)
-			if p.Size() == p.MaxConn {
-				s.respond(w, r, ws.ErrMaxConn, http.StatusUnauthorized)
-				return
-			}
-
-			c, err := p.NewConn(w, r, u)
-			if err != nil {
-				s.respond(w, r, err, http.StatusInternalServerError)
-				return
-			}
-
-			r = r.WithContext(context.WithValue(r.Context(), upgradeKey, c))
-			f(w, r)
-		}
-	}
-}
-
-func (s Service) handleP2PComms() http.HandlerFunc {
+func (s *Service) handleP2PComms() http.HandlerFunc {
 	// FIXME we will change this as I know this hasn't been
 	// was just my way of getting things working, not yet
 	// full agreement with this.
@@ -252,39 +198,3 @@ func (s Service) handleP2PComms() http.HandlerFunc {
 		}
 	}
 }
-
-/* TODO only here due to testing but will leave out for now
-func (s Service) handleEcho() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		c := r.Context().Value(upgradeKey).(*ws.Conn)
-		defer func() {
-			// ! send error when Leaving session pool
-			c.SendMessage("leave")
-
-			s.l.Println("default leave")
-
-			c.Close()
-		}()
-
-		if err := c.SendMessage("join"); err != nil {
-			s.l.Println(err)
-			return
-		}
-
-		s.l.Println("default join")
-
-		for {
-			var msg any
-			if err := c.ReadJSON(&msg); err != nil {
-				s.l.Println(err)
-				return
-			}
-
-			if err := c.SendMessage(msg); err != nil {
-				s.l.Println(err)
-				return
-			}
-		}
-	}
-}
-*/

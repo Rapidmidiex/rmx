@@ -94,7 +94,7 @@ func (s *Service) routes() {
 
 	// s.m.Get("/ws/jam/{uuid}", chain(s.handleP2PComms(), s.upgradeHTTP(1024, 1024), s.connectionPool(nil)))
 	s.m.Route("/ws/jam", func(r chi.Router) {
-		r = r.With(s._connectionPool(nil), s._upgradeHTTP(1024, 1024))
+		r = r.With(s.connectionPool(nil), s.upgradeHTTP(1024, 1024))
 		r.Get("/{uuid}", s.handleP2PComms())
 	})
 }
