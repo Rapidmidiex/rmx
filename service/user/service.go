@@ -105,7 +105,7 @@ func (s *Service) signedTokens(key jwk.Key, now time.Time, email, uuid string) (
 
 	}
 
-	at, err := jwt.NewBuilder().Subject(uuid).Expiration(now.Add(time.Minute * 5)).Build()
+	at, err := jwb.Subject(uuid).Expiration(now.Add(time.Minute * 5)).Build()
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -116,7 +116,7 @@ func (s *Service) signedTokens(key jwk.Key, now time.Time, email, uuid string) (
 
 	}
 
-	rt, err := jwt.NewBuilder().Subject(uuid).Expiration(now.Add(time.Hour * 24 * 7)).Build()
+	rt, err := jwb.Subject(uuid).Expiration(now.Add(time.Hour * 24 * 7)).Build()
 	if err != nil {
 		return nil, nil, nil, err
 
@@ -138,15 +138,12 @@ func (s *Service) routes() {
 		panic(err)
 	}
 
-	public, err := jwk.PublicKeyOf(private)
+	public, err := private.PublicKey()
 	if err != nil {
 		panic(err)
 	}
 
 	s.m.Route("/api/v1/user", func(r chi.Router) {
-		auth := r.With(s.authenticate(public))
-		auth.Get("/me", s.handleIdentity())
-
 		r.Post("/", s.handleRegistration())
 
 		// health
@@ -157,6 +154,7 @@ func (s *Service) routes() {
 		r.Post("/login", s.handleLogin(private))
 
 		auth := r.With(s.authenticate(public))
+		auth.Get("/me", s.handleIdentity())
 		auth.Get("/refresh", s.handleRefresh())
 		auth.Post("/logout", s.handleLogout())
 	})

@@ -60,10 +60,11 @@ func TestLogin(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// get my user info
-	req, _ := http.NewRequest(http.MethodGet, s.URL+"/api/v1/user/me", nil)
-	req.Header.Set(`Authorization`, fmt.Sprintf(`Bearer %s`, tokens.IDToken))
+	t.Log(tokens)
 
+	// get my user info
+	req, _ := http.NewRequest(http.MethodGet, s.URL+"/api/v1/auth/me", nil)
+	req.Header.Set(`Authorization`, fmt.Sprintf(`Bearer %s`, tokens.AccessToken))
 	r, err = s.Client().Do(req)
 	if err != nil {
 		t.Fatal(err)
