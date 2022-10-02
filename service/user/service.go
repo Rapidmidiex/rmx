@@ -14,6 +14,7 @@ import (
 	h "github.com/hyphengolang/prelude/http"
 
 	"github.com/rog-golang-buddies/rmx/internal"
+	"github.com/rog-golang-buddies/rmx/internal/auth"
 	"github.com/rog-golang-buddies/rmx/internal/suid"
 	"github.com/rog-golang-buddies/rmx/test/mock"
 )
@@ -48,22 +49,24 @@ var (
 )
 
 type Service struct {
-	m chi.Router
-	r internal.UserRepo
+	m  chi.Router
+	ur internal.UserRepo
 
 	l *log.Logger
+
+	ac *auth.Client
 }
 
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.m.ServeHTTP(w, r) }
 
 func NewService(m chi.Router, r internal.UserRepo) *Service {
-	s := &Service{m, r, log.Default()}
+	s := &Service{m: m, ur: r, l: log.Default()}
 	s.routes()
 	return s
 }
 
 func DefaultService() *Service {
-	s := &Service{chi.NewMux(), mock.UserRepo(), log.Default()}
+	s := &Service{m: chi.NewMux(), ur: mock.UserRepo(), l: log.Default()}
 	s.routes()
 	return s
 }
@@ -155,11 +158,33 @@ func (s *Service) routes() {
 
 		auth := r.With(s.authenticate(public))
 		auth.Get("/me", s.handleIdentity())
-		auth.Get("/refresh", s.handleRefresh())
+		auth.Get("/refresh", s.handleRefresh(private))
 		auth.Post("/logout", s.handleLogout())
 	})
 }
 
 func (s *Service) handlePing(w http.ResponseWriter, r *http.Request) {
 	s.respond(w, r, nil, http.StatusNoContent)
+}
+
+type SignupUser struct {
+	Email    internal.Email    `json:"email"`
+	Username string            `json:"username"`
+	Password internal.Password `json:"password"`
+}
+
+func (v SignupUser) decode(iu *internal.User) error {
+	h, err := v.Password.Hash()
+	if err != nil {
+		return err
+	}
+
+	*iu = internal.User{
+		ID:       suid.NewUUID(),
+		Email:    v.Email,
+		Username: v.Username,
+		Password: h,
+	}
+
+	return nil
 }

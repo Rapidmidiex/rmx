@@ -12,6 +12,7 @@ require (
 	github.com/gorilla/websocket v1.5.0
 	github.com/hyphengolang/prelude v0.0.7
 	github.com/lithammer/shortuuid/v4 v4.0.0
+	github.com/pkg/errors v0.9.1
 	github.com/rs/cors v1.8.2
 	github.com/urfave/cli/v2 v2.16.3
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
@@ -21,7 +22,9 @@ require (
 )
 
 require (
+	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0 // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/goccy/go-json v0.9.11 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.1 // indirect
 	github.com/lestrrat-go/httpcc v1.0.1 // indirect
@@ -34,6 +37,7 @@ require (
 	github.com/BurntSushi/toml v1.1.0 // indirect
 	github.com/containerd/console v1.0.3 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
+	github.com/go-redis/redis/v9 v9.0.0-beta.2
 	github.com/lestrrat-go/jwx/v2 v2.0.6
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.16 // indirect
