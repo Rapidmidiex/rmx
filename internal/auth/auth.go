@@ -71,7 +71,18 @@ func (c *Client) SaveRefreshToken() error {
 	return ErrNotImplemented
 }
 
-// -- Sign Tokens --
+func GenerateKeys(secret string) (private, public jwk.Key, err error) {
+	if private, err = jwk.ParseKey([]byte(secret), jwk.WithPEM(true)); err != nil {
+		return nil, nil, err
+	}
+
+	if public, err = private.PublicKey(); err != nil {
+		return nil, nil, err
+	}
+
+	return private, public, nil
+}
+
 func SignToken(key jwk.Key, opt *TokenOption) ([]byte, error) {
 	if !opt.Claim.HasValue() {
 		return nil, fp.ErrTuple

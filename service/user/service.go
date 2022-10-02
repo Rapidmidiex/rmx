@@ -15,7 +15,7 @@ import (
 	"github.com/rog-golang-buddies/rmx/internal/auth"
 	"github.com/rog-golang-buddies/rmx/internal/fp"
 	"github.com/rog-golang-buddies/rmx/internal/suid"
-	"github.com/rog-golang-buddies/rmx/test/mock"
+	"github.com/rog-golang-buddies/rmx/test/mock" // big no-no
 )
 
 // TODO use os/viper to get `key.pem` body
@@ -120,12 +120,7 @@ func (s *Service) signedTokens(key jwk.Key, email, uuid string) (its, ats, rts [
 func (s *Service) routes() {
 	// panic should be ok as we need this to return no error
 	// else it'll completely break our auth model
-	private, err := jwk.ParseKey([]byte(secretTest), jwk.WithPEM(true))
-	if err != nil {
-		panic(err)
-	}
-
-	public, err := private.PublicKey()
+	private, public, err := auth.GenerateKeys(secretTest)
 	if err != nil {
 		panic(err)
 	}
