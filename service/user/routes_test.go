@@ -39,7 +39,7 @@ func TestLogin(t *testing.T) {
 	"password":"difficultPassword"
 }`
 
-	r, err = s.Client().Post(s.URL+"/api/v1/auth/login", "application/json", strings.NewReader(payload))
+	r, err = s.Client().Post(s.URL+"/api/v1/session", "application/json", strings.NewReader(payload))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +63,7 @@ func TestLogin(t *testing.T) {
 	t.Log(tokens)
 
 	// get my user info
-	req, _ := http.NewRequest(http.MethodGet, s.URL+"/api/v1/auth/me", nil)
+	req, _ := http.NewRequest(http.MethodGet, s.URL+"/api/v1/user/me", nil)
 	req.Header.Set(`Authorization`, fmt.Sprintf(`Bearer %s`, tokens.IDToken))
 	r, err = s.Client().Do(req)
 	if err != nil {
@@ -74,7 +74,7 @@ func TestLogin(t *testing.T) {
 		t.Fatalf("expected %d; got %d", http.StatusOK, r.StatusCode)
 	}
 
-	var str string
+	var str any
 	if err := json.NewDecoder(r.Body).Decode(&str); err != nil {
 		t.Fatal(err)
 	}

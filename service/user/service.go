@@ -125,25 +125,32 @@ func (s *Service) routes() {
 		panic(err)
 	}
 
+	// source: https://stackoverflow.com/questions/7140074/restfully-design-login-or-register-resources
+
+	// [ ] GET /user/me ++ get my user details
+	// [ ] GET /user/:uuid ++ get user info
+	// [ ] GET /user ++ get all users
+	// [ ] POST /user ++ register new user
+	// [ ] POST /user/:uuid ++ update information about user
+	// [ ] DELETE /user ++ delete user from database
+	// [ ] GET /session ++ refresh session token
+	// [ ] POST /session ++ create session (due to logging in)
+	// [ ] DELETE /session ++ delete session (due to logging out)
+
 	s.m.Route("/api/v1/user", func(r chi.Router) {
 		r.Post("/", s.handleRegistration())
 
-		// health
-		r.Get("/ping", s.handlePing)
-	})
-
-	s.m.Route("/api/v1/auth", func(r chi.Router) {
-		r.Post("/login", s.handleLogin(private))
-
 		auth := r.With(s.authenticate(public))
 		auth.Get("/me", s.handleIdentity())
-		auth.Get("/refresh", s.handleRefresh(private))
-		auth.Post("/logout", s.handleLogout())
 	})
-}
 
-func (s *Service) handlePing(w http.ResponseWriter, r *http.Request) {
-	s.respond(w, r, nil, http.StatusNoContent)
+	s.m.Route("/api/v1/session", func(r chi.Router) {
+		r.Post("/", s.handleCreateSession(private))
+
+		auth := r.With(s.authenticate(public))
+		auth.Get("/refresh", s.handleRefreshSession(private))
+		auth.Post("/logout", s.handleDeleteSession())
+	})
 }
 
 type SignupUser struct {

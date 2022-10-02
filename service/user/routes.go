@@ -40,7 +40,7 @@ func (s *Service) handleRegistration() http.HandlerFunc {
 			return
 		}
 
-		s.created(w, r, u.ID.String())
+		s.created(w, r, string(u.ID.ShortUUID()))
 	}
 }
 
@@ -48,11 +48,17 @@ func (s *Service) handleIdentity() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		email := r.Context().Value(emailKey).(string)
 
-		s.respond(w, r, email, http.StatusOK)
+		u, err := s.ur.LookupEmail(internal.Email(email))
+		if err != nil {
+			s.respond(w, r, err, http.StatusInternalServerError)
+			return
+		}
+
+		s.respond(w, r, u, http.StatusOK)
 	}
 }
 
-func (s *Service) handleLogin(key jwk.Key) http.HandlerFunc {
+func (s *Service) handleCreateSession(key jwk.Key) http.HandlerFunc {
 	type loginUser struct {
 		Email    internal.Email    `json:"email"`
 		Password internal.Password `json:"password"`
@@ -89,6 +95,7 @@ func (s *Service) handleLogin(key jwk.Key) http.HandlerFunc {
 		}
 
 		cookie := &http.Cookie{
+			Path:     "/user",
 			Name:     cookieName,
 			Value:    string(rts),
 			HttpOnly: true,
@@ -106,7 +113,7 @@ func (s *Service) handleLogin(key jwk.Key) http.HandlerFunc {
 	}
 }
 
-func (s *Service) handleLogout() http.HandlerFunc {
+func (s *Service) handleDeleteSession() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cookie := &http.Cookie{
 			Name:     cookieName,
@@ -122,7 +129,7 @@ func (s *Service) handleLogout() http.HandlerFunc {
 }
 
 // still to develop
-func (s *Service) handleRefresh(privateKey jwk.Key) http.HandlerFunc {
+func (s *Service) handleRefreshSession(privateKey jwk.Key) http.HandlerFunc {
 	type response struct {
 		AccessToken string `json:"accessToken"`
 	}

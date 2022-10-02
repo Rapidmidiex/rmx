@@ -64,11 +64,13 @@ func (r *userRepo) SignUp(u internal.User) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if _, found := r.us[u.ID]; found {
-		return errExists
-	} else {
-		r.us[u.ID] = &u
+	for _, v := range r.us {
+		if v.Username == u.Username {
+			return errExists
+		}
 	}
+
+	r.us[u.ID] = &u
 
 	return nil
 }
