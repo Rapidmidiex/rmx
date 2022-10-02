@@ -5,7 +5,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
@@ -22,8 +21,8 @@ import (
 // )
 
 func main() {
-	if err := initCLI().Run(os.Args); err != nil {
-		// if err := defaultRun(); err != nil {
+	// if err := initCLI().Run(os.Args); err != nil {
+	if err := defaultRun(); err != nil {
 		log.Fatalln(err)
 	}
 }

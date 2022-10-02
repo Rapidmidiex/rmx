@@ -99,7 +99,8 @@ func (s *Service) handleCreateSession(key jwk.Key) http.HandlerFunc {
 			Name:     cookieName,
 			Value:    string(rts),
 			HttpOnly: true,
-			Secure:   r.TLS != nil,
+			Secure:   false,
+			// Secure:   r.TLS != nil,
 			SameSite: http.SameSiteLaxMode,
 			Expires:  time.Now().UTC().Add(time.Hour * 24 * 7),
 		}
@@ -119,7 +120,8 @@ func (s *Service) handleDeleteSession() http.HandlerFunc {
 			Name:     cookieName,
 			Value:    "",
 			HttpOnly: true,
-			Secure:   r.TLS != nil,
+			Secure:   false,
+			// Secure:   r.TLS != nil,
 			SameSite: http.SameSiteLaxMode,
 			Expires:  time.Unix(0, 0),
 		}
@@ -148,7 +150,8 @@ func (s *Service) handleRefreshSession(privateKey jwk.Key) http.HandlerFunc {
 			Name:     cookieName,
 			Value:    "",
 			HttpOnly: true,
-			Secure:   r.TLS != nil,
+			Secure:   false,
+			// Secure:   r.TLS != nil,
 			SameSite: http.SameSiteLaxMode,
 			Expires:  time.Now().UTC().Add(time.Hour * 24 * 7),
 		}
