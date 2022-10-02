@@ -3,6 +3,7 @@ package auth
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"testing"
 
 	"github.com/lestrrat-go/jwx/v2/jwa"
@@ -78,4 +79,27 @@ func TestJWT(t *testing.T) {
 
 	_ = verifiedToken
 	// -- Working with htt.Request --
+}
+
+func TestCerts(t *testing.T) {
+	t.Parallel()
+
+	// c := `../../certs/cert.pem`
+	k := `../../certs/key.pem`
+	buf, err := os.ReadFile(k)
+	if err != nil {
+		t.Fatalf("failed to read file %s\n", err)
+	}
+
+	raw, _, err := jwk.DecodePEM(buf)
+	if err != nil {
+		t.Fatalf("failed to decode PEM key: %s\n", err)
+	}
+
+	private, err := jwk.FromRaw(raw)
+	if err != nil {
+		t.Fatalf("failed to create private key")
+	}
+
+	_ = private
 }

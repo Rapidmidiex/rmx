@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/go-redis/redis/v9"
@@ -69,6 +70,16 @@ func (c *Client) HasClientID(ctx context.Context, id suid.UUID) bool {
 // saveRefreshToken
 func (c *Client) SaveRefreshToken() error {
 	return ErrNotImplemented
+}
+
+// would like to find an alternative to using `os` package
+func LoadPEM(path string) (private, public jwk.Key, err error) {
+	buf, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+
+	return GenerateKeys(string(buf))
 }
 
 func GenerateKeys(secret string) (private, public jwk.Key, err error) {
