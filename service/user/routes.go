@@ -82,8 +82,7 @@ func (s *Service) handleLogin(key jwk.Key) http.HandlerFunc {
 		}
 
 		// -- Generate Tokens --
-		var now = time.Now().UTC()
-		its, ats, rts, err := s.signedTokens(key, now, string(u.Email), u.ID.String())
+		its, ats, rts, err := s.signedTokens(key, string(u.Email), u.ID.String())
 		if err != nil {
 			s.respond(w, r, err, http.StatusInternalServerError)
 			return
@@ -95,7 +94,7 @@ func (s *Service) handleLogin(key jwk.Key) http.HandlerFunc {
 			HttpOnly: true,
 			Secure:   r.TLS != nil,
 			SameSite: http.SameSiteLaxMode,
-			Expires:  now.Add(time.Hour * 24 * 7),
+			Expires:  time.Now().UTC().Add(time.Hour * 24 * 7),
 		}
 
 		var data = authTokens{

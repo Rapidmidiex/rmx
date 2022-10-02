@@ -7,14 +7,13 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwk"
-	"github.com/lestrrat-go/jwx/v2/jwt"
 
 	h "github.com/hyphengolang/prelude/http"
 
 	"github.com/rog-golang-buddies/rmx/internal"
 	"github.com/rog-golang-buddies/rmx/internal/auth"
+	"github.com/rog-golang-buddies/rmx/internal/fp"
 	"github.com/rog-golang-buddies/rmx/internal/suid"
 	"github.com/rog-golang-buddies/rmx/test/mock"
 )
@@ -92,41 +91,26 @@ func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, 
 	return suid.ParseString(chi.URLParam(r, "uuid"))
 }
 
-func (s *Service) signedTokens(key jwk.Key, now time.Time, email, uuid string) (its, ats, rts []byte, err error) {
-	var jwb = jwt.NewBuilder().Issuer("github.com/rog-golang-buddies/rmx").IssuedAt(now).Claim("email", email)
-	// Audience([]string{"http://localhost:3000"}).
-
-	it, err := jwb.Subject(email).Expiration(now.Add(time.Hour * 10)).Build()
-	if err != nil {
-		return nil, nil, nil, err
-
+func (s *Service) signedTokens(key jwk.Key, email, uuid string) (its, ats, rts []byte, err error) {
+	opt := auth.TokenOption{
+		Issuer:     "github.com/rog-golang-buddies/rmx",
+		Subject:    email,
+		Expiration: time.Hour * 10,
+		Claim:      fp.Tuple{"email", email},
 	}
 
-	its, err = jwt.Sign(it, jwt.WithKey(jwa.RS256, key))
-	if err != nil {
-		return nil, nil, nil, err
-
-	}
-
-	at, err := jwb.Subject(uuid).Expiration(now.Add(time.Minute * 5)).Build()
-	if err != nil {
+	if its, err = auth.SignToken(key, &opt); err != nil {
 		return nil, nil, nil, err
 	}
 
-	ats, err = jwt.Sign(at, jwt.WithKey(jwa.RS256, key))
-	if err != nil {
+	opt.Subject = uuid
+	opt.Expiration = time.Minute * 5
+	if ats, err = auth.SignToken(key, &opt); err != nil {
 		return nil, nil, nil, err
-
 	}
 
-	rt, err := jwb.Subject(uuid).Expiration(now.Add(time.Hour * 24 * 7)).Build()
-	if err != nil {
-		return nil, nil, nil, err
-
-	}
-
-	rts, err = jwt.Sign(rt, jwt.WithKey(jwa.RS256, key))
-	if err != nil {
+	opt.Expiration = time.Hour * 24 * 7
+	if rts, err = auth.SignToken(key, &opt); err != nil {
 		return nil, nil, nil, err
 	}
 

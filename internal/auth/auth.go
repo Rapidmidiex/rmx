@@ -5,8 +5,12 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v9"
+	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/pkg/errors"
 	"github.com/rog-golang-buddies/rmx/internal"
+	"github.com/rog-golang-buddies/rmx/internal/fp"
 	"github.com/rog-golang-buddies/rmx/internal/suid"
 )
 
@@ -65,4 +69,38 @@ func (c *Client) HasClientID(ctx context.Context, id suid.UUID) bool {
 // saveRefreshToken
 func (c *Client) SaveRefreshToken() error {
 	return ErrNotImplemented
+}
+
+// -- Sign Tokens --
+func SignToken(key jwk.Key, opt *TokenOption) ([]byte, error) {
+	if !opt.Claim.HasValue() {
+		return nil, fp.ErrTuple
+	}
+
+	var t time.Time
+	if opt.IssuedAt.IsZero() {
+		t = time.Now()
+	} else {
+		t = opt.IssuedAt
+	}
+
+	token, _ := jwt.NewBuilder().
+		Issuer(opt.Issuer).
+		Audience(opt.Audience).
+		Subject(opt.Subject).
+		Claim(opt.Claim[0], opt.Claim[1]).
+		IssuedAt(t).
+		Expiration(t.Add(opt.Expiration)).
+		Build()
+
+	return jwt.Sign(token, jwt.WithKey(jwa.RS256, key))
+}
+
+type TokenOption struct {
+	Issuer     string
+	Audience   []string
+	Subject    string
+	Claim      fp.Tuple
+	IssuedAt   time.Time
+	Expiration time.Duration
 }
