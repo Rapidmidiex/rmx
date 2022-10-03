@@ -69,8 +69,6 @@ func (s *Service) handleCreateSession(key jwk.Key) http.HandlerFunc {
 		AccessToken string `json:"accessToken"`
 	}
 
-	var userPath = "/"
-
 	return func(w http.ResponseWriter, r *http.Request) {
 		var v loginUser
 		if err := s.decode(w, r, &v); err != nil {
@@ -89,7 +87,6 @@ func (s *Service) handleCreateSession(key jwk.Key) http.HandlerFunc {
 			return
 		}
 
-		// -- Generate Tokens --
 		its, ats, rts, err := s.signedTokens(key, string(u.Email), u.ID.String())
 		if err != nil {
 			s.respond(w, r, err, http.StatusInternalServerError)
@@ -97,7 +94,7 @@ func (s *Service) handleCreateSession(key jwk.Key) http.HandlerFunc {
 		}
 
 		cookie := &http.Cookie{
-			Path:     userPath,
+			Path:     "/",
 			Name:     cookieName,
 			Value:    string(rts),
 			HttpOnly: true,
@@ -133,17 +130,15 @@ func (s *Service) handleDeleteSession() http.HandlerFunc {
 	}
 }
 
-// still to develop
+// TODO still to develop
 func (s *Service) handleRefreshSession(key jwk.Key) http.HandlerFunc {
 	type response struct {
 		AccessToken string `json:"accessToken"`
 	}
 
-	var userPath = "/"
-
 	return func(w http.ResponseWriter, r *http.Request) {
 		email := r.Context().Value(emailKey).(string)
-		u, _ := s.ur.LookupEmail(internal.Email(email))
+		u, _ := s.ur.LookupEmail(internal.Email(email)) // NOTE assuming this exists if auth checks passed
 
 		_, ats, rts, err := s.signedTokens(key, email, u.ID.String())
 		if err != nil {
@@ -151,11 +146,11 @@ func (s *Service) handleRefreshSession(key jwk.Key) http.HandlerFunc {
 			return
 		}
 
-		// I should be able to assume that this exists, else just renew
+		// NOTE I should be able to assume that this exists, else just renew
 		var c *http.Cookie
 		if c, err = r.Cookie(cookieName); err != nil {
 			c = &http.Cookie{
-				Path:     userPath,
+				Path:     "/",
 				Name:     cookieName,
 				Value:    string(rts),
 				HttpOnly: true,
@@ -178,9 +173,12 @@ func (s *Service) handleRefreshSession(key jwk.Key) http.HandlerFunc {
 }
 
 func (s *Service) authenticate(publicKey jwk.Key) func(f http.Handler) http.Handler {
+	// auth.Authenticate(s, publicKey, cookieName, emailKey)
+
 	return func(f http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
-			token, err := jwt.ParseRequest(r, jwt.WithHeaderKey("Authorization"), jwt.WithHeaderKey(cookieName), jwt.WithKey(jwa.RS256, publicKey), jwt.WithValidate(true))
+			// token, err := jwt.ParseRequest(r, jwt.WithHeaderKey("Authorization"), jwt.WithHeaderKey(cookieName), jwt.WithKey(jwa.RS256, publicKey), jwt.WithValidate(true))
+			token, err := jwt.ParseRequest(r, jwt.WithKey(jwa.RS256, publicKey))
 			if err != nil {
 				s.respond(w, r, err, http.StatusUnauthorized)
 				return
@@ -192,7 +190,7 @@ func (s *Service) authenticate(publicKey jwk.Key) func(f http.Handler) http.Hand
 				return
 			}
 
-			// Convert email from `string` type to `internal.Email` ?
+			// NOTE convert email from `string` type to `internal.Email` ?
 			r = r.WithContext(context.WithValue(r.Context(), emailKey, email))
 			f.ServeHTTP(w, r)
 		}
