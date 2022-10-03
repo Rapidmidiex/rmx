@@ -121,6 +121,17 @@ func (s *Service) signedTokens(key jwk.Key, email, uuid string) (its, ats, rts [
 	return its, ats, rts, nil
 }
 
+// source: https://stackoverflow.com/questions/7140074/restfully-design-login-or-register-resources
+//
+//	[+] GET /user/me - get my user details
+//	[-] GET /user/{uuid} - get user info
+//	[-] GET /user - get all users
+//	[+] POST /user - register new user
+//	[ ] POST /user/{uuid} - update information about user
+//	[ ] DELETE /user - delete user from database
+//	[+] GET /session - refresh session token
+//	[+] POST /session - create session (due to logging in)
+//	[+] DELETE /session - delete session (due to logging out)
 func (s *Service) routes() {
 	// panic should be ok as we need this to return no error
 	// else it'll completely break our auth model
@@ -128,18 +139,6 @@ func (s *Service) routes() {
 	if err != nil {
 		panic(err)
 	}
-
-	// source: https://stackoverflow.com/questions/7140074/restfully-design-login-or-register-resources
-
-	// [+] GET /user/me - get my user details
-	// [-] GET /user/{uuid} - get user info
-	// [-] GET /user - get all users
-	// [+] POST /user - register new user
-	// [ ] POST /user/{uuid} - update information about user
-	// [ ] DELETE /user - delete user from database
-	// [+] GET /session - refresh session token
-	// [+] POST /session - create session (due to logging in)
-	// [+] DELETE /session - delete session (due to logging out)
 
 	s.m.Route("/api/v1/user", func(r chi.Router) {
 		r.Post("/", s.handleRegistration())
@@ -153,7 +152,7 @@ func (s *Service) routes() {
 	s.m.Route("/api/v1/session", func(r chi.Router) {
 		r.Post("/", s.handleCreateSession(private))
 
-		auth := r.With(s.authenticate(public))
+		auth := r.With(s.authenticate(public)) // may not need the key?
 		auth.Get("/", s.handleRefreshSession(private))
 		auth.Delete("/", s.handleDeleteSession())
 	})
