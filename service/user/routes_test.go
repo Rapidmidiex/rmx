@@ -60,8 +60,6 @@ func TestLogin(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Log(tokens)
-
 	// get my user info
 	req, _ := http.NewRequest(http.MethodGet, s.URL+"/api/v1/user/me", nil)
 	req.Header.Set(`Authorization`, fmt.Sprintf(`Bearer %s`, tokens.IDToken))
@@ -78,8 +76,6 @@ func TestLogin(t *testing.T) {
 	if err := json.NewDecoder(r.Body).Decode(&str); err != nil {
 		t.Fatal(err)
 	}
-
-	t.Log(str)
 }
 
 func TestAuthMe(t *testing.T) {
