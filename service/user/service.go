@@ -18,6 +18,10 @@ import (
 	"github.com/rog-golang-buddies/rmx/test/mock" // big no-no
 )
 
+const (
+	cookieName = "RMX_ACCESS_TOKEN"
+)
+
 // TODO use os/viper to get `key.pem` body
 var secretTest = `-----BEGIN PRIVATE KEY-----
 MIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAML5MHFgqUlZcENS
@@ -127,18 +131,20 @@ func (s *Service) routes() {
 
 	// source: https://stackoverflow.com/questions/7140074/restfully-design-login-or-register-resources
 
-	// [ ] GET /user/me ++ get my user details
-	// [ ] GET /user/:uuid ++ get user info
-	// [ ] GET /user ++ get all users
-	// [ ] POST /user ++ register new user
-	// [ ] POST /user/:uuid ++ update information about user
-	// [ ] DELETE /user ++ delete user from database
-	// [ ] GET /session ++ refresh session token
-	// [ ] POST /session ++ create session (due to logging in)
-	// [ ] DELETE /session ++ delete session (due to logging out)
+	// [+] GET /user/me - get my user details
+	// [-] GET /user/{uuid} - get user info
+	// [-] GET /user - get all users
+	// [+] POST /user - register new user
+	// [ ] POST /user/{uuid} - update information about user
+	// [ ] DELETE /user - delete user from database
+	// [+] GET /session - refresh session token
+	// [+] POST /session - create session (due to logging in)
+	// [+] DELETE /session - delete session (due to logging out)
 
 	s.m.Route("/api/v1/user", func(r chi.Router) {
 		r.Post("/", s.handleRegistration())
+		r.Get("/", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNotImplemented) })
+		r.Get("/{uuid}", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNotImplemented) })
 
 		auth := r.With(s.authenticate(public))
 		auth.Get("/me", s.handleIdentity())
@@ -148,8 +154,8 @@ func (s *Service) routes() {
 		r.Post("/", s.handleCreateSession(private))
 
 		auth := r.With(s.authenticate(public))
-		auth.Get("/refresh", s.handleRefreshSession(private))
-		auth.Post("/logout", s.handleDeleteSession())
+		auth.Get("/", s.handleRefreshSession(private))
+		auth.Delete("/", s.handleDeleteSession())
 	})
 }
 

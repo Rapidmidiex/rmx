@@ -17,10 +17,10 @@ type JamRepo interface {
 }
 
 type User struct {
-	ID       suid.UUID
-	Email    Email
-	Username string
-	Password PasswordHash
+	ID       suid.UUID    `json:"id"`
+	Email    Email        `json:"email"`
+	Username string       `json:"username"`
+	Password PasswordHash `json:"-"`
 }
 
 type UserRepo interface {

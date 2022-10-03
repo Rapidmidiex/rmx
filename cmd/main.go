@@ -33,9 +33,9 @@ func defaultRun() error {
 
 	// ? should this defined within the instantiation of a new service
 	c := cors.Options{
-		AllowedOrigins:   []string{"*"}, // ? band-aid, needs to change to a flag
+		AllowedOrigins:   []string{"http://localhost:8000"}, // ? band-aid, needs to change to a flag
 		AllowCredentials: true,
-		AllowedMethods:   []string{http.MethodGet, http.MethodPost},
+		AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodDelete},
 		AllowedHeaders:   []string{"Origin", "Content-Type", "Accept", "Authorization"},
 	}
 
