@@ -82,12 +82,10 @@ func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, 
 	return suid.ParseString(chi.URLParam(r, "uuid"))
 }
 
-func (s *Service) signedTokens(key jwk.Key, email, uuid string) (its, ats, rts []byte, err error) {
-	// new client ID for tracking user connections
-	cid := suid.NewSUID()
+func (s *Service) signedTokens(key jwk.Key, email, cid string) (its, ats, rts []byte, err error) {
 	opt := auth.TokenOption{
 		Issuer:     "github.com/rog-golang-buddies/rmx",
-		Subject:    cid.String(),
+		Subject:    cid,
 		Expiration: time.Hour * 10,
 		Claims:     []fp.Tuple{{"email", email}},
 	}
@@ -96,7 +94,6 @@ func (s *Service) signedTokens(key jwk.Key, email, uuid string) (its, ats, rts [
 		return nil, nil, nil, err
 	}
 
-	opt.Subject = uuid
 	opt.Expiration = auth.AccessTokenExpiry
 	if ats, err = auth.SignToken(&key, &opt); err != nil {
 		return nil, nil, nil, err

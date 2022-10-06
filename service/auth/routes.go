@@ -6,6 +6,7 @@ import (
 
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/rog-golang-buddies/rmx/internal/dto"
+	"github.com/rog-golang-buddies/rmx/internal/suid"
 	"github.com/rog-golang-buddies/rmx/service/internal/auth"
 )
 
@@ -77,8 +78,11 @@ func (s *Service) handleSignIn(key jwk.Key) http.HandlerFunc {
 			return
 		}
 
+		// new Client ID since it's a new login request for a new connection
+		cid := suid.NewSUID()
+
 		// Generate new JWT tokens
-		its, ats, rts, err := s.signedTokens(key, string(ui.Email), ui.ID.String())
+		its, ats, rts, err := s.signedTokens(key, string(ui.Email), cid.String())
 		if err != nil {
 			s.respond(w, r, err, http.StatusInternalServerError)
 			return
@@ -151,13 +155,10 @@ func (s *Service) handleRefreshToken(key jwk.Key) http.HandlerFunc {
 			return
 		}
 
-		ui, err := s.ur.LookupEmail(email)
-		if err != nil {
-			s.respond(w, r, err, http.StatusInternalServerError)
-			return
-		}
+		// use the same Client ID since it's a refresh token request
+		cid := tc.Subject()
 
-		_, ats, rts, err := s.signedTokens(key, email, ui.ID.String())
+		_, ats, rts, err := s.signedTokens(key, email, cid)
 		if err != nil {
 			s.respond(w, r, err, http.StatusInternalServerError)
 			return
