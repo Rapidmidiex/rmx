@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/rog-golang-buddies/rmx/internal/dto"
 	"github.com/rog-golang-buddies/rmx/internal/is"
+	"github.com/rog-golang-buddies/rmx/store/db/v2/user"
 )
 
 const applicationJson = "application/json"
@@ -17,9 +17,8 @@ const applicationJson = "application/json"
 var s http.Handler
 
 func init() {
-	var r dto.WUserRepo
 
-	s = NewService(context.Background(), chi.NewMux(), r)
+	s = NewService(context.Background(), chi.NewMux(), user.MapRepo)
 }
 
 func TestService(t *testing.T) {
@@ -34,10 +33,10 @@ func TestService(t *testing.T) {
 		{
 			"email":"fizz@gmail.com",
 			"username":"fizz_user",
-			"password:"fizz_$PW_10"
+			"password":"fizz_$PW_10"
 		}`
 
-		res, _ := srv.Client().Post(srv.URL+"/", applicationJson, strings.NewReader(payload))
+		res, _ := srv.Client().Post(srv.URL+"/api/v2/account/signup", applicationJson, strings.NewReader(payload))
 		is.Equal(res.StatusCode, http.StatusCreated)
 	})
 }
