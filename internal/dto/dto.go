@@ -1,6 +1,7 @@
 package dto
 
 import (
+	"context"
 	"errors"
 	"net/mail"
 
@@ -41,14 +42,14 @@ type UserRepo interface {
 }
 
 type RUserRepo interface {
-	Lookup(uid *suid.UUID) (User, error)
-	LookupEmail(email string) (User, error)
-	ListAll() ([]User, error)
+	// Lookup(uid *suid.UUID) (User, error)
+	// LookupEmail(email string) (User, error)
+	// ListAll() ([]User, error)
 }
 
 type WUserRepo interface {
-	Add(u *User) error
-	Remove(uid *suid.UUID) error
+	Insert(ctx context.Context, u *User) error
+	// Remove(uid *suid.UUID) error
 }
 
 /*

@@ -104,6 +104,7 @@ type RUserRepo interface {
 	// Lookup(uid *suid.UUID) (User, error)
 	// LookupEmail(email string) (User, error)
 	// ListAll() ([]User, error)
+	Select(ctx context.Context, key any) (*User, error)
 }
 
 type WUserRepo interface {
@@ -137,16 +138,16 @@ func (e *Email) UnmarshalJSON(b []byte) error {
 }
 
 // during production, this value needs to be > 40
-const minEntropy float64 = 10.0
+const minEntropy float64 = 50.0
 
 // Custom password type required
 type Password string
 
-func (p *Password) String() string { return string(*p) }
+func (p Password) String() string { return string(p) }
 
-func (p *Password) IsValid() bool { return p.Valid() == nil }
+func (p Password) IsValid() bool { return p.Valid() == nil }
 
-func (p *Password) Valid() error {
+func (p Password) Valid() error {
 	return gpv.Validate(p.String(), minEntropy)
 }
 
@@ -155,7 +156,7 @@ func (p *Password) UnmarshalJSON(b []byte) error {
 	return p.Valid()
 }
 
-func (p *Password) MarshalJSON() (b []byte, err error) {
+func (p Password) MarshalJSON() (b []byte, err error) {
 	var sb strings.Builder
 	sb.WriteRune('"')
 	sb.WriteString(p.String())
@@ -163,15 +164,22 @@ func (p *Password) MarshalJSON() (b []byte, err error) {
 	return []byte(sb.String()), nil
 }
 
-func (p *Password) Hash() (PasswordHash, error) { return newPasswordHash(*p) }
+func (p Password) Hash() (PasswordHash, error) {
+	return bcrypt.GenerateFromPassword([]byte(p), bcrypt.DefaultCost)
+}
+
+func (p Password) MustHash() PasswordHash {
+	h, err := p.Hash()
+	if err != nil {
+		panic(err)
+	}
+
+	return h
+}
 
 type PasswordHash []byte
 
 func (h *PasswordHash) String() string { return string(*h) }
-
-func newPasswordHash(pw Password) (PasswordHash, error) {
-	return bcrypt.GenerateFromPassword([]byte(pw), bcrypt.DefaultCost)
-}
 
 func (h *PasswordHash) Compare(cmp string) error {
 	return bcrypt.CompareHashAndPassword(*h, []byte(cmp))
