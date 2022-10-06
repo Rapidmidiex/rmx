@@ -111,6 +111,7 @@ type WUserRepo interface {
 	// Remove(uid *suid.UUID) error
 }
 
+// Custom user type required
 type User struct {
 	ID       suid.UUID    `json:"id"`
 	Username string       `json:"username"`
@@ -127,10 +128,7 @@ func (e *Email) IsValid() bool { return e.Valid() == nil }
 
 func (e *Email) Valid() error {
 	_, err := mail.ParseAddress(e.String())
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func (e *Email) UnmarshalJSON(b []byte) error {
@@ -160,7 +158,7 @@ func (p *Password) UnmarshalJSON(b []byte) error {
 func (p *Password) MarshalJSON() (b []byte, err error) {
 	var sb strings.Builder
 	sb.WriteRune('"')
-	sb.WriteString(string(*p))
+	sb.WriteString(p.String())
 	sb.WriteRune('"')
 	return []byte(sb.String()), nil
 }
