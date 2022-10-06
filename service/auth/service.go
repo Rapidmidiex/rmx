@@ -88,8 +88,15 @@ func (s *Service) handleRefresh(key jwk.Key) http.HandlerFunc {
 
 		err := s.tc.ValidateRefreshToken(r.Context(), k.Value)
 		if err != nil {
-			s.respond(w, r, err, http.StatusTeapot)
+			s.respond(w, r, err, http.StatusInternalServerError)
 			return
+		}
+
+		// token validated, now it should be set inside blacklist
+		// this prevents token reuse
+		err = s.tc.BlackListRefreshToken(r.Context(), k.Value)
+		if err != nil {
+			s.respond(w, r, err, http.StatusInternalServerError)
 		}
 
 		id, _ := suid.ParseString(j.Subject())
