@@ -19,7 +19,6 @@ const applicationJson = "application/json"
 var s http.Handler
 
 func init() {
-
 	s = NewService(context.Background(), chi.NewMux(), user.MapRepo)
 }
 

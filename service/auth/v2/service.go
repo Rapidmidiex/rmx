@@ -29,15 +29,19 @@ var (
 /*
 Register a new user
 
-	[?] POST /auth/register
+	[?] POST /auth/sign-up
+
+Get current account identity
+
+	[?] GET /account/me
 
 Create a cookie
 
-	[?] POST /auth/login
+	[?] POST /auth/sign-in
 
 Delete a cookie
 
-	[ ] DELETE /auth/logout
+	[?] DELETE /auth/sign-out
 
 Refresh token
 
@@ -50,12 +54,31 @@ func (s *Service) routes() {
 		r.Post("/sign-in", s.handleSignIn(key.Private()))
 		r.Delete("/sign-out", s.handleSignOut())
 		r.Post("/sign-up", s.handleSignUp())
+
+		r.Get("/refresh", s.handleRefresh(key.Private()))
 	})
 
 	s.m.Route("/api/v2/account", func(r chi.Router) {
 		auth := r.With(auth.Authenticate(jwa.ES256, key.Public()))
 		auth.Get("/me", s.handleIdentity())
 	})
+}
+
+func (s *Service) handleRefresh(key jwk.Key) http.HandlerFunc {
+	type token struct {
+		AccessToken string `json:"accessToken"`
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		c, err := r.Cookie(auth.RefreshTokenCookieName)
+		if err != nil {
+			s.respond(w, r, err, http.StatusUnauthorized)
+			return
+		}
+
+		s.setCookie(w, c)
+		s.respond(w, r, nil, http.StatusNotImplemented)
+	}
 }
 
 func (s *Service) handleIdentity() http.HandlerFunc {
@@ -73,7 +96,7 @@ func (s *Service) handleIdentity() http.HandlerFunc {
 }
 
 func (s *Service) handleSignIn(privateKey jwk.Key) http.HandlerFunc {
-	type tokens struct {
+	type token struct {
 		IDToken     string `json:"idToken"`
 		AccessToken string `json:"accessToken"`
 	}
@@ -96,7 +119,7 @@ func (s *Service) handleSignIn(privateKey jwk.Key) http.HandlerFunc {
 			return
 		}
 
-		its, ats, rts, err := s.signedTokens(privateKey, u.Email.String(), u.ID.String())
+		its, ats, rts, err := s.signedTokens(privateKey, u.Email.String(), suid.NewUUID())
 		if err != nil {
 			s.respond(w, r, err, http.StatusInternalServerError)
 			return
@@ -112,7 +135,7 @@ func (s *Service) handleSignIn(privateKey jwk.Key) http.HandlerFunc {
 			MaxAge:   int(auth.RefreshTokenExpiry),
 		}
 
-		tk := &tokens{
+		tk := &token{
 			IDToken:     string(its),
 			AccessToken: string(ats),
 		}
@@ -196,12 +219,11 @@ func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, 
 	return suid.ParseString(chi.URLParam(r, "uuid"))
 }
 
-func (s *Service) signedTokens(key jwk.Key, email, uuid string) (its, ats, rts []byte, err error) {
-	// new client ID for tracking user connections
-	cid := suid.NewSUID()
+// TODO there is two cid's being used here, need clarification
+func (s *Service) signedTokens(key jwk.Key, email string, uuid suid.UUID) (its, ats, rts []byte, err error) {
 	opt := auth.TokenOption{
 		Issuer:     "github.com/rog-golang-buddies/rmx",
-		Subject:    cid.String(),
+		Subject:    uuid.String(), // new client ID for tracking user connections
 		Expiration: time.Hour * 10,
 		Claims:     []fp.Tuple{{"email", email}},
 		Algo:       jwa.ES256,
@@ -211,7 +233,6 @@ func (s *Service) signedTokens(key jwk.Key, email, uuid string) (its, ats, rts [
 		return nil, nil, nil, err
 	}
 
-	opt.Subject = uuid
 	opt.Expiration = time.Minute * 5
 	if ats, err = auth.SignToken(key, &opt); err != nil {
 		return nil, nil, nil, err
