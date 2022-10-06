@@ -5,12 +5,17 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/lestrrat-go/jwx/v2/jwk"
 
 	h "github.com/hyphengolang/prelude/http"
 
 	"github.com/rog-golang-buddies/rmx/internal"
+	"github.com/rog-golang-buddies/rmx/internal/auth"
+	"github.com/rog-golang-buddies/rmx/internal/fp"
 	"github.com/rog-golang-buddies/rmx/internal/suid"
 	// big no-no
 )
@@ -24,11 +29,11 @@ var (
 /*
 Register a new user
 
-	[ ] POST /auth/register
+	[?] POST /auth/register
 
 Create a cookie
 
-	[ ] POST /auth/login
+	[?] POST /auth/login
 
 Delete a cookie
 
@@ -39,13 +44,84 @@ Refresh token
 	[ ] GET /auth/refresh
 */
 func (s *Service) routes() {
+	key := auth.NewPairES256()
+
 	s.m.Route("/api/v2/auth", func(r chi.Router) {
-		// tokens
+		r.Post("/sign-in", s.handleSignIn(key.Private()))
+		r.Delete("/sign-out", s.handleSignOut())
 	})
 
 	s.m.Route("/api/v2/account", func(r chi.Router) {
-		r.Post("/signup", s.handleSignUp())
+		r.Post("/sign-up", s.handleSignUp())
 	})
+}
+
+func (s *Service) handleSignIn(privateKey jwk.Key) http.HandlerFunc {
+	type tokens struct {
+		IDToken     string `json:"idToken"`
+		AccessToken string `json:"accessToken"`
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		var dto User
+		if err := s.decode(w, r, &dto); err != nil {
+			s.respond(w, r, err, http.StatusBadRequest)
+			return
+		}
+
+		u, err := s.r.Select(r.Context(), dto.Email)
+		if err != nil {
+			s.respond(w, r, err, http.StatusNotFound)
+			return
+		}
+
+		if err := u.Password.Compare(dto.Password.String()); err != nil {
+			s.respond(w, r, err, http.StatusUnauthorized)
+			return
+		}
+
+		its, ats, rts, err := s.signedTokens(privateKey, u.Email.String(), u.ID.String())
+		if err != nil {
+			s.respond(w, r, err, http.StatusInternalServerError)
+			return
+		}
+
+		c := &http.Cookie{
+			Path:     "/",
+			Name:     auth.RefreshTokenCookieName,
+			Value:    string(rts),
+			HttpOnly: true,
+			Secure:   r.TLS != nil,
+			SameSite: http.SameSiteLaxMode,
+			MaxAge:   int(auth.RefreshTokenExpiry),
+		}
+
+		tk := &tokens{
+			IDToken:     string(its),
+			AccessToken: string(ats),
+		}
+
+		s.setCookie(w, c)
+		s.respond(w, r, tk, http.StatusOK)
+	}
+}
+
+// Account Sign Out handler
+// removes the Refresh Token by setting its MaxAge property to -1
+func (s *Service) handleSignOut() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		c := &http.Cookie{
+			Path:     "/",
+			Name:     auth.RefreshTokenCookieName,
+			HttpOnly: true,
+			// Secure:   r.TLS != nil,
+			// SameSite: http.SameSiteLaxMode,
+			MaxAge: -1,
+		}
+
+		s.setCookie(w, c)
+		s.respond(w, r, http.StatusText(http.StatusOK), http.StatusOK)
+	}
 }
 
 func (s *Service) handleSignUp() http.HandlerFunc {
@@ -69,7 +145,7 @@ type Service struct {
 	ctx context.Context
 
 	m chi.Router
-	r internal.WUserRepo
+	r internal.UserRepo
 
 	log  func(...any)
 	logf func(string, ...any)
@@ -106,9 +182,38 @@ func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, 
 	return suid.ParseString(chi.URLParam(r, "uuid"))
 }
 
+func (s *Service) signedTokens(key jwk.Key, email, uuid string) (its, ats, rts []byte, err error) {
+	// new client ID for tracking user connections
+	cid := suid.NewSUID()
+	opt := auth.TokenOption{
+		Issuer:     "github.com/rog-golang-buddies/rmx",
+		Subject:    cid.String(),
+		Expiration: time.Hour * 10,
+		Claims:     []fp.Tuple{{"email", email}},
+		Algo:       jwa.ES256,
+	}
+
+	if its, err = auth.SignToken(key, &opt); err != nil {
+		return nil, nil, nil, err
+	}
+
+	opt.Subject = uuid
+	opt.Expiration = time.Minute * 5
+	if ats, err = auth.SignToken(key, &opt); err != nil {
+		return nil, nil, nil, err
+	}
+
+	opt.Expiration = time.Hour * 24 * 7
+	if rts, err = auth.SignToken(key, &opt); err != nil {
+		return nil, nil, nil, err
+	}
+
+	return its, ats, rts, nil
+}
+
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.m.ServeHTTP(w, r) }
 
-func NewService(ctx context.Context, m chi.Router, r internal.WUserRepo) *Service {
+func NewService(ctx context.Context, m chi.Router, r internal.UserRepo) *Service {
 	s := &Service{
 		ctx,
 
@@ -126,6 +231,13 @@ func NewService(ctx context.Context, m chi.Router, r internal.WUserRepo) *Servic
 
 	s.routes()
 	return s
+}
+
+func (s *Service) Context() context.Context {
+	if s.ctx != nil {
+		return s.ctx
+	}
+	return context.Background()
 }
 
 type User struct {
