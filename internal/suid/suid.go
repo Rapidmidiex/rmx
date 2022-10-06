@@ -23,6 +23,8 @@ func ParseString(s string) (UUID, error) {
 	return UUID{uid}, err
 }
 
+func (s SUID) String() string { return string(s) }
+
 func (s SUID) UUID() (UUID, error) {
 	u, err := suid.DefaultEncoder.Decode(string(s))
 	return UUID{u}, err

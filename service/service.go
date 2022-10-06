@@ -6,7 +6,7 @@ import (
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
-	"github.com/rog-golang-buddies/rmx/internal"
+	"github.com/rog-golang-buddies/rmx/internal/dto"
 	"github.com/rog-golang-buddies/rmx/service/jam"
 	"github.com/rog-golang-buddies/rmx/service/user"
 
@@ -20,7 +20,7 @@ type Service struct {
 
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.m.ServeHTTP(w, r) }
 
-func New(m chi.Router, ur internal.UserRepo) *Service {
+func New(m chi.Router, ur dto.UserRepo) *Service {
 	s := &Service{m, log.Default()}
 
 	// NOTE unsure how much is gained using a goroutine

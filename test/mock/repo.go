@@ -4,7 +4,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/rog-golang-buddies/rmx/internal"
+	"github.com/rog-golang-buddies/rmx/internal/dto"
 	"github.com/rog-golang-buddies/rmx/internal/suid"
 	"golang.org/x/exp/maps"
 )
@@ -17,50 +17,50 @@ var (
 
 type userRepo struct {
 	mu sync.Mutex
-	us map[suid.UUID]*internal.User
+	us map[suid.UUID]dto.User
 }
 
 func UserRepo() *userRepo {
 	r := &userRepo{
-		us: map[suid.UUID]*internal.User{},
+		us: map[suid.UUID]dto.User{},
 	}
 	return r
 }
 
-func (r *userRepo) ListAll() ([]*internal.User, error) {
+func (r *userRepo) ListAll() ([]dto.User, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	return maps.Values(r.us), nil
 }
 
-func (r *userRepo) Lookup(uid suid.UUID) (*internal.User, error) {
+func (r *userRepo) Lookup(uid *suid.UUID) (dto.User, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	for _, u := range r.us {
-		if u.ID == uid {
+		if &u.ID == uid {
 			return u, nil
 		}
 	}
 
-	return nil, errNotFound
+	return dto.User{}, errNotFound
 }
 
-func (r *userRepo) LookupEmail(email internal.Email) (*internal.User, error) {
+func (r *userRepo) LookupEmail(email string) (dto.User, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	for _, u := range r.us {
-		if u.Email == email {
+		if string(u.Email) == email {
 			return u, nil
 		}
 	}
 
-	return nil, errNotFound
+	return dto.User{}, errNotFound
 }
 
-func (r *userRepo) SignUp(u internal.User) error {
+func (r *userRepo) Add(u *dto.User) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -70,7 +70,11 @@ func (r *userRepo) SignUp(u internal.User) error {
 		}
 	}
 
-	r.us[u.ID] = &u
+	r.us[u.ID] = *u
 
+	return nil
+}
+
+func (r *userRepo) Remove(uid *suid.UUID) error {
 	return nil
 }

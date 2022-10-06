@@ -28,12 +28,20 @@ func main() {
 }
 
 func defaultRun() error {
-	sCtx, cancel := signal.NotifyContext(context.Background(), syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	sCtx, cancel := signal.NotifyContext(
+		context.Background(),
+		syscall.SIGHUP,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT,
+	)
 	defer cancel()
 
 	// ? should this defined within the instantiation of a new service
 	c := cors.Options{
-		AllowedOrigins:   []string{"http://localhost:8000"}, // ? band-aid, needs to change to a flag
+		AllowedOrigins: []string{
+			"http://localhost:8000",
+		}, // ? band-aid, needs to change to a flag
 		AllowCredentials: true,
 		AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodDelete},
 		AllowedHeaders:   []string{"Origin", "Content-Type", "Accept", "Authorization"},
@@ -75,7 +83,13 @@ func defaultRun() error {
 }
 
 func run(cfg *Config) error {
-	sCtx, cancel := signal.NotifyContext(context.Background(), syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	sCtx, cancel := signal.NotifyContext(
+		context.Background(),
+		syscall.SIGHUP,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT,
+	)
 	defer cancel()
 
 	// ? should this defined within the instantiation of a new service

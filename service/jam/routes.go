@@ -63,8 +63,11 @@ func (s *Service) handleListRooms() http.HandlerFunc {
 		v := &response{
 			Sessions: fp.FMap(s.c.List(), func(p *ws.Pool) session {
 				return session{
-					ID:        p.ID.ShortUUID(),
-					Users:     fp.FMap(p.Keys(), func(uid suid.UUID) suid.SUID { return uid.ShortUUID() }),
+					ID: p.ID.ShortUUID(),
+					Users: fp.FMap(
+						p.Keys(),
+						func(uid suid.UUID) suid.SUID { return uid.ShortUUID() },
+					),
 					UserCount: p.Size(),
 				}
 			}),

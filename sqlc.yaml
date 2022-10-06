@@ -1,12 +1,12 @@
 version: '2'
 sql:
-    - schema: 'db/schema/user_schema.sql'
-      queries: 'db/schema/user_query.sql'
+    - schema: 'store/db/schema/user_schema.sql'
+      queries: 'store/db/schema/user_query.sql'
       engine: 'mysql'
       gen:
           go:
               package: 'user'
-              out: 'db/user'
+              out: 'store/db/user'
               emit_db_tags: true
               emit_prepared_queries: true
               emit_empty_slices: true
