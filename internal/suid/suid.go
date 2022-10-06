@@ -23,6 +23,14 @@ func ParseString(s string) (UUID, error) {
 	return UUID{uid}, err
 }
 
+func MustParse(s string) UUID {
+	uid, err := ParseString(s)
+	if err != nil {
+		panic(err)
+	}
+	return uid
+}
+
 func (s SUID) String() string { return string(s) }
 
 func (s SUID) UUID() (UUID, error) {
