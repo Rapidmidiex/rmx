@@ -17,7 +17,7 @@ func Authenticate(publicKey jwk.Key) func(f http.Handler) http.Handler {
 	return func(f http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
 			// token, err := jwt.ParseRequest(r, jwt.WithHeaderKey("Authorization"), jwt.WithHeaderKey(cookieName), jwt.WithKey(jwa.RS256, publicKey), jwt.WithValidate(true))
-			token, err := jwt.ParseRequest(r, jwt.WithKey(jwa.RS256, publicKey))
+			token, err := jwt.ParseRequest(r, jwt.WithKey(jwa.ES256, publicKey))
 			if err != nil {
 				w.WriteHeader(http.StatusUnauthorized)
 				return
