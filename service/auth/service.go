@@ -99,9 +99,8 @@ func (s *Service) handleRefresh(key jwk.Key) http.HandlerFunc {
 			s.respond(w, r, err, http.StatusInternalServerError)
 		}
 
-		id, _ := suid.ParseString(j.Subject())
-
-		_, ats, rts, err := s.signedTokens(key, e.String(), id)
+		cid := j.Subject()
+		_, ats, rts, err := s.signedTokens(key, e.String(), suid.SUID(cid))
 		if err != nil {
 			s.respond(w, r, err, http.StatusInternalServerError)
 			return
@@ -164,7 +163,7 @@ func (s *Service) handleSignIn(privateKey jwk.Key) http.HandlerFunc {
 			return
 		}
 
-		its, ats, rts, err := s.signedTokens(privateKey, u.Email.String(), suid.NewUUID())
+		its, ats, rts, err := s.signedTokens(privateKey, u.Email.String(), suid.NewSUID())
 		if err != nil {
 			s.respond(w, r, err, http.StatusInternalServerError)
 			return
@@ -270,11 +269,11 @@ func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, 
 func (s *Service) signedTokens(
 	key jwk.Key,
 	email string,
-	uuid suid.UUID,
+	cid suid.SUID,
 ) (its, ats, rts []byte, err error) {
 	opt := auth.TokenOption{
 		Issuer:     "github.com/rog-golang-buddies/rmx",
-		Subject:    uuid.String(), // new client ID for tracking user connections
+		Subject:    cid.String(), // new client ID for tracking user connections
 		Expiration: time.Hour * 10,
 		Claims:     []fp.Tuple{{"email", email}},
 		Algo:       jwa.ES256,
