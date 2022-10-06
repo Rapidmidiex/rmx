@@ -28,7 +28,7 @@ func TestService(t *testing.T) {
 	srv := httptest.NewServer(s)
 	t.Cleanup(func() { srv.Close() })
 
-	t.Run("register a enw user", func(t *testing.T) {
+	t.Run("register a new user", func(t *testing.T) {
 		payload := `
 		{
 			"email":"fizz@gmail.com",
@@ -36,7 +36,18 @@ func TestService(t *testing.T) {
 			"password":"fizz_$PW_10"
 		}`
 
-		res, _ := srv.Client().Post(srv.URL+"/api/v2/account/signup", applicationJson, strings.NewReader(payload))
+		res, _ := srv.Client().Post(srv.URL+"/api/v2/account/sign-up", applicationJson, strings.NewReader(payload))
 		is.Equal(res.StatusCode, http.StatusCreated)
+	})
+
+	t.Run(`user login`, func(t *testing.T) {
+		payload := `
+		{
+			"email":"fizz@gmail.com",
+			"password":"fizz_$PW_10"
+		}`
+
+		res, _ := srv.Client().Post(srv.URL+"/api/v2/auth/sign-in", applicationJson, strings.NewReader(payload))
+		is.Equal(res.StatusCode, http.StatusOK)
 	})
 }
