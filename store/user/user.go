@@ -13,7 +13,7 @@ import (
 type User struct {
 	ID        suid.UUID
 	Username  string
-	Email     string
+	Email     internal.Email
 	Password  internal.PasswordHash
 	CreatedAt time.Time
 }
@@ -37,7 +37,7 @@ func (r *repo) Insert(ctx context.Context, iu *internal.User) error {
 		return internal.ErrAlreadyExists
 	}
 
-	u := &User{iu.ID, iu.Username, iu.Email.String(), iu.Password, time.Now()}
+	u := &User{iu.ID, iu.Username, iu.Email, iu.Password, time.Now()}
 	r.mei[iu.Email.String()], r.miu[iu.ID] = u, u
 
 	return nil
