@@ -12,8 +12,6 @@ import (
 
 	"github.com/rs/cors"
 	"golang.org/x/sync/errgroup"
-
-	"github.com/rog-golang-buddies/rmx/service"
 )
 
 // var (
@@ -102,7 +100,7 @@ func run(cfg *Config) error {
 
 	srv := http.Server{
 		Addr:    ":" + strconv.Itoa(cfg.Port),
-		Handler: cors.New(c).Handler(service.Default()),
+		Handler: cors.New(c).Handler(http.NotFoundHandler()),
 		// max time to read request from the client
 		ReadTimeout: 10 * time.Second,
 		// max time to write response to the client
