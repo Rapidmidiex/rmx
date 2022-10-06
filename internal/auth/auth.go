@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"net/http"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/pkg/errors"
+	"github.com/rog-golang-buddies/rmx/internal"
 	"github.com/rog-golang-buddies/rmx/internal/fp"
 )
 
@@ -108,43 +110,56 @@ func (c *Client) ValidateClientID(ctx context.Context, cid string) error {
 	return ErrRTValidate
 }
 
-/*
-// would like to find an alternative to using `os` package
-func LoadPEM(path string) (private, public jwk.Key, err error) {
-	buf, err := os.ReadFile(path)
+// Easier to pass an array that two variables with context
+type Pair [2]jwk.Key
+
+func (p *Pair) Private() jwk.Key { return p[0] }
+func (p *Pair) Public() jwk.Key  { return p[1] }
+
+func NewPairES256() Pair {
+	rawPriv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
-		return
+		panic(err)
 	}
 
-	return GenerateKeys(string(buf))
-}
-*/
-
-func GenerateKeys() (jwk.Key, jwk.Key, error) {
-	private, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	key, err := jwk.FromRaw(rawPriv)
 	if err != nil {
-		return nil, nil, err
-	}
-
-	key, err := jwk.FromRaw(private)
-	if err != nil {
-		return nil, nil, err
+		panic(err)
 	}
 
 	_, ok := key.(jwk.ECDSAPrivateKey)
 	if !ok {
-		return nil, nil, ErrGenerateKey
+		panic(ErrGenerateKey)
 	}
 
 	pub, err := key.PublicKey()
 	if err != nil {
-		return nil, nil, err
+		panic(err)
 	}
 
-	return key, pub, nil
+	return Pair{key, pub}
 }
 
-func SignToken(key *jwk.Key, opt *TokenOption) ([]byte, error) {
+func NewPairRS256() Pair {
+	rawPrv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		panic(err)
+	}
+
+	jwkPrv, err := jwk.FromRaw(rawPrv)
+	if err != nil {
+		panic(err)
+	}
+
+	jwkPub, err := jwkPrv.PublicKey()
+	if err != nil {
+		panic(err)
+	}
+
+	return Pair{jwkPrv, jwkPub}
+}
+
+func SignToken(key jwk.Key, opt *TokenOption) ([]byte, error) {
 	var t time.Time
 	if opt.IssuedAt.IsZero() {
 		t = time.Now().UTC()
@@ -174,7 +189,14 @@ func SignToken(key *jwk.Key, opt *TokenOption) ([]byte, error) {
 		}
 	}
 
-	return jwt.Sign(token, jwt.WithKey(jwa.ES256, key))
+	var algo jwa.SignatureAlgorithm
+	if opt.Algo == "" {
+		algo = jwa.RS256
+	} else {
+		algo = opt.Algo
+	}
+
+	return jwt.Sign(token, jwt.WithKey(algo, key))
 }
 
 func ParseRefreshTokenClaims(token string) (jwt.Token, error) { return jwt.Parse([]byte(token)) }
@@ -197,6 +219,7 @@ type TokenOption struct {
 	Claims     []fp.Tuple
 	IssuedAt   time.Time
 	Expiration time.Duration
+	Algo       jwa.SignatureAlgorithm
 }
 
 type authCtxKey string
@@ -208,10 +231,7 @@ const (
 	EmailKey               = authCtxKey("rmx-email")
 )
 
-type contextKey string
-
-var emailKey = contextKey("rmx-email")
-
+// This is authentication middleware which
 func Authenticate(publicKey jwk.Key) func(f http.Handler) http.Handler {
 	return func(f http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
@@ -224,12 +244,13 @@ func Authenticate(publicKey jwk.Key) func(f http.Handler) http.Handler {
 
 			email, ok := token.PrivateClaims()["email"].(string)
 			if !ok {
+				// NOTE unsure if we need to write anything more to the body
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 
 			// NOTE convert email from `string` type to `internal.Email` ?
-			r = r.WithContext(context.WithValue(r.Context(), emailKey, email))
+			r = r.WithContext(context.WithValue(r.Context(), internal.EmailKey, email))
 			f.ServeHTTP(w, r)
 		}
 
