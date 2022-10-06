@@ -8,29 +8,12 @@ import (
 	"time"
 
 	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/rog-golang-buddies/rmx/internal"
 	"github.com/rog-golang-buddies/rmx/internal/fp"
 	"github.com/rog-golang-buddies/rmx/internal/is"
 	"github.com/rog-golang-buddies/rmx/internal/suid"
 )
-
-var rsaPrivateKey = `-----BEGIN PRIVATE KEY-----
-MIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAML5MHFgqUlZcENS
-hHZ83yXfoUpqaMfp5/UdgMIJ0S5DW5QEON6reAsDu6zP0BEVZhg65pEYWEraBrGK
-Vcbx7dsVqK4Z0GMm0YRAvB+1K+pYlXwld90mwG1TqOKDPQXqC0Z/jZi6DSsAhfJU
-WN0rkInZRtoVeRzbbh+nLN8nd14fAgMBAAECgYEAor+A2VL3XBvFIt0RZxpq5mFa
-cBSMrDsqfSeIX+/z5SsimVZA5lW5GXCfSuwY4Pm8xAL+jSUGJk0CA1bWrP8rLByS
-cQAy1q0odaAiWIG5zFUEQBg5Q5b3+jXmh2zwtO7yhPuXn1/vBGg+FvyR57gV/3F+
-TuBfR6Bc3VWKuj7Gm5kCQQDuRgm8HTDbX7IQ0EFAVKB73Pj4Gx5u2NieD9U8+qXx
-JsAdn1vRvQ3mNJDR5OcTr4rPkpLLCtzjA2iTDXp4yqmrAkEA0Xp91LCpImKAOtM3
-4SGXdzKi9+7fWmcTtfkz996y9A1C9l27Cj92P7OFdwMB4Z/ZMizJd0eXYhXr4IxH
-wBoxXQJAUBOXp/HDfqZdiIsEsuL+AEKWJYOvqZ8UxaIajuDJrg7Q1+O7jvRTXH9k
-ADZGdnYzV2kyDiy7aUu29Fy+QSQS+wJAJyEsdBhz35pqvZJK8+DkfD2XN50FV8u9
-YNamIH0XDIOVqJOlpqpoGkocejizl0PWvIqlL4TOAGJ75zwNAxNheQJABEA2/hfF
-GMJsOrnD74rGP/Lfpg882AmeUoT5eH766sSobFfUYJZvyAmnQoK2Lzg2hrKwXXix
-JvEGfrhihVLb7g==
------END PRIVATE KEY-----
-`
 
 func TestToken(t *testing.T) {
 	t.Parallel()
@@ -89,7 +72,7 @@ func TestMiddleware(t *testing.T) {
 		ats, err := SignToken(key.Private(), &opt)
 		is.NoErr(err) // signing access token
 
-		h := Authenticate(opt.Algo, key.Public())(http.NotFoundHandler())
+		h := Authentication(opt.Algo, key.Public())(http.NotFoundHandler())
 
 		req, _ := http.NewRequest(http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", string(ats)))
@@ -97,13 +80,13 @@ func TestMiddleware(t *testing.T) {
 		res := httptest.NewRecorder()
 
 		h.ServeHTTP(res, req)
-		is.Equal(res.Result().StatusCode, http.StatusNotFound) // return not found
+		is.Equal(res.Result().StatusCode, http.StatusNotFound) // http page not found
 	})
 
 	t.Run("authenticate against Cookie header", func(t *testing.T) {
 		key := NewPairES256()
 
-		e := internal.Email("foobar@gmail.com")
+		e, cookieName := internal.Email("foobar@gmail.com"), `__myCookie`
 
 		opt := TokenOption{
 			Issuer:     "github.com/rog-golang-buddies/rmx",
@@ -117,9 +100,7 @@ func TestMiddleware(t *testing.T) {
 		rts, err := SignToken(key.Private(), &opt)
 		is.NoErr(err) // signing refresh token
 
-		cookieName := `__myCookie`
-
-		h := AuthenticateRefresh(opt.Algo, key.Public(), cookieName)(http.NotFoundHandler())
+		h := Authentication(opt.Algo, key.Public(), cookieName)(http.NotFoundHandler())
 
 		req, _ := http.NewRequest(http.MethodGet, "/", nil)
 		req.AddCookie(&http.Cookie{
@@ -137,4 +118,35 @@ func TestMiddleware(t *testing.T) {
 		is.Equal(res.Result().StatusCode, http.StatusNotFound) // http page not found
 	})
 
+	t.Run("jwk parse request", func(t *testing.T) {
+		key := NewPairES256()
+
+		e, cookieName := internal.Email("foobar@gmail.com"), `__g`
+
+		opt := TokenOption{
+			Issuer:     "github.com/rog-golang-buddies/rmx",
+			Subject:    suid.NewUUID().String(),
+			Expiration: time.Hour * 10,
+			Claims:     []fp.Tuple{{"email", e.String()}},
+			Algo:       jwa.ES256,
+		}
+
+		// rts
+		rts, err := SignToken(key.Private(), &opt)
+		is.NoErr(err) // signing refresh token
+
+		c := &http.Cookie{
+			Path:     "/",
+			Name:     cookieName,
+			Value:    string(rts),
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
+			MaxAge:   24 * 7,
+		}
+		req, _ := http.NewRequest(http.MethodGet, "/", nil)
+		req.AddCookie(c)
+
+		_, err = jwt.Parse([]byte(c.Value), jwt.WithKey(opt.Algo, key.Public()), jwt.WithValidate(true))
+		is.NoErr(err) // parsing jwk page not found
+	})
 }

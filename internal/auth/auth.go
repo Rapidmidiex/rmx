@@ -235,7 +235,7 @@ const (
  */
 func Authentication(algo jwa.SignatureAlgorithm, key jwk.Key, cookieName ...string) func(http.Handler) http.Handler {
 	return func(h http.Handler) http.Handler {
-		at := func(w http.ResponseWriter, r *http.Request) {
+		var at http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
 			token, err := jwt.ParseRequest(r, jwt.WithKey(algo, key))
 			if err != nil {
 				w.WriteHeader(http.StatusUnauthorized)
@@ -254,8 +254,14 @@ func Authentication(algo jwa.SignatureAlgorithm, key jwk.Key, cookieName ...stri
 			h.ServeHTTP(w, r)
 		}
 
-		rt := func(w http.ResponseWriter, r *http.Request) {
-			token, err := jwt.ParseRequest(r, jwt.WithKey(algo, key), jwt.WithHeaderKey(cookieName[0]))
+		var rt http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
+			rc, err := r.Cookie(cookieName[0])
+			if err != nil {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+
+			token, err := jwt.Parse([]byte(rc.Value), jwt.WithKey(algo, key), jwt.WithValidate(true))
 			if err != nil {
 				w.WriteHeader(http.StatusUnauthorized)
 				return
@@ -268,8 +274,8 @@ func Authentication(algo jwa.SignatureAlgorithm, key jwk.Key, cookieName ...stri
 				return
 			}
 
-			r = r.WithContext(context.WithValue(r.Context(), internal.EmailKey, internal.Email(email)))
-			r = r.WithContext(context.WithValue(r.Context(), internal.TokenKey, token))
+			ctx := context.WithValue(r.Context(), internal.EmailKey, internal.Email(email))
+			r = r.WithContext(context.WithValue(ctx, internal.TokenKey, token))
 			h.ServeHTTP(w, r)
 		}
 
@@ -311,7 +317,7 @@ func Authenticate(algo jwa.SignatureAlgorithm, key jwk.Key) func(http.Handler) h
 // Authenticate against the refreshToken
 func AuthenticateRefresh(algo jwa.SignatureAlgorithm, key jwk.Key, cookieName string) func(http.Handler) http.Handler {
 	return func(h http.Handler) http.Handler {
-		var f http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
+		var refresh http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
 			rc, err := r.Cookie(cookieName)
 			if err != nil {
 				w.WriteHeader(http.StatusUnauthorized)
@@ -338,6 +344,6 @@ func AuthenticateRefresh(algo jwa.SignatureAlgorithm, key jwk.Key, cookieName st
 			h.ServeHTTP(w, r)
 		}
 
-		return http.HandlerFunc(f)
+		return http.HandlerFunc(refresh)
 	}
 }
