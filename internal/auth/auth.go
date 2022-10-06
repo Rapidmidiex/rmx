@@ -231,12 +231,12 @@ const (
 	EmailKey               = authCtxKey("rmx-email")
 )
 
-// This is authentication middleware which
-func Authenticate(publicKey jwk.Key) func(f http.Handler) http.Handler {
+// authentication middleware
+func Authenticate(algo jwa.SignatureAlgorithm, publicKey jwk.Key) func(f http.Handler) http.Handler {
 	return func(f http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
 			// token, err := jwt.ParseRequest(r, jwt.WithHeaderKey("Authorization"), jwt.WithHeaderKey(cookieName), jwt.WithKey(jwa.RS256, publicKey), jwt.WithValidate(true))
-			token, err := jwt.ParseRequest(r, jwt.WithKey(jwa.ES256, publicKey))
+			token, err := jwt.ParseRequest(r, jwt.WithKey(algo, publicKey))
 			if err != nil {
 				w.WriteHeader(http.StatusUnauthorized)
 				return
@@ -250,7 +250,7 @@ func Authenticate(publicKey jwk.Key) func(f http.Handler) http.Handler {
 			}
 
 			// NOTE convert email from `string` type to `internal.Email` ?
-			r = r.WithContext(context.WithValue(r.Context(), internal.EmailKey, email))
+			r = r.WithContext(context.WithValue(r.Context(), internal.EmailKey, internal.Email(email)))
 			f.ServeHTTP(w, r)
 		}
 

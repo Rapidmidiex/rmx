@@ -64,3 +64,12 @@ func TestToken(t *testing.T) {
 		is.NoErr(err) // refresh token
 	})
 }
+
+func TestMiddleware(t *testing.T) {
+	t.Parallel()
+	is := is.New(t)
+
+	t.Run("authorize access to protected endpoint", func(t *testing.T) {
+		// httptest.NewRequest()
+	})
+}
