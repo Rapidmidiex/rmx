@@ -72,7 +72,7 @@ func TestMiddleware(t *testing.T) {
 		ats, err := SignToken(key.Private(), &opt)
 		is.NoErr(err) // signing access token
 
-		h := Authentication(opt.Algo, key.Public())(http.NotFoundHandler())
+		h := ParseAuth(opt.Algo, key.Public())(http.NotFoundHandler())
 
 		req, _ := http.NewRequest(http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", string(ats)))
@@ -100,7 +100,7 @@ func TestMiddleware(t *testing.T) {
 		rts, err := SignToken(key.Private(), &opt)
 		is.NoErr(err) // signing refresh token
 
-		h := Authentication(opt.Algo, key.Public(), cookieName)(http.NotFoundHandler())
+		h := ParseAuth(opt.Algo, key.Public(), cookieName)(http.NotFoundHandler())
 
 		req, _ := http.NewRequest(http.MethodGet, "/", nil)
 		req.AddCookie(&http.Cookie{
@@ -146,7 +146,11 @@ func TestMiddleware(t *testing.T) {
 		req, _ := http.NewRequest(http.MethodGet, "/", nil)
 		req.AddCookie(c)
 
-		_, err = jwt.Parse([]byte(c.Value), jwt.WithKey(opt.Algo, key.Public()), jwt.WithValidate(true))
+		_, err = jwt.Parse(
+			[]byte(c.Value),
+			jwt.WithKey(opt.Algo, key.Public()),
+			jwt.WithValidate(true),
+		)
 		is.NoErr(err) // parsing jwk page not found
 	})
 }

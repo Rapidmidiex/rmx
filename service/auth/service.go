@@ -57,12 +57,14 @@ func (s *Service) routes() {
 		r.Delete("/sign-out", s.handleSignOut())
 		r.Post("/sign-up", s.handleSignUp())
 
-		auth := r.With(auth.Authentication(jwa.ES256, key.Public(), cookieName)) // passing cookie is required
+		auth := r.With(
+			auth.ParseAuth(jwa.ES256, key.Public(), cookieName),
+		) // passing cookie is required
 		auth.Get("/refresh", s.handleRefresh(key.Private()))
 	})
 
 	s.m.Route("/api/v2/account", func(r chi.Router) {
-		auth := r.With(auth.Authentication(jwa.ES256, key.Public()))
+		auth := r.With(auth.ParseAuth(jwa.ES256, key.Public()))
 		auth.Get("/me", s.handleIdentity())
 	})
 }
@@ -258,7 +260,11 @@ func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, 
 }
 
 // TODO there is two cid's being used here, need clarification
-func (s *Service) signedTokens(key jwk.Key, email string, uuid suid.UUID) (its, ats, rts []byte, err error) {
+func (s *Service) signedTokens(
+	key jwk.Key,
+	email string,
+	uuid suid.UUID,
+) (its, ats, rts []byte, err error) {
 	opt := auth.TokenOption{
 		Issuer:     "github.com/rog-golang-buddies/rmx",
 		Subject:    uuid.String(), // new client ID for tracking user connections
@@ -286,7 +292,12 @@ func (s *Service) signedTokens(key jwk.Key, email string, uuid suid.UUID) (its, 
 
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.m.ServeHTTP(w, r) }
 
-func NewService(ctx context.Context, m chi.Router, r internal.UserRepo, tc internal.TokenClient) *Service {
+func NewService(
+	ctx context.Context,
+	m chi.Router,
+	r internal.UserRepo,
+	tc internal.TokenClient,
+) *Service {
 
 	s := &Service{
 		ctx,

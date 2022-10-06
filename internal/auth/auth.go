@@ -233,7 +233,11 @@ const (
 
 /*
  */
-func Authentication(algo jwa.SignatureAlgorithm, key jwk.Key, cookieName ...string) func(http.Handler) http.Handler {
+func ParseAuth(
+	algo jwa.SignatureAlgorithm,
+	key jwk.Key,
+	cookieName ...string,
+) func(http.Handler) http.Handler {
 	return func(h http.Handler) http.Handler {
 		var at http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
 			token, err := jwt.ParseRequest(r, jwt.WithKey(algo, key))
@@ -250,7 +254,9 @@ func Authentication(algo jwa.SignatureAlgorithm, key jwk.Key, cookieName ...stri
 			}
 
 			// NOTE convert email from `string` type to `internal.Email` ?
-			r = r.WithContext(context.WithValue(r.Context(), internal.EmailKey, internal.Email(email)))
+			r = r.WithContext(
+				context.WithValue(r.Context(), internal.EmailKey, internal.Email(email)),
+			)
 			h.ServeHTTP(w, r)
 		}
 
@@ -261,7 +267,11 @@ func Authentication(algo jwa.SignatureAlgorithm, key jwk.Key, cookieName ...stri
 				return
 			}
 
-			token, err := jwt.Parse([]byte(rc.Value), jwt.WithKey(algo, key), jwt.WithValidate(true))
+			token, err := jwt.Parse(
+				[]byte(rc.Value),
+				jwt.WithKey(algo, key),
+				jwt.WithValidate(true),
+			)
 			if err != nil {
 				w.WriteHeader(http.StatusUnauthorized)
 				return
