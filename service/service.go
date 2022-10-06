@@ -16,14 +16,16 @@ func (s *Service) routes() {
 type Service struct {
 	m chi.Router
 
-	log  func(s ...any)
-	logf func(string, ...any)
+	log    func(s ...any)
+	logf   func(string, ...any)
+	fatal  func(s ...any)
+	fatalf func(string, ...any)
 }
 
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.m.ServeHTTP(w, r) }
 
 func New(st store.Store) *Service {
-	s := &Service{chi.NewMux(), log.Print, log.Printf}
+	s := &Service{chi.NewMux(), log.Print, log.Printf, log.Fatal, log.Fatalf}
 	s.routes()
 	return s
 }
