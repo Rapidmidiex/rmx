@@ -6,7 +6,6 @@ import (
 	"net/mail"
 	"strings"
 
-	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/rog-golang-buddies/rmx/internal/suid"
 	gpv "github.com/wagslane/go-password-validator"
 	"golang.org/x/crypto/bcrypt"
@@ -24,8 +23,10 @@ var (
 type ContextKey string
 
 const (
-	EmailKey = ContextKey("email-key")
-	TokenKey = ContextKey("token-key")
+	EmailKey   = ContextKey("account-email")
+	TokenKey   = ContextKey("jwt-token-key")
+	RoomKey    = ContextKey("conn-pool-key")
+	UpgradeKey = ContextKey("upgrade-http-key")
 )
 
 type MsgTyp int
@@ -103,7 +104,8 @@ type TokenClient interface {
 }
 
 type RTokenClient interface {
-	Validate(ctx context.Context, token jwt.Token) error
+	// Validate(ctx context.Context, token jwt.Token) error
+	ValidateRefreshToken(ctx context.Context, token string) error
 }
 
 type WTokenClient interface{}

@@ -11,7 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rog-golang-buddies/rmx/internal/is"
-	"github.com/rog-golang-buddies/rmx/store/db/v2/user"
+	"github.com/rog-golang-buddies/rmx/store/v2/user"
 )
 
 const applicationJson = "application/json"

@@ -16,16 +16,14 @@ func (s *Service) routes() {
 type Service struct {
 	m chi.Router
 
-	l *log.Logger
+	log  func(s ...any)
+	logf func(string, ...any)
 }
 
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.m.ServeHTTP(w, r) }
 
 func New(st store.Store) *Service {
-	s := &Service{chi.NewMux(), log.Default()}
+	s := &Service{chi.NewMux(), log.Print, log.Printf}
 	s.routes()
-
-	// jam.NewService(s.m)
-	// user.NewService(s.m, ur)
 	return s
 }
