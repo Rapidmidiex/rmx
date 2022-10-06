@@ -42,3 +42,66 @@ func (r *repo) Insert(ctx context.Context, iu *internal.User) error {
 
 	return nil
 }
+
+func (r *repo) Select(ctx context.Context, key any) (*internal.User, error) {
+	switch key := key.(type) {
+	case suid.UUID:
+		return r.selectUUID(key)
+	case internal.Email:
+		return r.selectEmail(key)
+	case string:
+		return r.selectUsername(key)
+	default:
+		return nil, internal.ErrInvalidType
+	}
+}
+
+func (r *repo) selectUUID(uid suid.UUID) (*internal.User, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if u, ok := r.miu[uid]; ok {
+		return &internal.User{
+			ID:       u.ID,
+			Username: u.Username,
+			Email:    internal.Email(u.Email),
+			Password: u.Password,
+		}, nil
+	}
+
+	return nil, internal.ErrNotFound
+}
+
+func (r *repo) selectUsername(username string) (*internal.User, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for _, u := range r.mei {
+		if u.Username == username {
+			return &internal.User{
+				ID:       u.ID,
+				Username: u.Username,
+				Email:    internal.Email(u.Email),
+				Password: u.Password,
+			}, nil
+		}
+	}
+
+	return nil, internal.ErrNotFound
+}
+
+func (r *repo) selectEmail(email internal.Email) (*internal.User, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if u, ok := r.mei[email.String()]; ok {
+		return &internal.User{
+			ID:       u.ID,
+			Username: u.Username,
+			Email:    internal.Email(u.Email),
+			Password: u.Password,
+		}, nil
+	}
+
+	return nil, internal.ErrNotFound
+}
