@@ -9,6 +9,10 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
+type client struct {
+	rt, ci *redis.Client
+}
+
 type Client struct {
 	rtdb, cidb *redis.Client
 }
@@ -73,10 +77,7 @@ func (c *Client) Validate(ctx context.Context, token string) error {
 
 func (c *Client) RevokeClientID(ctx context.Context, cid, email string) error {
 	_, err := c.cidb.Set(ctx, cid, email, RefreshTokenExpiry).Result()
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func (c *Client) RevokeRefreshToken(ctx context.Context, token string) error {
