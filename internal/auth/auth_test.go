@@ -1,6 +1,9 @@
 package auth
 
 import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -69,7 +72,69 @@ func TestMiddleware(t *testing.T) {
 	t.Parallel()
 	is := is.New(t)
 
-	t.Run("authorize access to protected endpoint", func(t *testing.T) {
-		// httptest.NewRequest()
+	t.Run("authenticate against Authorization header", func(t *testing.T) {
+		key := NewPairES256()
+
+		e := internal.Email("foobar@gmail.com")
+
+		opt := TokenOption{
+			Issuer:     "github.com/rog-golang-buddies/rmx",
+			Subject:    suid.NewUUID().String(),
+			Expiration: time.Hour * 10,
+			Claims:     []fp.Tuple{{"email", e.String()}},
+			Algo:       jwa.ES256,
+		}
+
+		// ats
+		ats, err := SignToken(key.Private(), &opt)
+		is.NoErr(err) // signing access token
+
+		h := Authenticate(opt.Algo, key.Public())(http.NotFoundHandler())
+
+		req, _ := http.NewRequest(http.MethodGet, "/", nil)
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", string(ats)))
+
+		res := httptest.NewRecorder()
+
+		h.ServeHTTP(res, req)
+		is.Equal(res.Result().StatusCode, http.StatusNotFound) // return not found
 	})
+
+	t.Run("authenticate against Cookie header", func(t *testing.T) {
+		key := NewPairES256()
+
+		e := internal.Email("foobar@gmail.com")
+
+		opt := TokenOption{
+			Issuer:     "github.com/rog-golang-buddies/rmx",
+			Subject:    suid.NewUUID().String(),
+			Expiration: time.Hour * 10,
+			Claims:     []fp.Tuple{{"email", e.String()}},
+			Algo:       jwa.ES256,
+		}
+
+		// rts
+		rts, err := SignToken(key.Private(), &opt)
+		is.NoErr(err) // signing refresh token
+
+		cookieName := `__myCookie`
+
+		h := AuthenticateRefresh(opt.Algo, key.Public(), cookieName)(http.NotFoundHandler())
+
+		req, _ := http.NewRequest(http.MethodGet, "/", nil)
+		req.AddCookie(&http.Cookie{
+			Path:     "/",
+			Name:     cookieName,
+			Value:    string(rts),
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
+			MaxAge:   24 * 7,
+		})
+
+		res := httptest.NewRecorder()
+
+		h.ServeHTTP(res, req)
+		is.Equal(res.Result().StatusCode, http.StatusNotFound) // http page not found
+	})
+
 }

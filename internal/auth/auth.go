@@ -225,18 +225,18 @@ type TokenOption struct {
 type authCtxKey string
 
 const (
-	RefreshTokenCookieName = "RMX_REFRESH_TOKEN"
-	RefreshTokenExpiry     = time.Hour * 24 * 7
-	AccessTokenExpiry      = time.Minute * 5
-	EmailKey               = authCtxKey("rmx-email")
+	// RefreshTokenCookieName = "RMX_REFRESH_TOKEN"
+	RefreshTokenExpiry = time.Hour * 24 * 7
+	AccessTokenExpiry  = time.Minute * 5
+	EmailKey           = authCtxKey("rmx-email")
 )
 
-// authentication middleware
-func Authenticate(algo jwa.SignatureAlgorithm, publicKey jwk.Key) func(f http.Handler) http.Handler {
-	return func(f http.Handler) http.Handler {
-		fn := func(w http.ResponseWriter, r *http.Request) {
-			// token, err := jwt.ParseRequest(r, jwt.WithHeaderKey("Authorization"), jwt.WithHeaderKey(cookieName), jwt.WithKey(jwa.RS256, publicKey), jwt.WithValidate(true))
-			token, err := jwt.ParseRequest(r, jwt.WithKey(algo, publicKey))
+/*
+ */
+func Authentication(algo jwa.SignatureAlgorithm, key jwk.Key, cookieName ...string) func(http.Handler) http.Handler {
+	return func(h http.Handler) http.Handler {
+		at := func(w http.ResponseWriter, r *http.Request) {
+			token, err := jwt.ParseRequest(r, jwt.WithKey(algo, key))
 			if err != nil {
 				w.WriteHeader(http.StatusUnauthorized)
 				return
@@ -251,9 +251,93 @@ func Authenticate(algo jwa.SignatureAlgorithm, publicKey jwk.Key) func(f http.Ha
 
 			// NOTE convert email from `string` type to `internal.Email` ?
 			r = r.WithContext(context.WithValue(r.Context(), internal.EmailKey, internal.Email(email)))
-			f.ServeHTTP(w, r)
+			h.ServeHTTP(w, r)
 		}
 
-		return http.HandlerFunc(fn)
+		rt := func(w http.ResponseWriter, r *http.Request) {
+			token, err := jwt.ParseRequest(r, jwt.WithKey(algo, key), jwt.WithHeaderKey(cookieName[0]))
+			if err != nil {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+
+			email, ok := token.PrivateClaims()["email"].(string)
+			if !ok {
+				// NOTE unsure if we need to write anything more to the body
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+
+			r = r.WithContext(context.WithValue(r.Context(), internal.EmailKey, internal.Email(email)))
+			r = r.WithContext(context.WithValue(r.Context(), internal.TokenKey, token))
+			h.ServeHTTP(w, r)
+		}
+
+		if len(cookieName) != 0 {
+			return http.HandlerFunc(rt)
+		}
+
+		return http.HandlerFunc(at)
+	}
+}
+
+// Authenticate against the accessToken
+func Authenticate(algo jwa.SignatureAlgorithm, key jwk.Key) func(http.Handler) http.Handler {
+	return func(h http.Handler) http.Handler {
+		f := func(w http.ResponseWriter, r *http.Request) {
+			// token, err := jwt.ParseRequest(r, jwt.WithHeaderKey("Authorization"), jwt.WithHeaderKey(cookieName), jwt.WithKey(jwa.RS256, publicKey), jwt.WithValidate(true))
+			token, err := jwt.ParseRequest(r, jwt.WithKey(algo, key))
+			if err != nil {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+
+			email, ok := token.PrivateClaims()["email"].(string)
+			if !ok {
+				// NOTE unsure if we need to write anything more to the body
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+
+			// NOTE convert email from `string` type to `internal.Email` ?
+			r = r.WithContext(context.WithValue(r.Context(), internal.EmailKey, internal.Email(email)))
+			h.ServeHTTP(w, r)
+		}
+
+		return http.HandlerFunc(f)
+	}
+}
+
+// Authenticate against the refreshToken
+func AuthenticateRefresh(algo jwa.SignatureAlgorithm, key jwk.Key, cookieName string) func(http.Handler) http.Handler {
+	return func(h http.Handler) http.Handler {
+		var f http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
+			rc, err := r.Cookie(cookieName)
+			if err != nil {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+
+			token, err := jwt.Parse([]byte(rc.Value), jwt.WithKey(algo, key), jwt.WithValidate(true))
+
+			// token, err := jwt.ParseRequest(r, jwt.WithKey(algo, key), jwt.WithHeaderKey(cookieName))
+			if err != nil {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+
+			email, ok := token.PrivateClaims()["email"].(string)
+			if !ok {
+				// NOTE unsure if we need to write anything more to the body
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+
+			r = r.WithContext(context.WithValue(r.Context(), internal.EmailKey, internal.Email(email)))
+			r = r.WithContext(context.WithValue(r.Context(), internal.TokenKey, token))
+			h.ServeHTTP(w, r)
+		}
+
+		return http.HandlerFunc(f)
 	}
 }
