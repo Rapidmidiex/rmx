@@ -84,7 +84,7 @@ func (s *Service) handleRefresh(key jwk.Key) http.HandlerFunc {
 		// to come up with a cleaner solution
 		k, _ := r.Cookie(cookieName)
 
-		err := s.t.ValidateRefreshToken(r.Context(), k.Value)
+		err := s.tc.Validate(r.Context(), k.Value)
 		if err != nil {
 			s.respond(w, r, err, http.StatusTeapot)
 			return
@@ -219,8 +219,8 @@ type Service struct {
 
 	m chi.Router
 
-	r internal.UserRepo
-	t internal.TokenClient
+	r  internal.UserRepo
+	tc internal.TokenClient
 
 	log  func(...any)
 	logf func(string, ...any)
@@ -286,15 +286,14 @@ func (s *Service) signedTokens(key jwk.Key, email string, uuid suid.UUID) (its, 
 
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.m.ServeHTTP(w, r) }
 
-func NewService(ctx context.Context, m chi.Router, r internal.UserRepo) *Service {
-	var t = auth.DefaultClient
+func NewService(ctx context.Context, m chi.Router, r internal.UserRepo, tc internal.TokenClient) *Service {
 
 	s := &Service{
 		ctx,
 
 		m,
 		r,
-		t,
+		tc,
 
 		log.Println,
 		log.Printf,

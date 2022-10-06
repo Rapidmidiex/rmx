@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rog-golang-buddies/rmx/internal/is"
+	"github.com/rog-golang-buddies/rmx/store/auth"
 	"github.com/rog-golang-buddies/rmx/store/user"
 )
 
@@ -19,7 +20,7 @@ const applicationJson = "application/json"
 var s http.Handler
 
 func init() {
-	s = NewService(context.Background(), chi.NewMux(), user.MapRepo)
+	s = NewService(context.Background(), chi.NewMux(), user.DefaultRepo, auth.DefaultClient)
 }
 
 func TestService(t *testing.T) {

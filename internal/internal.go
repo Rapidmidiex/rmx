@@ -105,7 +105,7 @@ type TokenClient interface {
 
 type RTokenClient interface {
 	// Validate(ctx context.Context, token jwt.Token) error
-	ValidateRefreshToken(ctx context.Context, token string) error
+	Validate(ctx context.Context, token string) error
 }
 
 type WTokenClient interface{}

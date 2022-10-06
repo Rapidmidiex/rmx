@@ -18,7 +18,7 @@ type User struct {
 	CreatedAt time.Time
 }
 
-var MapRepo = &repo{miu: make(map[suid.UUID]*User), mei: make(map[string]*User), log: log.Println, logf: log.Printf}
+var DefaultRepo = &repo{miu: make(map[suid.UUID]*User), mei: make(map[string]*User), log: log.Println, logf: log.Printf}
 
 type repo struct {
 	mu  sync.Mutex

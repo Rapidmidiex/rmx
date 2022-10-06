@@ -38,7 +38,7 @@ var DefaultClient = &Client{
 	cidb: redis.NewClient(&redis.Options{Addr: defaultAddr, Password: defaultPassword, DB: 1}),
 }
 
-func (c *Client) ValidateRefreshToken(ctx context.Context, token string) error {
+func (c *Client) Validate(ctx context.Context, token string) error {
 	tc, err := ParseRefreshTokenClaims(token)
 	if err != nil {
 		return err
