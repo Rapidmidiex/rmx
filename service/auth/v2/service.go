@@ -49,11 +49,27 @@ func (s *Service) routes() {
 	s.m.Route("/api/v2/auth", func(r chi.Router) {
 		r.Post("/sign-in", s.handleSignIn(key.Private()))
 		r.Delete("/sign-out", s.handleSignOut())
+		r.Post("/sign-up", s.handleSignUp())
 	})
 
 	s.m.Route("/api/v2/account", func(r chi.Router) {
-		r.Post("/sign-up", s.handleSignUp())
+		auth := r.With(auth.Authenticate(jwa.ES256, key.Public()))
+		auth.Get("/me", s.handleIdentity())
 	})
+}
+
+func (s *Service) handleIdentity() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		email := r.Context().Value(internal.EmailKey).(internal.Email)
+
+		u, err := s.r.Select(r.Context(), email)
+		if err != nil {
+			s.respond(w, r, err, http.StatusNotFound)
+			return
+		}
+
+		s.respond(w, r, u, http.StatusOK)
+	}
 }
 
 func (s *Service) handleSignIn(privateKey jwk.Key) http.HandlerFunc {
@@ -106,8 +122,6 @@ func (s *Service) handleSignIn(privateKey jwk.Key) http.HandlerFunc {
 	}
 }
 
-// Account Sign Out handler
-// removes the Refresh Token by setting its MaxAge property to -1
 func (s *Service) handleSignOut() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		c := &http.Cookie{
