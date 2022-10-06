@@ -49,7 +49,7 @@ func defaultRun() error {
 
 	srv := http.Server{
 		Addr:    ":8080",
-		Handler: cors.New(c).Handler(service.Default()),
+		Handler: cors.New(c).Handler(http.DefaultServeMux),
 		// max time to read request from the client
 		ReadTimeout: 10 * time.Second,
 		// max time to write response to the client

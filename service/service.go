@@ -6,32 +6,26 @@ import (
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
-	"github.com/rog-golang-buddies/rmx/internal/dto"
-	"github.com/rog-golang-buddies/rmx/service/jam"
-	"github.com/rog-golang-buddies/rmx/service/user"
-
-	"github.com/rog-golang-buddies/rmx/test/mock"
+	"github.com/rog-golang-buddies/rmx/store"
 )
+
+func (s *Service) routes() {
+	s.m.Use(middleware.Logger)
+}
 
 type Service struct {
 	m chi.Router
+
 	l *log.Logger
 }
 
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.m.ServeHTTP(w, r) }
 
-func New(m chi.Router, ur dto.UserRepo) *Service {
-	s := &Service{m, log.Default()}
+func New(st store.Store) *Service {
+	s := &Service{chi.NewMux(), log.Default()}
+	s.routes()
 
-	s.m.Use(middleware.Logger)
-
-	// NOTE unsure how much is gained using a goroutine
-	// will have to investigate
-	jam.NewService(s.m)
-	user.NewService(s.m, ur)
+	// jam.NewService(s.m)
+	// user.NewService(s.m, ur)
 	return s
-}
-
-func Default() *Service {
-	return New(chi.NewMux(), mock.UserRepo())
 }
