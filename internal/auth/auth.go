@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"net/http"
 	"time"
 
 	"github.com/go-redis/redis/v9"
@@ -206,3 +207,32 @@ const (
 	AccessTokenExpiry      = time.Minute * 5
 	EmailKey               = authCtxKey("rmx-email")
 )
+
+type contextKey string
+
+var emailKey = contextKey("rmx-email")
+
+func Authenticate(publicKey jwk.Key) func(f http.Handler) http.Handler {
+	return func(f http.Handler) http.Handler {
+		fn := func(w http.ResponseWriter, r *http.Request) {
+			// token, err := jwt.ParseRequest(r, jwt.WithHeaderKey("Authorization"), jwt.WithHeaderKey(cookieName), jwt.WithKey(jwa.RS256, publicKey), jwt.WithValidate(true))
+			token, err := jwt.ParseRequest(r, jwt.WithKey(jwa.ES256, publicKey))
+			if err != nil {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+
+			email, ok := token.PrivateClaims()["email"].(string)
+			if !ok {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+
+			// NOTE convert email from `string` type to `internal.Email` ?
+			r = r.WithContext(context.WithValue(r.Context(), emailKey, email))
+			f.ServeHTTP(w, r)
+		}
+
+		return http.HandlerFunc(fn)
+	}
+}
