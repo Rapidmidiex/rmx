@@ -23,12 +23,12 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.m.ServeH
 func New(m chi.Router, ur dto.UserRepo) *Service {
 	s := &Service{m, log.Default()}
 
+	s.m.Use(middleware.Logger)
+
 	// NOTE unsure how much is gained using a goroutine
 	// will have to investigate
-	go jam.NewService(s.m)
-	go user.NewService(s.m, ur)
-
-	s.m.Use(middleware.Logger)
+	jam.NewService(s.m)
+	user.NewService(s.m, ur)
 	return s
 }
 
