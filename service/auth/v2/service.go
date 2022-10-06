@@ -21,7 +21,34 @@ var (
 	ErrSessionExists   = errors.New("user: session already exists")
 )
 
-func (s *Service) routes() {}
+/*
+Register a new user
+
+	[ ] POST /auth/register
+
+Create a cookie
+
+	[ ] POST /auth/login
+
+Delete a cookie
+
+	[ ] DELETE /auth/logout
+
+Refresh token
+
+	[ ] GET /auth/refresh
+*/
+func (s *Service) routes() {
+	s.m.Route("/api/v2/auth", func(r chi.Router) {
+		r.Post("/signup", s.handleSignUp())
+	})
+}
+
+func (s *Service) handleSignUp() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		s.respond(w, r, nil, http.StatusNotImplemented)
+	}
+}
 
 type Service struct {
 	ctx context.Context
