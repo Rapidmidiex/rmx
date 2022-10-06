@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 
 	h "github.com/hyphengolang/prelude/http"
 
@@ -55,7 +56,7 @@ func (s *Service) routes() {
 		r.Delete("/sign-out", s.handleSignOut())
 		r.Post("/sign-up", s.handleSignUp())
 
-		r.Get("/refresh", s.handleRefresh(key.Private()))
+		r.Get("/refresh", s.handleRefresh(key.Private())) // auth middleware
 	})
 
 	s.m.Route("/api/v2/account", func(r chi.Router) {
@@ -70,14 +71,48 @@ func (s *Service) handleRefresh(key jwk.Key) http.HandlerFunc {
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		c, err := r.Cookie(auth.RefreshTokenCookieName)
-		if err != nil {
+		j, ok := r.Context().Value(internal.TokenKey).(jwt.Token)
+		if !ok {
+			s.respond(w, r, nil, http.StatusInternalServerError)
+			return
+		}
+
+		e, ok := r.Context().Value(internal.EmailKey).(internal.Email)
+		if !ok {
+			s.respond(w, r, nil, http.StatusInternalServerError)
+			return
+		}
+
+		// redis validation
+		if err := s.t.Validate(r.Context(), j); err != nil {
 			s.respond(w, r, err, http.StatusUnauthorized)
 			return
 		}
 
+		id, _ := suid.ParseString(j.Subject())
+
+		_, ats, rts, err := s.signedTokens(key, e.String(), id)
+		if err != nil {
+			s.respond(w, r, err, http.StatusInternalServerError)
+			return
+		}
+
+		c := &http.Cookie{
+			Path:     "/",
+			Name:     cookieName,
+			Value:    string(rts),
+			HttpOnly: true,
+			Secure:   r.TLS != nil,
+			SameSite: http.SameSiteLaxMode,
+			MaxAge:   int(auth.RefreshTokenExpiry),
+		}
+
+		tk := &token{
+			AccessToken: string(ats),
+		}
+
 		s.setCookie(w, c)
-		s.respond(w, r, nil, http.StatusNotImplemented)
+		s.respond(w, r, tk, http.StatusOK)
 	}
 }
 
@@ -127,7 +162,7 @@ func (s *Service) handleSignIn(privateKey jwk.Key) http.HandlerFunc {
 
 		c := &http.Cookie{
 			Path:     "/",
-			Name:     auth.RefreshTokenCookieName,
+			Name:     cookieName,
 			Value:    string(rts),
 			HttpOnly: true,
 			Secure:   r.TLS != nil,
@@ -149,7 +184,7 @@ func (s *Service) handleSignOut() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		c := &http.Cookie{
 			Path:     "/",
-			Name:     auth.RefreshTokenCookieName,
+			Name:     cookieName,
 			HttpOnly: true,
 			// Secure:   r.TLS != nil,
 			// SameSite: http.SameSiteLaxMode,
@@ -182,7 +217,9 @@ type Service struct {
 	ctx context.Context
 
 	m chi.Router
+
 	r internal.UserRepo
+	t internal.TokenClient
 
 	log  func(...any)
 	logf func(string, ...any)
@@ -249,11 +286,14 @@ func (s *Service) signedTokens(key jwk.Key, email string, uuid suid.UUID) (its, 
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.m.ServeHTTP(w, r) }
 
 func NewService(ctx context.Context, m chi.Router, r internal.UserRepo) *Service {
+	var t internal.TokenClient
+
 	s := &Service{
 		ctx,
 
 		m,
 		r,
+		t,
 
 		log.Println,
 		log.Printf,
@@ -280,3 +320,9 @@ type User struct {
 	Username string            `json:"username"`
 	Password internal.Password `json:"password"`
 }
+
+const (
+	cookieName = "RMX_REFRESH_TOKEN"
+	refreshExp = time.Hour * 24 * 7
+	accessExp  = time.Minute * 5
+)

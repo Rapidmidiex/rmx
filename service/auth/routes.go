@@ -139,10 +139,6 @@ func (s *Service) handleRefreshToken(key jwk.Key) http.HandlerFunc {
 			return
 		}
 
-		if err := s.arc.ValidateRefreshToken(context.Background(), rtc.Value); err != nil {
-			s.respond(w, r, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-		}
-
 		tc, err := auth.ParseRefreshTokenWithValidate(&key, rtc.Value)
 		if err != nil {
 			s.respond(w, r, err, http.StatusUnauthorized)
@@ -153,6 +149,10 @@ func (s *Service) handleRefreshToken(key jwk.Key) http.HandlerFunc {
 		if !ok {
 			s.respond(w, r, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 			return
+		}
+
+		if err := s.arc.ValidateRefreshToken(context.Background(), rtc.Value); err != nil {
+			s.respond(w, r, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		}
 
 		// use the same Client ID since it's a refresh token request

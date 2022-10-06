@@ -6,6 +6,7 @@ import (
 	"net/mail"
 	"strings"
 
+	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/rog-golang-buddies/rmx/internal/suid"
 	gpv "github.com/wagslane/go-password-validator"
 	"golang.org/x/crypto/bcrypt"
@@ -23,7 +24,8 @@ var (
 type ContextKey string
 
 const (
-	EmailKey = ContextKey("rmx-email")
+	EmailKey = ContextKey("email-key")
+	TokenKey = ContextKey("token-key")
 )
 
 type MsgTyp int
@@ -94,6 +96,17 @@ func (t *MsgTyp) MarshalJSON() ([]byte, error) {
 	sb.WriteRune('"')
 	return []byte(sb.String()), nil
 }
+
+type TokenClient interface {
+	RTokenClient
+	WTokenClient
+}
+
+type RTokenClient interface {
+	Validate(ctx context.Context, token jwt.Token) error
+}
+
+type WTokenClient interface{}
 
 type UserRepo interface {
 	RUserRepo
