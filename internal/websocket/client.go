@@ -4,7 +4,7 @@ import (
 	"log"
 	"sync"
 
-	"github.com/rog-golang-buddies/rmx/internal/dto"
+	"github.com/rog-golang-buddies/rmx/internal"
 	"github.com/rog-golang-buddies/rmx/internal/suid"
 	"golang.org/x/exp/maps"
 )
@@ -30,7 +30,7 @@ func NewClient() *Client {
 func (c *Client) Size() int { return len(c.ps) }
 
 func (c *Client) Close() error {
-	return dto.ErrNotImplemented
+	return internal.ErrNotImplemented
 }
 
 func (c *Client) NewPool(maxCount int) (suid.UUID, error) {
