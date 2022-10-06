@@ -1,159 +1,329 @@
 package auth
 
 import (
+	"context"
+	"errors"
 	"log"
 	"net/http"
 	"time"
 
-	h "github.com/hyphengolang/prelude/http"
-	"github.com/lestrrat-go/jwx/v2/jwk"
-
 	"github.com/go-chi/chi/v5"
-	"github.com/rog-golang-buddies/rmx/internal/dto"
+	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/lestrrat-go/jwx/v2/jwt"
+
+	h "github.com/hyphengolang/prelude/http"
+
+	// github.com/rog-golang-buddies/rmx/service/internal/auth/auth
+	"github.com/rog-golang-buddies/rmx/internal"
+	"github.com/rog-golang-buddies/rmx/internal/auth"
 	"github.com/rog-golang-buddies/rmx/internal/fp"
 	"github.com/rog-golang-buddies/rmx/internal/suid"
-	"github.com/rog-golang-buddies/rmx/service/internal/auth"
-	"github.com/rog-golang-buddies/rmx/service/internal/middlewares"
-	"github.com/rog-golang-buddies/rmx/test/mock"
+	// big no-no
+)
+
+var (
+	ErrNoCookie        = errors.New("user: cookie not found")
+	ErrSessionNotFound = errors.New("user: session not found")
+	ErrSessionExists   = errors.New("user: session already exists")
 )
 
 /*
-// TODO use os/viper to get `key.pem` body
-var secretTest = `-----BEGIN PRIVATE KEY-----
-MIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAML5MHFgqUlZcENS
-hHZ83yXfoUpqaMfp5/UdgMIJ0S5DW5QEON6reAsDu6zP0BEVZhg65pEYWEraBrGK
-Vcbx7dsVqK4Z0GMm0YRAvB+1K+pYlXwld90mwG1TqOKDPQXqC0Z/jZi6DSsAhfJU
-WN0rkInZRtoVeRzbbh+nLN8nd14fAgMBAAECgYEAor+A2VL3XBvFIt0RZxpq5mFa
-cBSMrDsqfSeIX+/z5SsimVZA5lW5GXCfSuwY4Pm8xAL+jSUGJk0CA1bWrP8rLByS
-cQAy1q0odaAiWIG5zFUEQBg5Q5b3+jXmh2zwtO7yhPuXn1/vBGg+FvyR57gV/3F+
-TuBfR6Bc3VWKuj7Gm5kCQQDuRgm8HTDbX7IQ0EFAVKB73Pj4Gx5u2NieD9U8+qXx
-JsAdn1vRvQ3mNJDR5OcTr4rPkpLLCtzjA2iTDXp4yqmrAkEA0Xp91LCpImKAOtM3
-4SGXdzKi9+7fWmcTtfkz996y9A1C9l27Cj92P7OFdwMB4Z/ZMizJd0eXYhXr4IxH
-wBoxXQJAUBOXp/HDfqZdiIsEsuL+AEKWJYOvqZ8UxaIajuDJrg7Q1+O7jvRTXH9k
-ADZGdnYzV2kyDiy7aUu29Fy+QSQS+wJAJyEsdBhz35pqvZJK8+DkfD2XN50FV8u9
-YNamIH0XDIOVqJOlpqpoGkocejizl0PWvIqlL4TOAGJ75zwNAxNheQJABEA2/hfF
-GMJsOrnD74rGP/Lfpg882AmeUoT5eH766sSobFfUYJZvyAmnQoK2Lzg2hrKwXXix
-JvEGfrhihVLb7g==
------END PRIVATE KEY-----
-`
+Register a new user
+
+	[?] POST /auth/sign-up
+
+Get current account identity
+
+	[?] GET /account/me
+
+Create a cookie
+
+	[?] POST /auth/sign-in
+
+Delete a cookie
+
+	[?] DELETE /auth/sign-out
+
+Refresh token
+
+	[?] GET /auth/refresh
 */
+func (s *Service) routes() {
+	key := auth.NewPairES256()
+
+	s.m.Route("/api/v2/auth", func(r chi.Router) {
+		r.Post("/sign-in", s.handleSignIn(key.Private()))
+		r.Delete("/sign-out", s.handleSignOut())
+		r.Post("/sign-up", s.handleSignUp())
+
+		auth := r.With(auth.Authentication(jwa.ES256, key.Public(), cookieName)) // passing cookie is required
+		auth.Get("/refresh", s.handleRefresh(key.Private()))
+	})
+
+	s.m.Route("/api/v2/account", func(r chi.Router) {
+		auth := r.With(auth.Authentication(jwa.ES256, key.Public()))
+		auth.Get("/me", s.handleIdentity())
+	})
+}
+
+func (s *Service) handleRefresh(key jwk.Key) http.HandlerFunc {
+	type token struct {
+		AccessToken string `json:"accessToken"`
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		// this have to exist else it would have lead to
+		// a 401 response. this is risky and will debate on
+		// whether we should be more cautious
+		j, _ := r.Context().Value(internal.TokenKey).(jwt.Token)
+		e, _ := r.Context().Value(internal.EmailKey).(internal.Email)
+
+		// already checked in auth but I am too tired
+		// to come up with a cleaner solution
+		k, _ := r.Cookie(cookieName)
+
+		err := s.t.ValidateRefreshToken(r.Context(), k.Value)
+		if err != nil {
+			s.respond(w, r, err, http.StatusTeapot)
+			return
+		}
+
+		id, _ := suid.ParseString(j.Subject())
+
+		_, ats, rts, err := s.signedTokens(key, e.String(), id)
+		if err != nil {
+			s.respond(w, r, err, http.StatusInternalServerError)
+			return
+		}
+
+		c := &http.Cookie{
+			Path:     "/",
+			Name:     cookieName,
+			Value:    string(rts),
+			HttpOnly: true,
+			Secure:   r.TLS != nil,
+			SameSite: http.SameSiteLaxMode,
+			MaxAge:   int(auth.RefreshTokenExpiry),
+		}
+
+		tk := &token{
+			AccessToken: string(ats),
+		}
+
+		s.setCookie(w, c)
+		s.respond(w, r, tk, http.StatusOK)
+	}
+}
+
+func (s *Service) handleIdentity() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		email := r.Context().Value(internal.EmailKey).(internal.Email)
+
+		u, err := s.r.Select(r.Context(), email)
+		if err != nil {
+			s.respond(w, r, err, http.StatusNotFound)
+			return
+		}
+
+		s.respond(w, r, u, http.StatusOK)
+	}
+}
+
+func (s *Service) handleSignIn(privateKey jwk.Key) http.HandlerFunc {
+	type token struct {
+		IDToken     string `json:"idToken"`
+		AccessToken string `json:"accessToken"`
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		var dto User
+		if err := s.decode(w, r, &dto); err != nil {
+			s.respond(w, r, err, http.StatusBadRequest)
+			return
+		}
+
+		u, err := s.r.Select(r.Context(), dto.Email)
+		if err != nil {
+			s.respond(w, r, err, http.StatusNotFound)
+			return
+		}
+
+		if err := u.Password.Compare(dto.Password.String()); err != nil {
+			s.respond(w, r, err, http.StatusUnauthorized)
+			return
+		}
+
+		its, ats, rts, err := s.signedTokens(privateKey, u.Email.String(), suid.NewUUID())
+		if err != nil {
+			s.respond(w, r, err, http.StatusInternalServerError)
+			return
+		}
+
+		c := &http.Cookie{
+			Path:     "/",
+			Name:     cookieName,
+			Value:    string(rts),
+			HttpOnly: true,
+			Secure:   r.TLS != nil,
+			SameSite: http.SameSiteLaxMode,
+			MaxAge:   int(auth.RefreshTokenExpiry),
+		}
+
+		tk := &token{
+			IDToken:     string(its),
+			AccessToken: string(ats),
+		}
+
+		s.setCookie(w, c)
+		s.respond(w, r, tk, http.StatusOK)
+	}
+}
+
+func (s *Service) handleSignOut() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		c := &http.Cookie{
+			Path:     "/",
+			Name:     cookieName,
+			HttpOnly: true,
+			// Secure:   r.TLS != nil,
+			// SameSite: http.SameSiteLaxMode,
+			MaxAge: -1,
+		}
+
+		s.setCookie(w, c)
+		s.respond(w, r, http.StatusText(http.StatusOK), http.StatusOK)
+	}
+}
+
+func (s *Service) handleSignUp() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var u internal.User
+		if err := s.newUser(w, r, &u); err != nil {
+			s.respond(w, r, err, http.StatusBadRequest)
+			return
+		}
+
+		if err := s.r.Insert(r.Context(), &u); err != nil {
+			s.respond(w, r, err, http.StatusInternalServerError)
+			return
+		}
+
+		s.created(w, r, u.ID.ShortUUID().String())
+	}
+}
 
 type Service struct {
-	m  chi.Router
-	ur dto.UserRepo
+	ctx context.Context
 
-	l *log.Logger
+	m chi.Router
 
-	arc *auth.Client
+	r internal.UserRepo
+	t internal.TokenClient
+
+	log  func(...any)
+	logf func(string, ...any)
+
+	decode    func(http.ResponseWriter, *http.Request, any) error
+	respond   func(http.ResponseWriter, *http.Request, any, int)
+	created   func(http.ResponseWriter, *http.Request, string)
+	setCookie func(http.ResponseWriter, *http.Cookie)
 }
 
-func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.m.ServeHTTP(w, r) }
+func (s *Service) newUser(w http.ResponseWriter, r *http.Request, u *internal.User) (err error) {
+	var dto User
+	if err = s.decode(w, r, &dto); err != nil {
+		return
+	}
 
-func NewService(m chi.Router, r dto.UserRepo) *Service {
-	s := &Service{m: m, ur: r, l: log.Default()}
-	s.routes()
-	return s
-}
+	var h internal.PasswordHash
+	h, err = dto.Password.Hash()
+	if err != nil {
+		return
+	}
 
-func DefaultService() *Service {
-	s := &Service{m: chi.NewMux(), ur: mock.UserRepo(), l: log.Default()}
-	s.routes()
-	return s
-}
+	*u = internal.User{
+		ID:       suid.NewUUID(),
+		Username: dto.Username,
+		Email:    dto.Email,
+		Password: h,
+	}
 
-func (s *Service) respond(w http.ResponseWriter, r *http.Request, data any, status int) {
-	h.Respond(w, r, data, status)
-}
-
-func (s *Service) respondCookie(w http.ResponseWriter, r *http.Request, data any, c *http.Cookie) {
-	http.SetCookie(w, c)
-	s.respond(w, r, data, http.StatusOK)
-}
-
-func (s *Service) created(w http.ResponseWriter, r *http.Request, id string) {
-	h.Created(w, r, id)
-}
-
-func (s *Service) decode(w http.ResponseWriter, r *http.Request, data interface{}) error {
-	return h.Decode(w, r, data)
+	return nil
 }
 
 func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, error) {
 	return suid.ParseString(chi.URLParam(r, "uuid"))
 }
 
-func (s *Service) signedTokens(key jwk.Key, email, uuid string) (its, ats, rts []byte, err error) {
-	// new client ID for tracking user connections
-	cid := suid.NewSUID()
+// TODO there is two cid's being used here, need clarification
+func (s *Service) signedTokens(key jwk.Key, email string, uuid suid.UUID) (its, ats, rts []byte, err error) {
 	opt := auth.TokenOption{
 		Issuer:     "github.com/rog-golang-buddies/rmx",
-		Subject:    cid.String(),
+		Subject:    uuid.String(), // new client ID for tracking user connections
 		Expiration: time.Hour * 10,
 		Claims:     []fp.Tuple{{"email", email}},
+		Algo:       jwa.ES256,
 	}
 
-	if its, err = auth.SignToken(&key, &opt); err != nil {
+	if its, err = auth.SignToken(key, &opt); err != nil {
 		return nil, nil, nil, err
 	}
 
-	opt.Subject = uuid
-	opt.Expiration = auth.AccessTokenExpiry
-	if ats, err = auth.SignToken(&key, &opt); err != nil {
+	opt.Expiration = time.Minute * 5
+	if ats, err = auth.SignToken(key, &opt); err != nil {
 		return nil, nil, nil, err
 	}
 
-	opt.Expiration = auth.RefreshTokenExpiry
-	if rts, err = auth.SignToken(&key, &opt); err != nil {
+	opt.Expiration = time.Hour * 24 * 7
+	if rts, err = auth.SignToken(key, &opt); err != nil {
 		return nil, nil, nil, err
 	}
 
 	return its, ats, rts, nil
 }
 
-/*
-type SignupUser struct {
-	Email    dto.Email    `json:"email"`
-	Username string       `json:"username"`
-	Password dto.Password `json:"password"`
-}
+func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.m.ServeHTTP(w, r) }
 
-func (v *SignupUser) decode(iu *dto.User) error {
-	h, err := v.Password.Hash()
-	if err != nil {
-		return err
+func NewService(ctx context.Context, m chi.Router, r internal.UserRepo) *Service {
+	var t = auth.DefaultClient
+
+	s := &Service{
+		ctx,
+
+		m,
+		r,
+		t,
+
+		log.Println,
+		log.Printf,
+
+		h.Decode,
+		h.Respond,
+		h.Created,
+		http.SetCookie,
 	}
 
-	*iu = dto.User{
-		ID:       suid.NewUUID(),
-		Email:    v.Email,
-		Username: v.Username,
-		Password: h,
-	}
-
-	return nil
+	s.routes()
+	return s
 }
-*/
 
-func (s *Service) routes() {
-	// initialize redis store
-	s.arc = auth.NewRedis("localhost:6379", "")
-
-	// panic should be ok as we need this to return no error
-	// else it'll completely break our auth model
-	priv, pub, err := auth.GenerateKeys()
-	if err != nil {
-		s.l.Fatalln(err)
+func (s *Service) Context() context.Context {
+	if s.ctx != nil {
+		return s.ctx
 	}
-
-	s.m.Route("/api/v1/auth", func(r chi.Router) {
-		r.Post("/register", s.handleSignUp())
-		r.Post("/login", s.handleSignIn(pub))
-		r.Get("/refresh", s.handleRefreshToken(priv))
-		r.Get("/logout", s.handleSignOut())
-	})
-
-	s.m.Route("/api/v1/account", func(r chi.Router) {
-		r.Use(middlewares.Authenticate(pub))
-		r.Get("/me", s.handleUserInfo())
-	})
+	return context.Background()
 }
+
+type User struct {
+	Email    internal.Email    `json:"email"`
+	Username string            `json:"username"`
+	Password internal.Password `json:"password"`
+}
+
+const (
+	cookieName = "RMX_REFRESH_TOKEN"
+	refreshExp = time.Hour * 24 * 7
+	accessExp  = time.Minute * 5
+)
