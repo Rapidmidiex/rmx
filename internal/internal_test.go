@@ -1,64 +1,29 @@
 package internal
 
-/*
-func TestPasswordType(t *testing.T) {
+import (
+	"encoding/json"
+	"strings"
+	"testing"
+
+	"github.com/rog-golang-buddies/rmx/internal/is"
+)
+
+func TestPassword(t *testing.T) {
 	t.Parallel()
 
-	data := `"thispasswordiscomplex"`
+	is := is.New(t)
 
-	var pw dto.Password
-	err := json.NewDecoder(strings.NewReader(data)).Decode(&pw)
-	if err != nil {
-		t.Fatal(err)
-	}
+	t.Run("(en/de)coding password type", func(t *testing.T) {
+		payload := `"thispasswordiscomplex"`
 
-	if exp := data[1 : len(data)-1]; pw != dto.Password(exp) {
-		t.Errorf(`expected %s got %s`, exp, pw)
-	}
+		var pws Password
+		err := json.NewDecoder(strings.NewReader(payload)).Decode(&pws)
+		is.NoErr(err)
 
-	hash, err := pw.Hash()
-	if err != nil {
-		t.Fatal(err)
-	}
+		pw, err := pws.Hash()
+		is.NoErr(err) // hash password
 
-	err = hash.Compare(pw)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = hash.Compare("1234")
-	if err == nil {
-		t.Fatal("expected an error")
-	}
+		err = pw.Compare(payload[1 : len(payload)-1])
+		is.NoErr(err) // valid password
+	})
 }
-
-func TestEmailType(t *testing.T) {
-	t.Parallel()
-
-	data := `"anon@gmail.com"`
-
-	var e dto.Email
-	err := json.NewDecoder(strings.NewReader(data)).Decode(&e)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	var sb strings.Builder
-	err = json.NewEncoder(&sb).Encode(e)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if s := strings.TrimSpace(sb.String()); s[1:len(s)-1] != string(e) {
-		t.Fatalf("expected %s got %s", e, s)
-	}
-
-	// should return an error
-	data = `"anon@.gmail.com"`
-
-	err = json.NewDecoder(strings.NewReader(data)).Decode(&e)
-	if err == nil {
-		t.Errorf("expected %v", dto.ErrInvalidEmail)
-	}
-}
-*/
