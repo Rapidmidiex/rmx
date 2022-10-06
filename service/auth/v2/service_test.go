@@ -71,4 +71,30 @@ func TestService(t *testing.T) {
 		res, _ = srv.Client().Do(req)
 		is.Equal(res.StatusCode, http.StatusOK) // delete cookie
 	})
+
+	t.Run("refresh token", func(t *testing.T) {
+		payload := `
+		{
+			"email":"fizz@gmail.com",
+			"password":"fizz_$PW_10"
+		}`
+
+		res, _ := srv.Client().Post(srv.URL+"/api/v2/auth/sign-in", applicationJson, strings.NewReader(payload))
+		is.Equal(res.StatusCode, http.StatusOK) // add refresh token
+
+		// get the refresh token from the response's `Set-Cookie` header
+		c := &http.Cookie{}
+		for _, k := range res.Cookies() {
+			t.Log(k.Value)
+			if k.Name == cookieName {
+				c = k
+			}
+		}
+
+		req, _ := http.NewRequest(http.MethodGet, srv.URL+"/api/v2/auth/refresh", nil)
+		req.AddCookie(c)
+
+		res, _ = srv.Client().Do(req)
+		is.Equal(res.StatusCode, http.StatusOK) // refresh token
+	})
 }

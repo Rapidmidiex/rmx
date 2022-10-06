@@ -56,11 +56,12 @@ func (s *Service) routes() {
 		r.Delete("/sign-out", s.handleSignOut())
 		r.Post("/sign-up", s.handleSignUp())
 
-		r.Get("/refresh", s.handleRefresh(key.Private())) // auth middleware
+		auth := r.With(auth.Authentication(jwa.ES256, key.Public(), cookieName))
+		auth.Get("/refresh", s.handleRefresh(key.Private())) // auth middleware
 	})
 
 	s.m.Route("/api/v2/account", func(r chi.Router) {
-		auth := r.With(auth.Authenticate(jwa.ES256, key.Public()))
+		auth := r.With(auth.Authentication(jwa.ES256, key.Public()))
 		auth.Get("/me", s.handleIdentity())
 	})
 }
@@ -84,10 +85,10 @@ func (s *Service) handleRefresh(key jwk.Key) http.HandlerFunc {
 		}
 
 		// redis validation
-		if err := s.t.Validate(r.Context(), j); err != nil {
-			s.respond(w, r, err, http.StatusUnauthorized)
-			return
-		}
+		// if err := s.t.Validate(r.Context(), j); err != nil {
+		// 	s.respond(w, r, err, http.StatusUnauthorized)
+		// 	return
+		// }
 
 		id, _ := suid.ParseString(j.Subject())
 
