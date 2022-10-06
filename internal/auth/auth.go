@@ -72,7 +72,7 @@ func (c *Client) ValidateRefreshToken(ctx context.Context, token string) error {
 		}
 	}
 
-	err = c.RevokeClientID(ctx, cid, email)
+	err = c.BlackListClientID(ctx, cid, email)
 	if err != nil {
 		return err
 	}
@@ -80,7 +80,7 @@ func (c *Client) ValidateRefreshToken(ctx context.Context, token string) error {
 	return ErrRTValidate
 }
 
-func (c *Client) RevokeClientID(ctx context.Context, cid, email string) error {
+func (c *Client) BlackListClientID(ctx context.Context, cid, email string) error {
 	_, err := c.cidb.Set(ctx, cid, email, RefreshTokenExpiry).Result()
 	if err != nil {
 		return err
@@ -88,7 +88,7 @@ func (c *Client) RevokeClientID(ctx context.Context, cid, email string) error {
 	return nil
 }
 
-func (c *Client) RevokeRefreshToken(ctx context.Context, token string) error {
+func (c *Client) BlackListRefreshToken(ctx context.Context, token string) error {
 	_, err := c.rtdb.Set(ctx, token, nil, RefreshTokenExpiry).Result()
 	return err
 }

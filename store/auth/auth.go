@@ -13,6 +13,21 @@ type Client struct {
 	rtdb, cidb *redis.Client
 }
 
+// ValidateRefreshToken implements internal.TokenClient
+func (*Client) ValidateRefreshToken(ctx context.Context, token string) error {
+	panic("unimplemented")
+}
+
+// BlackListClientID implements internal.TokenClient
+func (*Client) BlackListClientID(ctx context.Context, cid string, email string) error {
+	panic("unimplemented")
+}
+
+// BlackListRefreshToken implements internal.TokenClient
+func (*Client) BlackListRefreshToken(ctx context.Context, token string) error {
+	panic("unimplemented")
+}
+
 var (
 	ErrNotImplemented = errors.New("not implemented")
 	ErrGenerateKey    = errors.New("failed to generate new ecdsa key pair")

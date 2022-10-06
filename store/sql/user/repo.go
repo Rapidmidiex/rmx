@@ -43,7 +43,7 @@ func (r *userRepo) LookupEmail(email string) (User, error) {
 	return q.GetUserByEmail(ctx, email)
 }
 
-func (r *userRepo) Add(u *CreateUserParams) error {
+func (r *userRepo) Insert(u *CreateUserParams) error {
 	ctx := context.Background()
 	q := New(r.DBConn)
 	_, err := q.CreateUser(ctx, u)

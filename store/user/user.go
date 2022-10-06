@@ -18,7 +18,12 @@ type User struct {
 	CreatedAt time.Time
 }
 
-var DefaultRepo = &repo{miu: make(map[suid.UUID]*User), mei: make(map[string]*User), log: log.Println, logf: log.Printf}
+var DefaultRepo = &repo{
+	miu:  make(map[suid.UUID]*User),
+	mei:  make(map[string]*User),
+	log:  log.Println,
+	logf: log.Printf,
+}
 
 type repo struct {
 	mu  sync.Mutex
@@ -27,6 +32,26 @@ type repo struct {
 
 	log  func(v ...any)
 	logf func(format string, v ...any)
+}
+
+// ListAll implements internal.UserRepo
+func (*repo) ListAll() ([]internal.User, error) {
+	panic("unimplemented")
+}
+
+// Lookup implements internal.UserRepo
+func (*repo) Lookup(uid *suid.UUID) (internal.User, error) {
+	panic("unimplemented")
+}
+
+// LookupEmail implements internal.UserRepo
+func (*repo) LookupEmail(email string) (internal.User, error) {
+	panic("unimplemented")
+}
+
+// Remove implements internal.UserRepo
+func (*repo) Remove(uid *suid.UUID) error {
+	panic("unimplemented")
 }
 
 func (r *repo) Insert(ctx context.Context, iu *internal.User) error {

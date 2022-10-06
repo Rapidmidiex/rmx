@@ -86,7 +86,7 @@ func (s *Service) handleRefresh(key jwk.Key) http.HandlerFunc {
 		// to come up with a cleaner solution
 		k, _ := r.Cookie(cookieName)
 
-		err := s.tc.Validate(r.Context(), k.Value)
+		err := s.tc.ValidateRefreshToken(r.Context(), k.Value)
 		if err != nil {
 			s.respond(w, r, err, http.StatusTeapot)
 			return
