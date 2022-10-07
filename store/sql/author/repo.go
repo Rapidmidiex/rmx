@@ -5,6 +5,11 @@ import (
 	"database/sql"
 )
 
+const (
+	psql  = "postgres"
+	mysql = "mysql"
+)
+
 type AuthorRepo interface {
 	ListAuthors(ctx context.Context) ([]Author, error)
 	InsertAuthor(ctx context.Context, a *InternalAuthor) (Author, error)
@@ -15,7 +20,7 @@ type Repo struct {
 }
 
 func NewRepo(ctx context.Context, connString string) AuthorRepo {
-	db, err := sql.Open("postgres", connString)
+	db, err := sql.Open(psql, connString)
 	if err != nil {
 		panic(err)
 	}
