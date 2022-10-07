@@ -5,16 +5,13 @@
 package user
 
 import (
-	"database/sql"
 	"time"
 )
 
 type User struct {
-	ID        string       `db:"id" json:"id"`
-	Username  string       `db:"username" json:"username"`
-	Email     string       `db:"email" json:"email"`
-	Password  string       `db:"password" json:"password"`
-	CreatedAt time.Time    `db:"created_at" json:"createdAt"`
-	UpdatedAt sql.NullTime `db:"updated_at" json:"updatedAt"`
-	DeletedAt sql.NullTime `db:"deleted_at" json:"deletedAt"`
+	ID        string
+	Username  string
+	Email     string
+	Password  string
+	CreatedAt time.Time
 }
