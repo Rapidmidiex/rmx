@@ -11,6 +11,17 @@
                     "out": "author"
                 }
             }
+        },
+        {
+            "engine": "postgresql",
+            "schema": "user/user.sql",
+            "queries": "user/user.sql",
+            "gen": {
+                "go": {
+                    "package": "user",
+                    "out": "user"
+                }
+            }
         }
     ]
 }
