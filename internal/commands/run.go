@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net"
 	"net/http"
@@ -10,62 +11,214 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/manifoldco/promptui"
 	"github.com/rog-golang-buddies/rmx/config"
 	"github.com/rs/cors"
+	"github.com/urfave/cli/v2"
 	"golang.org/x/sync/errgroup"
 )
 
-func runProd(cfg *config.Config) error {
-	sCtx, cancel := signal.NotifyContext(
-		context.Background(),
-		syscall.SIGHUP,
-		syscall.SIGINT,
-		syscall.SIGTERM,
-		syscall.SIGQUIT,
-	)
-	defer cancel()
-
-	// ? should this defined within the instantiation of a new service
-	c := cors.Options{
-		AllowedOrigins:   []string{"*"}, // ? band-aid, needs to change to a flag
-		AllowCredentials: true,
-		AllowedMethods:   []string{http.MethodGet, http.MethodPost},
-		AllowedHeaders:   []string{"Origin", "Content-Type", "Accept", "Authorization"},
+func runProd(cCtx *cli.Context) error {
+	templates := &promptui.PromptTemplates{
+		Prompt:  "{{ . }} ",
+		Valid:   "{{ . | green }} ",
+		Invalid: "{{ . | red }} ",
+		Success: "{{ . | bold }} ",
 	}
 
-	srv := http.Server{
-		Addr:    ":" + strconv.Itoa(cfg.Port),
-		Handler: cors.New(c).Handler(http.NotFoundHandler()),
-		// max time to read request from the client
-		ReadTimeout: 10 * time.Second,
-		// max time to write response to the client
-		WriteTimeout: 10 * time.Second,
-		// max time for connections using TCP Keep-Alive
-		IdleTimeout: 120 * time.Second,
-		BaseContext: func(_ net.Listener) context.Context { return sCtx },
-		ErrorLog:    log.Default(),
+	// Server Port
+	validateNumber := func(v string) error {
+		if _, err := strconv.ParseUint(v, 0, 0); err != nil {
+			return errors.New("invalid number")
+		}
+
+		return nil
 	}
 
-	// srv.TLSConfig.
+	validateString := func(v string) error {
+		if !(len(v) > 0) {
+			return errors.New("invalid string")
+		}
 
-	g, gCtx := errgroup.WithContext(sCtx)
+		return nil
+	}
 
-	g.Go(func() error {
-		// Run the server
-		srv.ErrorLog.Printf("App server starting on %s", srv.Addr)
-		return srv.ListenAndServe()
-	})
+	// Server Port
+	serverPortPrompt := promptui.Prompt{
+		Label:     "Server Port",
+		Validate:  validateNumber,
+		Templates: templates,
+	}
 
-	g.Go(func() error {
-		<-gCtx.Done()
-		return srv.Shutdown(context.Background())
-	})
+	serverPort, err := serverPortPrompt.Run()
+	if err != nil {
+		return err
+	}
 
-	// if err := g.Wait(); err != nil {
-	// 	log.Printf("exit reason: %s \n", err)
-	// }
+	// DB Host
+	dbHostPrompt := promptui.Prompt{
+		Label:     "MySQL Database host",
+		Validate:  validateString,
+		Templates: templates,
+	}
 
-	return g.Wait()
+	dbHost, err := dbHostPrompt.Run()
+	if err != nil {
+		return err
+	}
+
+	// DB Port
+	dbPortPrompt := promptui.Prompt{
+		Label:     "MySQL Database port",
+		Validate:  validateNumber,
+		Templates: templates,
+	}
+
+	dbPort, err := dbPortPrompt.Run()
+	if err != nil {
+		return err
+	}
+
+	// DB Name
+	dbNamePrompt := promptui.Prompt{
+		Label:     "MySQL Database name",
+		Validate:  validateString,
+		Templates: templates,
+	}
+
+	dbName, err := dbNamePrompt.Run()
+	if err != nil {
+		return err
+	}
+
+	// DB User
+	dbUserPrompt := promptui.Prompt{
+		Label:     "MySQL Database user",
+		Validate:  validateString,
+		Templates: templates,
+	}
+
+	dbUser, err := dbUserPrompt.Run()
+	if err != nil {
+		return err
+	}
+
+	// DB Password
+	dbPasswordPrompt := promptui.Prompt{
+		Label:     "MySQL Database password",
+		Validate:  validateString,
+		Templates: templates,
+		Mask:      '*',
+	}
+
+	dbPassword, err := dbPasswordPrompt.Run()
+	if err != nil {
+		return err
+	}
+
+	// Redis Host
+	redisHostPrompt := promptui.Prompt{
+		Label:     "Redis host",
+		Validate:  validateString,
+		Templates: templates,
+	}
+
+	redisHost, err := redisHostPrompt.Run()
+	if err != nil {
+		return err
+	}
+
+	// Redis Port
+	redisPortPrompt := promptui.Prompt{
+		Label:     "Redis port",
+		Validate:  validateNumber,
+		Templates: templates,
+	}
+
+	redisPort, err := redisPortPrompt.Run()
+	if err != nil {
+		return err
+	}
+
+	// Redis Password
+	redisPasswordPrompt := promptui.Prompt{
+		Label:     "Redis password",
+		Validate:  validateString,
+		Templates: templates,
+		Mask:      '*',
+	}
+
+	redisPassword, err := redisPasswordPrompt.Run()
+	if err != nil {
+		return err
+	}
+
+	c := &config.Config{
+		ServerPort:    ":" + serverPort,
+		DBHost:        dbHost,
+		DBPort:        dbPort,
+		DBName:        dbName,
+		DBUser:        dbUser,
+		DBPassword:    dbPassword,
+		RedisHost:     redisHost,
+		RedisPort:     redisPort,
+		RedisPassword: redisPassword,
+	}
+
+	run := func(cfg *config.Config) error {
+		sCtx, cancel := signal.NotifyContext(
+			context.Background(),
+			syscall.SIGHUP,
+			syscall.SIGINT,
+			syscall.SIGTERM,
+			syscall.SIGQUIT,
+		)
+		defer cancel()
+
+		// ? should this defined within the instantiation of a new service
+		c := cors.Options{
+			AllowedOrigins:   []string{"*"}, // ? band-aid, needs to change to a flag
+			AllowCredentials: true,
+			AllowedMethods:   []string{http.MethodGet, http.MethodPost},
+			AllowedHeaders:   []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		}
+
+		srv := http.Server{
+			Addr:    cfg.ServerPort,
+			Handler: cors.New(c).Handler(http.NotFoundHandler()),
+			// max time to read request from the client
+			ReadTimeout: 10 * time.Second,
+			// max time to write response to the client
+			WriteTimeout: 10 * time.Second,
+			// max time for connections using TCP Keep-Alive
+			IdleTimeout: 120 * time.Second,
+			BaseContext: func(_ net.Listener) context.Context { return sCtx },
+			ErrorLog:    log.Default(),
+		}
+
+		// srv.TLSConfig.
+
+		g, gCtx := errgroup.WithContext(sCtx)
+
+		g.Go(func() error {
+			// Run the server
+			srv.ErrorLog.Printf("App server starting on %s", srv.Addr)
+			return srv.ListenAndServe()
+		})
+
+		g.Go(func() error {
+			<-gCtx.Done()
+			return srv.Shutdown(context.Background())
+		})
+
+		// if err := g.Wait(); err != nil {
+		// 	log.Printf("exit reason: %s \n", err)
+		// }
+
+		return g.Wait()
+	}
+
+	return run(c)
 }
 
 func runDev() error {

@@ -3,7 +3,6 @@ package commands
 import (
 	"errors"
 
-	"github.com/rog-golang-buddies/rmx/config"
 	"github.com/urfave/cli/v2"
 	"github.com/urfave/cli/v2/altsrc"
 )
@@ -33,18 +32,8 @@ var Commands = []*cli.Command{
 		Category:    "run",
 		Aliases:     []string{"s"},
 		Description: "Starts the server in production mode.",
-		Action: func(cCtx *cli.Context) error {
-			port := cCtx.Int("port")
-			if port < 0 {
-				return ErrInvalidPort
-			}
-
-			cfg := &config.Config{
-				Port: port,
-			}
-			return runProd(cfg)
-		},
-		Flags: Flags,
+		Action:      runProd,
+		Flags:       Flags,
 	},
 	{
 		Name:        "dev",
