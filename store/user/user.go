@@ -2,13 +2,27 @@ package user
 
 import (
 	"context"
+	"database/sql"
 	"log"
 	"sync"
 	"time"
 
 	"github.com/rog-golang-buddies/rmx/internal"
 	"github.com/rog-golang-buddies/rmx/internal/suid"
+
+	"github.com/rog-golang-buddies/rmx/store/sql/user"
 )
+
+type Repo struct {
+	c *sql.DB
+}
+
+func New(ctx context.Context) internal.UserRepo {
+	var conn *sql.DB
+
+	user.New(conn)
+	return nil
+}
 
 type User struct {
 	ID        suid.UUID

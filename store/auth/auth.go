@@ -9,8 +9,14 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
+var DefaultClient = &client{make(map[string]bool), make(map[string]bool)}
+
+func (c *client) Validate(ctx context.Context, token string) error {
+	return ErrNotImplemented
+}
+
 type client struct {
-	rt, ci *redis.Client
+	mrt, mci map[string]bool
 }
 
 type Client struct {
@@ -37,10 +43,10 @@ const (
 	defaultPassword = ""
 )
 
-var DefaultClient = &Client{
-	rtdb: redis.NewClient(&redis.Options{Addr: defaultAddr, Password: defaultPassword, DB: 0}),
-	cidb: redis.NewClient(&redis.Options{Addr: defaultAddr, Password: defaultPassword, DB: 1}),
-}
+// var DefaultClient = &Client{
+// 	rtdb: redis.NewClient(&redis.Options{Addr: defaultAddr, Password: defaultPassword, DB: 0}),
+// 	cidb: redis.NewClient(&redis.Options{Addr: defaultAddr, Password: defaultPassword, DB: 1}),
+// }
 
 func (c *Client) Validate(ctx context.Context, token string) error {
 	tc, err := ParseRefreshTokenClaims(token)

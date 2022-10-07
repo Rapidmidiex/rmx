@@ -1,10 +1,17 @@
 package store
 
-import "context"
+import (
+	"context"
 
-type Store struct{}
+	"github.com/rog-golang-buddies/rmx/internal"
+)
 
-func New(ctx context.Context) *Store {
-	db := &Store{}
-	return db
+type Store struct {
+	tc internal.TokenClient
+	ur internal.UserRepo
+}
+
+func New(ctx context.Context, connString string) *Store {
+	s := &Store{}
+	return s
 }
