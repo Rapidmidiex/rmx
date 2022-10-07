@@ -1,0 +1,16 @@
+{
+    "version": "2",
+    "sql": [
+        {
+            "engine": "postgresql",
+            "schema": "author/author.sql",
+            "queries": "author/author.sql",
+            "gen": {
+                "go": {
+                    "package": "author",
+                    "out": "author"
+                }
+            }
+        }
+    ]
+}
