@@ -39,7 +39,7 @@ func TestService(t *testing.T) {
 		}`
 
 		res, _ := srv.Client().
-			Post(srv.URL+"/api/v2/auth/sign-up", applicationJson, strings.NewReader(payload))
+			Post(srv.URL+"/api/v1/auth/sign-up", applicationJson, strings.NewReader(payload))
 		is.Equal(res.StatusCode, http.StatusCreated)
 	})
 
@@ -51,7 +51,7 @@ func TestService(t *testing.T) {
 		}`
 
 		res, _ := srv.Client().
-			Post(srv.URL+"/api/v2/auth/sign-in", applicationJson, strings.NewReader(payload))
+			Post(srv.URL+"/api/v1/auth/sign-in", applicationJson, strings.NewReader(payload))
 		is.Equal(res.StatusCode, http.StatusOK)
 
 		type body struct {
@@ -64,12 +64,12 @@ func TestService(t *testing.T) {
 		res.Body.Close()
 		is.NoErr(err) // parsing json
 
-		req, _ := http.NewRequest(http.MethodGet, srv.URL+"/api/v2/account/me", nil)
+		req, _ := http.NewRequest(http.MethodGet, srv.URL+"/api/v1/account/me", nil)
 		req.Header.Set(`Authorization`, fmt.Sprintf(`Bearer %s`, b.AccessToken))
 		res, _ = srv.Client().Do(req)
 		is.Equal(res.StatusCode, http.StatusOK) // authorized endpoint
 
-		req, _ = http.NewRequest(http.MethodDelete, srv.URL+"/api/v2/auth/sign-out", nil)
+		req, _ = http.NewRequest(http.MethodDelete, srv.URL+"/api/v1/auth/sign-out", nil)
 		req.Header.Set(`Authorization`, fmt.Sprintf(`Bearer %s`, b.AccessToken))
 		res, _ = srv.Client().Do(req)
 		is.Equal(res.StatusCode, http.StatusOK) // delete cookie
@@ -83,7 +83,7 @@ func TestService(t *testing.T) {
 		}`
 
 		res, _ := srv.Client().
-			Post(srv.URL+"/api/v2/auth/sign-in", applicationJson, strings.NewReader(payload))
+			Post(srv.URL+"/api/v1/auth/sign-in", applicationJson, strings.NewReader(payload))
 		is.Equal(res.StatusCode, http.StatusOK) // add refresh token
 
 		// get the refresh token from the response's `Set-Cookie` header
@@ -95,7 +95,7 @@ func TestService(t *testing.T) {
 			}
 		}
 
-		req, _ := http.NewRequest(http.MethodGet, srv.URL+"/api/v2/auth/refresh", nil)
+		req, _ := http.NewRequest(http.MethodGet, srv.URL+"/api/v1/auth/refresh", nil)
 		req.AddCookie(c)
 
 		res, _ = srv.Client().Do(req)

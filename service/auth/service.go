@@ -52,7 +52,7 @@ Refresh token
 func (s *Service) routes() {
 	key := auth.NewPairES256()
 
-	s.m.Route("/api/v2/auth", func(r chi.Router) {
+	s.m.Route("/api/v1/auth", func(r chi.Router) {
 		r.Post("/sign-in", s.handleSignIn(key.Private()))
 		r.Delete("/sign-out", s.handleSignOut())
 		r.Post("/sign-up", s.handleSignUp())
@@ -63,7 +63,7 @@ func (s *Service) routes() {
 		auth.Get("/refresh", s.handleRefresh(key.Private()))
 	})
 
-	s.m.Route("/api/v2/account", func(r chi.Router) {
+	s.m.Route("/api/v1/account", func(r chi.Router) {
 		auth := r.With(auth.ParseAuth(jwa.ES256, key.Public()))
 		auth.Get("/me", s.handleIdentity())
 	})
