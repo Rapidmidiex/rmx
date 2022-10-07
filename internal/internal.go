@@ -119,8 +119,6 @@ type UserRepo interface {
 }
 
 type RUserRepo interface {
-	Lookup(uid *suid.UUID) (User, error)
-	LookupEmail(email string) (User, error)
 	ListAll() ([]User, error)
 	Select(ctx context.Context, key any) (*User, error)
 }

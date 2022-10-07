@@ -49,22 +49,12 @@ type repo struct {
 }
 
 // ListAll implements internal.UserRepo
-func (*repo) ListAll() ([]internal.User, error) {
-	panic("unimplemented")
-}
-
-// Lookup implements internal.UserRepo
-func (*repo) Lookup(uid *suid.UUID) (internal.User, error) {
-	panic("unimplemented")
-}
-
-// LookupEmail implements internal.UserRepo
-func (*repo) LookupEmail(email string) (internal.User, error) {
+func (r *repo) ListAll() ([]internal.User, error) {
 	panic("unimplemented")
 }
 
 // Remove implements internal.UserRepo
-func (*repo) Remove(uid *suid.UUID) error {
+func (r *repo) Remove(uid *suid.UUID) error {
 	panic("unimplemented")
 }
 
