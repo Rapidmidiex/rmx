@@ -1,6 +1,7 @@
 package jam
 
 import (
+	"context"
 	"net/http/httptest"
 	"testing"
 
@@ -9,7 +10,7 @@ import (
 )
 
 func TestRoutes(t *testing.T) {
-	srv := NewService(chi.NewMux())
+	srv := NewService(context.Background(), chi.NewMux())
 
 	// srv.r.Get("/ws/echo", chain(srv.handleEcho(),srv.upgradeHTTP(1024,1024),srv.connectionPool(websocket.DefaultPool())))
 

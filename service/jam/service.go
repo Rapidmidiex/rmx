@@ -234,7 +234,7 @@ type Service struct {
 
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.m.ServeHTTP(w, r) }
 
-func NewService(r chi.Router) *Service {
+func NewService(ctx context.Context, r chi.Router) *Service {
 	s := &Service{
 		r,
 		ws.DefaultClient,

@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/rog-golang-buddies/rmx/service/auth"
+	"github.com/rog-golang-buddies/rmx/service/jam"
 	"github.com/rog-golang-buddies/rmx/store"
 )
 
@@ -28,8 +29,11 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.m.ServeH
 
 func New(ctx context.Context, st store.Store) http.Handler {
 	s := &Service{chi.NewMux(), log.Print, log.Printf, log.Fatal, log.Fatalf}
+
 	s.routes()
 
 	auth.NewService(ctx, s.m, st.UserRepo(), st.TokenClient())
+	jam.NewService(ctx, s.m)
+
 	return s
 }
