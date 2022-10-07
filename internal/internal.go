@@ -104,11 +104,14 @@ type TokenClient interface {
 }
 
 type RTokenClient interface {
-	// Validate(ctx context.Context, token jwt.Token) error
-	Validate(ctx context.Context, token string) error
+	ValidateRefreshToken(ctx context.Context, token string) error
+	ValidateClientID(ctx context.Context, cid string) error
 }
 
-type WTokenClient interface{}
+type WTokenClient interface {
+	BlackListClientID(ctx context.Context, cid, email string) error
+	BlackListRefreshToken(ctx context.Context, token string) error
+}
 
 type UserRepo interface {
 	RUserRepo
@@ -116,15 +119,15 @@ type UserRepo interface {
 }
 
 type RUserRepo interface {
-	// Lookup(uid *suid.UUID) (User, error)
-	// LookupEmail(email string) (User, error)
-	// ListAll() ([]User, error)
+	Lookup(uid *suid.UUID) (User, error)
+	LookupEmail(email string) (User, error)
+	ListAll() ([]User, error)
 	Select(ctx context.Context, key any) (*User, error)
 }
 
 type WUserRepo interface {
 	Insert(ctx context.Context, u *User) error
-	// Remove(uid *suid.UUID) error
+	Remove(uid *suid.UUID) error
 }
 
 // Custom user type required

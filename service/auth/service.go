@@ -65,12 +65,14 @@ func (s *Service) routes() {
 		r.Delete("/sign-out", s.handleSignOut())
 		r.Post("/sign-up", s.handleSignUp())
 
-		auth := r.With(auth.Authentication(jwa.ES256, key.Public(), cookieName)) // passing cookie is required
+		auth := r.With(
+			auth.ParseAuth(jwa.ES256, key.Public(), cookieName),
+		) // passing cookie is required
 		auth.Get("/refresh", s.handleRefresh(key.Private()))
 	})
 
 	s.m.Route("/api/v2/account", func(r chi.Router) {
-		auth := r.With(auth.Authentication(jwa.ES256, key.Public()))
+		auth := r.With(auth.ParseAuth(jwa.ES256, key.Public()))
 		auth.Get("/me", s.handleIdentity())
 	})
 }
@@ -92,15 +94,21 @@ func (s *Service) handleRefresh(key jwk.Key) http.HandlerFunc {
 		// to come up with a cleaner solution
 		k, _ := r.Cookie(cookieName)
 
-		err := s.tc.Validate(r.Context(), k.Value)
+		err := s.tc.ValidateRefreshToken(r.Context(), k.Value)
 		if err != nil {
-			s.respond(w, r, err, http.StatusTeapot)
+			s.respond(w, r, err, http.StatusInternalServerError)
 			return
 		}
 
-		id, _ := suid.ParseString(j.Subject())
+		// token validated, now it should be set inside blacklist
+		// this prevents token reuse
+		err = s.tc.BlackListRefreshToken(r.Context(), k.Value)
+		if err != nil {
+			s.respond(w, r, err, http.StatusInternalServerError)
+		}
 
-		_, ats, rts, err := s.signedTokens(key, e.String(), id)
+		cid := j.Subject()
+		_, ats, rts, err := s.signedTokens(key, e.String(), suid.SUID(cid))
 		if err != nil {
 			s.respond(w, r, err, http.StatusInternalServerError)
 			return
@@ -163,7 +171,7 @@ func (s *Service) handleSignIn(privateKey jwk.Key) http.HandlerFunc {
 			return
 		}
 
-		its, ats, rts, err := s.signedTokens(privateKey, u.Email.String(), suid.NewUUID())
+		its, ats, rts, err := s.signedTokens(privateKey, u.Email.String(), suid.NewSUID())
 		if err != nil {
 			s.respond(w, r, err, http.StatusInternalServerError)
 			return
@@ -266,10 +274,14 @@ func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, 
 }
 
 // TODO there is two cid's being used here, need clarification
-func (s *Service) signedTokens(key jwk.Key, email string, uuid suid.UUID) (its, ats, rts []byte, err error) {
+func (s *Service) signedTokens(
+	key jwk.Key,
+	email string,
+	cid suid.SUID,
+) (its, ats, rts []byte, err error) {
 	opt := auth.TokenOption{
 		Issuer:     "github.com/rog-golang-buddies/rmx",
-		Subject:    uuid.String(), // new client ID for tracking user connections
+		Subject:    cid.String(), // new client ID for tracking user connections
 		Expiration: time.Hour * 10,
 		Claims:     []fp.Tuple{{"email", email}},
 		Algo:       jwa.ES256,
@@ -294,7 +306,12 @@ func (s *Service) signedTokens(key jwk.Key, email string, uuid suid.UUID) (its, 
 
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.m.ServeHTTP(w, r) }
 
-func NewService(ctx context.Context, m chi.Router, r internal.UserRepo, tc internal.TokenClient) *Service {
+func NewService(
+	ctx context.Context,
+	m chi.Router,
+	r internal.UserRepo,
+	tc internal.TokenClient,
+) *Service {
 
 	s := &Service{
 		ctx,

@@ -38,7 +38,8 @@ func TestService(t *testing.T) {
 			"password":"fizz_$PW_10"
 		}`
 
-		res, _ := srv.Client().Post(srv.URL+"/api/v2/auth/sign-up", applicationJson, strings.NewReader(payload))
+		res, _ := srv.Client().
+			Post(srv.URL+"/api/v2/auth/sign-up", applicationJson, strings.NewReader(payload))
 		is.Equal(res.StatusCode, http.StatusCreated)
 	})
 
@@ -49,7 +50,8 @@ func TestService(t *testing.T) {
 			"password":"fizz_$PW_10"
 		}`
 
-		res, _ := srv.Client().Post(srv.URL+"/api/v2/auth/sign-in", applicationJson, strings.NewReader(payload))
+		res, _ := srv.Client().
+			Post(srv.URL+"/api/v2/auth/sign-in", applicationJson, strings.NewReader(payload))
 		is.Equal(res.StatusCode, http.StatusOK)
 
 		type body struct {
@@ -80,7 +82,8 @@ func TestService(t *testing.T) {
 			"password":"fizz_$PW_10"
 		}`
 
-		res, _ := srv.Client().Post(srv.URL+"/api/v2/auth/sign-in", applicationJson, strings.NewReader(payload))
+		res, _ := srv.Client().
+			Post(srv.URL+"/api/v2/auth/sign-in", applicationJson, strings.NewReader(payload))
 		is.Equal(res.StatusCode, http.StatusOK) // add refresh token
 
 		// get the refresh token from the response's `Set-Cookie` header
