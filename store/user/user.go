@@ -17,9 +17,8 @@ type Repo struct {
 	c *sql.DB
 }
 
-func New(ctx context.Context) internal.UserRepo {
+func NewRepo(ctx context.Context) internal.UserRepo {
 	var conn *sql.DB
-
 	user.New(conn)
 	return nil
 }
