@@ -37,6 +37,14 @@ Get current account identity
 
 	[?] GET /account/me
 
+Delete devices linked to account
+
+	[ ] DELETE /account/{uuid}/device
+
+this returns a list of current connections:
+
+	[ ] GET /account/{uuid}/devices
+
 Create a cookie
 
 	[?] POST /auth/sign-in
