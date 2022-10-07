@@ -50,10 +50,11 @@ func (c *Config) WriteToFile() error {
 // checks for a config file and if one is available the value is returned
 func ScanConfigFile() (*Config, error) {
 	// check for a config file
-	if _, err := os.Stat(configFileName); err == nil {
-	} else if errors.Is(err, os.ErrNotExist) {
-		return nil, nil
-	} else {
+	if _, err := os.Stat(configFileName); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, nil
+		}
+
 		return nil, err
 	}
 
