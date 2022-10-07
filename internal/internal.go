@@ -119,13 +119,13 @@ type UserRepo interface {
 }
 
 type RUserRepo interface {
-	ListAll() ([]User, error)
+	SelectMany(ctx context.Context) ([]User, error)
 	Select(ctx context.Context, key any) (*User, error)
 }
 
 type WUserRepo interface {
 	Insert(ctx context.Context, u *User) error
-	Remove(uid *suid.UUID) error
+	Remove(ctx context.Context, key any) error
 }
 
 // Custom user type required
