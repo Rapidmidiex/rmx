@@ -24,6 +24,7 @@ bin/
 *.env
 cmd/**/config
 certs
+rmx.config.json
 
 # NPM
 node_modules

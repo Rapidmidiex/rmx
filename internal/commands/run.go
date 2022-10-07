@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -19,6 +20,59 @@ import (
 )
 
 func runProd(cCtx *cli.Context) error {
+	run := func(cfg *config.Config) error {
+		sCtx, cancel := signal.NotifyContext(
+			context.Background(),
+			syscall.SIGHUP,
+			syscall.SIGINT,
+			syscall.SIGTERM,
+			syscall.SIGQUIT,
+		)
+		defer cancel()
+
+		// ? should this defined within the instantiation of a new service
+		c := cors.Options{
+			AllowedOrigins:   []string{"*"}, // ? band-aid, needs to change to a flag
+			AllowCredentials: true,
+			AllowedMethods:   []string{http.MethodGet, http.MethodPost},
+			AllowedHeaders:   []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		}
+
+		srv := http.Server{
+			Addr:    ":" + cfg.ServerPort,
+			Handler: cors.New(c).Handler(http.NotFoundHandler()),
+			// max time to read request from the client
+			ReadTimeout: 10 * time.Second,
+			// max time to write response to the client
+			WriteTimeout: 10 * time.Second,
+			// max time for connections using TCP Keep-Alive
+			IdleTimeout: 120 * time.Second,
+			BaseContext: func(_ net.Listener) context.Context { return sCtx },
+			ErrorLog:    log.Default(),
+		}
+
+		// srv.TLSConfig.
+
+		g, gCtx := errgroup.WithContext(sCtx)
+
+		g.Go(func() error {
+			// Run the server
+			srv.ErrorLog.Printf("App server starting on %s", srv.Addr)
+			return srv.ListenAndServe()
+		})
+
+		g.Go(func() error {
+			<-gCtx.Done()
+			return srv.Shutdown(context.Background())
+		})
+
+		// if err := g.Wait(); err != nil {
+		// 	log.Printf("exit reason: %s \n", err)
+		// }
+
+		return g.Wait()
+	}
+
 	templates := &promptui.PromptTemplates{
 		Prompt:  "{{ . }} ",
 		Valid:   "{{ . | green }} ",
@@ -41,6 +95,40 @@ func runProd(cCtx *cli.Context) error {
 		}
 
 		return nil
+	}
+
+	// check if a config file exists and use that
+	c, err := config.ScanConfigFile()
+	if err != nil {
+		return errors.New("failed to scan config file")
+	}
+	if c != nil {
+		configPrompt := promptui.Prompt{
+			Label:     "A config file was found. do you want to use it?",
+			IsConfirm: true,
+			Default:   "y",
+		}
+
+		validateConfirm := func(s string) error {
+			if len(s) == 1 && strings.Contains("YyNn", s) ||
+				configPrompt.Default != "" && len(s) == 0 {
+				return nil
+			}
+			return errors.New("invalid input")
+		}
+
+		configPrompt.Validate = validateConfirm
+
+		result, err := configPrompt.Run()
+		if err != nil {
+			if strings.ToLower(result) != "n" {
+				return err
+			}
+		}
+
+		if strings.ToLower(result) == "y" {
+			return run(c)
+		}
 	}
 
 	// Server Port
@@ -153,8 +241,8 @@ func runProd(cCtx *cli.Context) error {
 		return err
 	}
 
-	c := &config.Config{
-		ServerPort:    ":" + serverPort,
+	c = &config.Config{
+		ServerPort:    serverPort,
 		DBHost:        dbHost,
 		DBPort:        dbPort,
 		DBName:        dbName,
@@ -165,57 +253,34 @@ func runProd(cCtx *cli.Context) error {
 		RedisPassword: redisPassword,
 	}
 
-	run := func(cfg *config.Config) error {
-		sCtx, cancel := signal.NotifyContext(
-			context.Background(),
-			syscall.SIGHUP,
-			syscall.SIGINT,
-			syscall.SIGTERM,
-			syscall.SIGQUIT,
-		)
-		defer cancel()
+	// prompt to save the config to a file
+	configPrompt := promptui.Prompt{
+		Label:     "Do you want to write the config to a file? (NOTE: this will rewrite the config file)",
+		IsConfirm: true,
+		Default:   "n",
+	}
 
-		// ? should this defined within the instantiation of a new service
-		c := cors.Options{
-			AllowedOrigins:   []string{"*"}, // ? band-aid, needs to change to a flag
-			AllowCredentials: true,
-			AllowedMethods:   []string{http.MethodGet, http.MethodPost},
-			AllowedHeaders:   []string{"Origin", "Content-Type", "Accept", "Authorization"},
+	validateConfirm := func(s string) error {
+		if len(s) == 1 && strings.Contains("YyNn", s) ||
+			configPrompt.Default != "" && len(s) == 0 {
+			return nil
 		}
+		return errors.New("invalid input")
+	}
 
-		srv := http.Server{
-			Addr:    cfg.ServerPort,
-			Handler: cors.New(c).Handler(http.NotFoundHandler()),
-			// max time to read request from the client
-			ReadTimeout: 10 * time.Second,
-			// max time to write response to the client
-			WriteTimeout: 10 * time.Second,
-			// max time for connections using TCP Keep-Alive
-			IdleTimeout: 120 * time.Second,
-			BaseContext: func(_ net.Listener) context.Context { return sCtx },
-			ErrorLog:    log.Default(),
+	configPrompt.Validate = validateConfirm
+
+	result, err := configPrompt.Run()
+	if err != nil {
+		if strings.ToLower(result) != "n" {
+			return err
 		}
+	}
 
-		// srv.TLSConfig.
-
-		g, gCtx := errgroup.WithContext(sCtx)
-
-		g.Go(func() error {
-			// Run the server
-			srv.ErrorLog.Printf("App server starting on %s", srv.Addr)
-			return srv.ListenAndServe()
-		})
-
-		g.Go(func() error {
-			<-gCtx.Done()
-			return srv.Shutdown(context.Background())
-		})
-
-		// if err := g.Wait(); err != nil {
-		// 	log.Printf("exit reason: %s \n", err)
-		// }
-
-		return g.Wait()
+	if strings.ToLower(result) == "y" {
+		if err := c.WriteToFile(); err != nil {
+			return err
+		}
 	}
 
 	return run(c)
