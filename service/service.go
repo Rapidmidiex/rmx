@@ -1,11 +1,13 @@
 package service
 
 import (
+	"context"
 	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
+	"github.com/rog-golang-buddies/rmx/service/auth"
 	"github.com/rog-golang-buddies/rmx/store"
 )
 
@@ -24,8 +26,10 @@ type Service struct {
 
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.m.ServeHTTP(w, r) }
 
-func New(st store.Store) *Service {
+func New(ctx context.Context, st store.Store) http.Handler {
 	s := &Service{chi.NewMux(), log.Print, log.Printf, log.Fatal, log.Fatalf}
 	s.routes()
+
+	auth.NewService(ctx, s.m, st.UserRepo(), st.TokenClient())
 	return s
 }

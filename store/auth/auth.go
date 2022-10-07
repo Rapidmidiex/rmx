@@ -11,8 +11,22 @@ import (
 
 var DefaultClient = &client{make(map[string]bool), make(map[string]bool)}
 
-func (c *client) Validate(ctx context.Context, token string) error {
+func (c *client) ValidateRefreshToken(ctx context.Context, token string) error {
 	return ErrNotImplemented
+}
+
+func (c *client) ValidateClientID(ctx context.Context, token string) error {
+	return ErrNotImplemented
+}
+
+// BlackListClientID implements internal.TokenClient
+func (c *client) BlackListClientID(ctx context.Context, cid string, email string) error {
+	panic("unimplemented")
+}
+
+// BlackListRefreshToken implements internal.TokenClient
+func (c *client) BlackListRefreshToken(ctx context.Context, token string) error {
+	panic("unimplemented")
 }
 
 type client struct {
