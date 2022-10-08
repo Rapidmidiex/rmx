@@ -1,10 +1,9 @@
-CREATE TABLE "users" (
-    id text NOT NULL PRIMARY KEY,
-    username text NOT NULL,
-    email text NOT NULL,
-    password text NOT NULL,
-    created_at timestamp NOT NULL DEFAULT NOW(),
-    UNIQUE (email)
+CREATE TEMP TABLE IF NOT EXISTS "users" (
+    id uuid PRIMARY KEY DEFAULT uuid_generate_v4 (),
+    username text UNIQUE NOT NULL CHECK (username <> ''),
+    email citext UNIQUE NOT NULL CHECK (email ~ '^[a-zA-Z0-9.!#$%&’*+/=?^_\x60{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$'),
+    PASSWORD citext NOT NULL CHECK (PASSWORD <> ''),
+    created_at timestamp DEFAULT now()
 );
 
 -- name: SelectByID :one
@@ -25,7 +24,7 @@ WHERE
     email = $1
 LIMIT 1;
 
--- name: ListUsers :many
+-- name: SelectMany :many
 SELECT
     *
 FROM
