@@ -119,13 +119,22 @@ type UserRepo interface {
 }
 
 type RUserRepo interface {
+	// Returns an array of users subject to any filter
+	// conditions that are required
 	SelectMany(ctx context.Context) ([]User, error)
+	// Returns a user form the database, the "key"
+	// can be either the "id", "email" or "username"
+	// as these are all given unique values
 	Select(ctx context.Context, key any) (*User, error)
 }
 
 type WUserRepo interface {
+	// Insert a new user to the database
 	Insert(ctx context.Context, u *User) error
-	Remove(ctx context.Context, key any) error
+
+	// Performs a "hard" delete from database
+	// Restricted to admin only
+	Delete(ctx context.Context, key any) error
 }
 
 // Custom user type required

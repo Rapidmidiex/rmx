@@ -2,85 +2,159 @@ package user
 
 import (
 	"context"
-	"database/sql"
 	"log"
 	"sync"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/rog-golang-buddies/rmx/internal"
-	"github.com/rog-golang-buddies/rmx/internal/fp"
 	"github.com/rog-golang-buddies/rmx/internal/suid"
 )
 
+/*
+CREATE TABLE users (
+
+	id text NOT NULL PRIMARY KEY,
+	username text NOT NULL,
+	email text NOT NULL,
+	password text NOT NULL,
+	created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+	updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+	deleted_at TIMESTAMP NULL DEFAULT NULL,
+	UNIQUE (email)
+
+);
+*/
+type User struct {
+	ID        suid.UUID
+	Username  string
+	Email     internal.Email
+	Password  internal.PasswordHash
+	CreatedAt time.Time
+	// UpdatedAt *time.Time
+	// DeletedAt *time.Time
+}
+
 type Repo struct {
-	q *Queries
+	ctx context.Context
+
+	// connection is using pgx until SQLC is sorted
+	c *pgx.Conn
 }
 
-func NewRepo(ctx context.Context, conn *sql.DB) internal.UserRepo {
-	r := &Repo{New(conn)}
+func (r *Repo) Context() context.Context {
+	if r.ctx != nil {
+		return r.ctx
+	}
+	return context.Background()
+}
+
+func (r *Repo) Close(ctx context.Context) error { return r.c.Close(ctx) }
+
+func NewRepo(ctx context.Context, conn *pgx.Conn) internal.UserRepo {
+	r := &Repo{ctx, conn}
 	return r
 }
 
-func UserRepo(c *sql.DB) *Repo {
-	r := &Repo{q: New(c)}
-	return r
+func (r *Repo) Insert(ctx context.Context, iu *internal.User) error {
+	qry := `insert into "user" (id, email, username, password) values ($1, $2, $3, $4)`
+	_, err := r.c.Exec(context.Background(), qry, iu.ID, iu.Email, iu.Username, iu.Password.String())
+	return err
 }
 
 // We need to setup the config to avoid needing to do this
 func (r *Repo) SelectMany(ctx context.Context) ([]internal.User, error) {
-	us, err := r.q.ListUsers(ctx)
-	ius := fp.FMap(us, func(u User) internal.User {
-		return internal.User{
-			ID: suid.MustParse(u.ID), Username: u.Username, Email: internal.Email(u.Email),
-			Password: internal.PasswordHash(u.Password),
-		}
-	})
+	qry := `select id, email, username, password from "user" order by id`
 
-	return ius, err
+	row, err := r.c.Query(context.Background(), qry)
+	if err != nil {
+		return nil, err
+	}
+	defer row.Close()
+
+	var ius []internal.User
+	for row.Next() {
+		var u User
+		if err := row.Scan(&u.ID, &u.Email, &u.Username, &u.Password); err != nil {
+			return nil, err
+		}
+
+		iu := internal.User{ID: u.ID, Email: internal.Email(u.Email), Username: u.Username, Password: u.Password}
+		ius = append(ius, iu)
+	}
+
+	return ius, nil
 }
 
-func (r *Repo) Select(ctx context.Context, key any) (u *internal.User, err error) {
-	var v User
+func (r Repo) Select(ctx context.Context, key any) (*internal.User, error) {
 	switch key := key.(type) {
 	case suid.UUID:
-		v, err = r.q.GetUserByID(ctx, key.String())
+		return r.selectUUID(ctx, `select id, email, username, password from "user" where id = $1`, key)
 	case internal.Email:
-		v, err = r.q.GetUserByEmail(ctx, key.String())
-	default:
-		return nil, internal.ErrInvalidType
+		return r.selectEmail(ctx, `select id, email, username, password from "user" where email = $1`, key)
+	case string:
+		return r.selectUsername(ctx, `select id, email, username, password from "user" where username = $1`, key)
 	}
 
-	u = &internal.User{
-		ID:       suid.MustParse(v.ID),
-		Username: v.Username,
-		Email:    internal.Email(v.Email),
-		Password: internal.PasswordHash(v.Password),
-	}
-
-	return u, err
+	return nil, internal.ErrInvalidType
 }
 
-func (r *Repo) Insert(ctx context.Context, u *internal.User) error {
-	v := CreateUserParams{
-		Username:  u.Username,
-		Email:     u.Email.String(),
-		Password:  u.Password.String(),
-		CreatedAt: time.Now(),
+func (r Repo) selectUUID(ctx context.Context, qry string, uid suid.UUID) (*internal.User, error) {
+	row := r.c.QueryRow(ctx, qry, uid)
+
+	var u User
+	err := row.Scan(&u.ID, &u.Email, &u.Username, &u.Password)
+
+	iu := &internal.User{ID: u.ID, Email: internal.Email(u.Email), Username: u.Username, Password: u.Password}
+	return iu, err
+}
+
+func (r Repo) selectEmail(ctx context.Context, qry string, email internal.Email) (*internal.User, error) {
+	row := r.c.QueryRow(ctx, qry, email)
+
+	var u User
+	err := row.Scan(&u.ID, &u.Email, &u.Username, &u.Password)
+
+	iu := &internal.User{ID: u.ID, Email: internal.Email(u.Email), Username: u.Username, Password: u.Password}
+	return iu, err
+}
+
+func (r Repo) selectUsername(ctx context.Context, qry string, username string) (*internal.User, error) {
+	row := r.c.QueryRow(ctx, qry, username)
+
+	var u User
+	err := row.Scan(&u.ID, &u.Email, &u.Username, &u.Password)
+
+	iu := &internal.User{ID: u.ID, Email: internal.Email(u.Email), Username: u.Username, Password: u.Password}
+	return iu, err
+}
+
+func (r Repo) Delete(ctx context.Context, key any) error {
+	switch key := key.(type) {
+	case suid.UUID:
+		return r.deleteUUID(ctx, `delete from "user" where id = $1`, key)
+	case internal.Email:
+		return r.deleteEmail(ctx, `delete from "user" where email = $1`, key)
+	case string:
+		return r.deleteUsername(ctx, `delete from "user" where username = $1`, key)
 	}
 
-	_, err := r.q.CreateUser(ctx, v)
+	return internal.ErrNotImplemented
+}
+
+func (r Repo) deleteUUID(ctx context.Context, qry string, uid suid.UUID) error {
+	_, err := r.c.Exec(ctx, qry, uid.String())
 	return err
 }
 
-func (r *Repo) Remove(ctx context.Context, key any) error {
-	switch key := key.(type) {
-	case suid.UUID:
-		return r.q.DeleteUser(ctx, key.String())
-	// case internal.Email:
-	// v, err = r.q.GetUserByEmail(ctx, key.String())
-	default:
-		return internal.ErrInvalidType
-	}
+func (r Repo) deleteEmail(ctx context.Context, qry string, email internal.Email) error {
+	_, err := r.c.Exec(ctx, qry, email.String())
+	return err
+}
+
+func (r Repo) deleteUsername(ctx context.Context, qry string, username string) error {
+	_, err := r.c.Exec(ctx, qry, username)
+	return err
 }
 
 var DefaultRepo = &repo{
@@ -113,10 +187,10 @@ func (r *repo) Insert(ctx context.Context, iu *internal.User) error {
 	}
 
 	u := &User{
-		ID:        iu.ID.String(),
+		ID:        iu.ID,
 		Username:  iu.Username,
-		Email:     iu.Email.String(),
-		Password:  iu.Password.String(),
+		Email:     iu.Email,
+		Password:  iu.Password,
 		CreatedAt: time.Now(),
 	}
 	r.mei[iu.Email.String()], r.miu[iu.ID] = u, u
@@ -147,7 +221,7 @@ func (r *repo) selectUUID(uid suid.UUID) (*internal.User, error) {
 
 	if u, ok := r.miu[uid]; ok {
 		return &internal.User{
-			ID:       suid.MustParse(u.ID),
+			ID:       u.ID,
 			Username: u.Username,
 			Email:    internal.Email(u.Email),
 			Password: internal.PasswordHash(u.Password),
@@ -164,7 +238,7 @@ func (r *repo) selectUsername(username string) (*internal.User, error) {
 	for _, u := range r.mei {
 		if u.Username == username {
 			return &internal.User{
-				ID:       suid.MustParse(u.ID),
+				ID:       u.ID,
 				Username: u.Username,
 				Email:    internal.Email(u.Email),
 				Password: internal.PasswordHash(u.Password),
@@ -181,7 +255,7 @@ func (r *repo) selectEmail(email internal.Email) (*internal.User, error) {
 
 	if u, ok := r.mei[email.String()]; ok {
 		return &internal.User{
-			ID:       suid.MustParse(u.ID),
+			ID:       u.ID,
 			Username: u.Username,
 			Email:    internal.Email(u.Email),
 			Password: internal.PasswordHash(u.Password),
