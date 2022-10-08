@@ -1,4 +1,4 @@
-CREATE TABLE users (
+CREATE TABLE "users" (
     id text NOT NULL PRIMARY KEY,
     username text NOT NULL,
     email text NOT NULL,
@@ -7,7 +7,7 @@ CREATE TABLE users (
     UNIQUE (email)
 );
 
--- name: GetUserByID :one
+-- name: SelectByID :one
 SELECT
     *
 FROM
@@ -16,7 +16,7 @@ WHERE
     id = $1
 LIMIT 1;
 
--- name: GetUserByEmail :one
+-- name: SelectByEmail :one
 SELECT
     *
 FROM

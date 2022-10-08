@@ -14,8 +14,8 @@
         },
         {
             "engine": "postgresql",
-            "schema": "user/user.sql",
-            "queries": "user/user.sql",
+            "schema": "user/psql.sql",
+            "queries": "user/psql.sql",
             "gen": {
                 "go": {
                     "package": "user",
