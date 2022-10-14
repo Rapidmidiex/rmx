@@ -24,3 +24,4 @@ bin/
 *.env
 certs
 rmx.config.json
+rmx-dev.config.json

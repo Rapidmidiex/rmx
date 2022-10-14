@@ -19,17 +19,27 @@ type Config struct {
 	RedisPassword string `json:"redisPassword"`
 }
 
-const configFileName = "rmx.config.json"
+const (
+	configFileName    = "rmx.config.json"
+	devConfigFileName = "rmx-dev.config.json"
+)
 
 // writes the values of the config to a file
 // NOTE: this will overwrite the previous generated file
-func (c *Config) WriteToFile() error {
+func (c *Config) WriteToFile(dev bool) error {
+	var fp string
+	if dev {
+		fp = devConfigFileName
+	} else {
+		fp = configFileName
+	}
+
 	bs, err := json.MarshalIndent(c, "", "    ")
 	if err != nil {
 		return err
 	}
 
-	f, err := os.OpenFile(configFileName, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0660)
+	f, err := os.OpenFile(fp, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0660)
 	if err != nil {
 		return err
 	}
@@ -48,9 +58,16 @@ func (c *Config) WriteToFile() error {
 }
 
 // checks for a config file and if one is available the value is returned
-func ScanConfigFile() (*Config, error) {
+func ScanConfigFile(dev bool) (*Config, error) {
 	// check for a config file
-	if _, err := os.Stat(configFileName); err != nil {
+	var fp string
+	if dev {
+		fp = devConfigFileName
+	} else {
+		fp = configFileName
+	}
+
+	if _, err := os.Stat(fp); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, nil
 		}
@@ -59,7 +76,7 @@ func ScanConfigFile() (*Config, error) {
 	}
 
 	c := &Config{}
-	bs, err := os.ReadFile(configFileName)
+	bs, err := os.ReadFile(fp)
 	if err != nil {
 		return nil, err
 	}

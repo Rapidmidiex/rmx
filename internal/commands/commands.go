@@ -32,7 +32,7 @@ var Commands = []*cli.Command{
 		Category:    "run",
 		Aliases:     []string{"s"},
 		Description: "Starts the server in production mode.",
-		Action:      runProd,
+		Action:      run(false), // disable dev mode
 		Flags:       Flags,
 	},
 	{
@@ -40,9 +40,7 @@ var Commands = []*cli.Command{
 		Category:    "run",
 		Aliases:     []string{"d"},
 		Description: "Starts the server in development mode",
-		Action: func(cCtx *cli.Context) error {
-			return runDev()
-		},
-		Flags: Flags,
+		Action:      run(true), // enable dev mode
+		Flags:       Flags,
 	},
 }

@@ -19,12 +19,12 @@ func TestConfig(t *testing.T) {
 		RedisPassword: "password",
 	}
 
-	if err := i.WriteToFile(); err != nil {
+	if err := i.WriteToFile(false); err != nil {
 		t.Fatal(err)
 	}
 
 	// Read config from file
-	o, err := ScanConfigFile()
+	o, err := ScanConfigFile(false)
 	if err != nil {
 		t.Fatal(err)
 	}
