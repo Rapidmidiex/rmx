@@ -164,6 +164,10 @@ var DefaultRepo = &repo{
 	logf: log.Printf,
 }
 
+func (r *repo) Close(ctx context.Context) error { return nil }
+
+func (r *repo) Delete(ctx context.Context, key any) error { return nil }
+
 type repo struct {
 	mu  sync.Mutex
 	miu map[suid.UUID]*User

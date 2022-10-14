@@ -126,6 +126,8 @@ type RUserRepo interface {
 	// can be either the "id", "email" or "username"
 	// as these are all given unique values
 	Select(ctx context.Context, key any) (*User, error)
+
+	Close(ctx context.Context) error
 }
 
 type WUserRepo interface {
@@ -135,6 +137,8 @@ type WUserRepo interface {
 	// Performs a "hard" delete from database
 	// Restricted to admin only
 	Delete(ctx context.Context, key any) error
+
+	Close(ctx context.Context) error
 }
 
 // Custom user type required

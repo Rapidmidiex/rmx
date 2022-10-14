@@ -39,7 +39,7 @@ func TestPSQL(t *testing.T) {
 
 	is, ctx := is.New(t), context.Background()
 
-	t.Cleanup(func() { db.c.Close(ctx) })
+	t.Cleanup(func() { db.Close(ctx) })
 
 	t.Run(`select * from "user"`, func(t *testing.T) {
 		_, err := db.SelectMany(ctx)
