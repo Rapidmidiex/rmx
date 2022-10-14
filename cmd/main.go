@@ -7,7 +7,6 @@ import (
 
 	"github.com/rog-golang-buddies/rmx/internal/commands"
 	"github.com/urfave/cli/v2"
-	"github.com/urfave/cli/v2/altsrc"
 )
 
 func main() {
@@ -26,10 +25,7 @@ func initCLI() *cli.App {
 		Action: func(*cli.Context) error {
 			return nil
 		},
-		Before: altsrc.InitInputSourceWithContext(
-			commands.Flags,
-			altsrc.NewYamlSourceFromFlagFunc("load"),
-		),
+		Flags:    commands.Flags,
 		Commands: commands.Commands,
 	}
 
