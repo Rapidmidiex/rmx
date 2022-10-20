@@ -16,7 +16,6 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/pkg/errors"
 	"github.com/rog-golang-buddies/rmx/internal"
-	"github.com/rog-golang-buddies/rmx/internal/fp"
 )
 
 type Client struct {
@@ -117,7 +116,7 @@ type Pair [2]jwk.Key
 func (p *Pair) Private() jwk.Key { return p[0] }
 func (p *Pair) Public() jwk.Key  { return p[1] }
 
-func NewPairES256() Pair {
+func ES256() Pair {
 	rawPriv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		panic(err)
@@ -141,7 +140,7 @@ func NewPairES256() Pair {
 	return Pair{key, pub}
 }
 
-func NewPairRS256() Pair {
+func RS256() Pair {
 	rawPrv, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		panic(err)
@@ -160,44 +159,95 @@ func NewPairRS256() Pair {
 	return Pair{jwkPrv, jwkPub}
 }
 
-func SignToken(key jwk.Key, opt *TokenOption) ([]byte, error) {
-	var t time.Time
-	if opt.IssuedAt.IsZero() {
-		t = time.Now().UTC()
-	} else {
-		t = opt.IssuedAt
+func Sign(key jwk.Key, o *TokenOption) ([]byte, error) {
+	var sep jwt.SignEncryptParseOption
+	switch key := key.(type) {
+	case jwk.RSAPrivateKey:
+		sep = jwt.WithKey(jwa.RS256, key)
+	case jwk.ECDSAPrivateKey:
+		sep = jwt.WithKey(jwa.ES256, key)
+	default:
+		return nil, errors.New(`unsupported encryption`)
 	}
 
-	token, err := jwt.NewBuilder().
-		Issuer(opt.Issuer).
-		Audience(opt.Audience).
-		Subject(opt.Subject).
-		IssuedAt(t).
-		Expiration(t.Add(opt.Expiration)).
+	var iat time.Time
+	if o.IssuedAt.IsZero() {
+		iat = time.Now().UTC()
+	} else {
+		iat = o.IssuedAt
+	}
+
+	tk, err := jwt.NewBuilder().
+		Issuer(o.Issuer).
+		Audience(o.Audience).
+		Subject(o.Subject).
+		IssuedAt(iat).
+		Expiration(iat.Add(o.Expiration)).
 		Build()
+
 	if err != nil {
 		return nil, ErrSignTokens
 	}
 
-	for _, c := range opt.Claims {
-		if !c.HasValue() {
-			return nil, fp.ErrTuple
-		}
-
-		err := token.Set(c[0], c[1])
-		if err != nil {
-			return nil, ErrSignTokens
+	for k, v := range o.Claims {
+		if err := tk.Set(k, v); err != nil {
+			return nil, err
 		}
 	}
 
-	var algo jwa.SignatureAlgorithm
-	if opt.Algo == "" {
-		algo = jwa.RS256
-	} else {
-		algo = opt.Algo
+	return jwt.Sign(tk, sep)
+}
+
+func ParseCookie(r *http.Request, key jwk.Key, cookieName string) (jwt.Token, error) {
+	c, err := r.Cookie(cookieName)
+	if err != nil {
+		return nil, err
 	}
 
-	return jwt.Sign(token, jwt.WithKey(algo, key))
+	var sep jwt.SignEncryptParseOption
+	switch key := key.(type) {
+	case jwk.RSAPublicKey:
+		sep = jwt.WithKey(jwa.RS256, key)
+	case jwk.ECDSAPublicKey:
+		sep = jwt.WithKey(jwa.ES256, key)
+	default:
+		return nil, errors.New(`unsupported encryption`)
+	}
+
+	return jwt.Parse([]byte(c.Value), sep)
+}
+
+/*
+ParseRequest searches a http.Request object for a JWT token.
+
+Specifying WithHeaderKey() will tell it to search under a specific
+header key. Specifying WithFormKey() will tell it to search under
+a specific form field.
+
+By default, "Authorization" header will be searched.
+
+If WithHeaderKey() is used, you must explicitly re-enable searching for "Authorization" header.
+
+	# searches for "Authorization"
+	jwt.ParseRequest(req)
+
+	# searches for "x-my-token" ONLY.
+	jwt.ParseRequest(req, jwt.WithHeaderKey("x-my-token"))
+
+	# searches for "Authorization" AND "x-my-token"
+	jwt.ParseRequest(req, jwt.WithHeaderKey("Authorization"), jwt.WithHeaderKey("x-my-token"))
+*/
+func ParseRequest(r *http.Request, key jwk.Key) (jwt.Token, error) {
+	var sep jwt.SignEncryptParseOption
+	switch key := key.(type) {
+	case jwk.RSAPublicKey:
+		sep = jwt.WithKey(jwa.RS256, key)
+	case jwk.ECDSAPublicKey:
+		sep = jwt.WithKey(jwa.ES256, key)
+	default:
+		return nil, errors.New(`unsupported encryption`)
+	}
+	return jwt.ParseRequest(r, sep)
 }
 
 func ParseRefreshTokenClaims(token string) (jwt.Token, error) { return jwt.Parse([]byte(token)) }
@@ -214,13 +264,12 @@ func ParseRefreshTokenWithValidate(key *jwk.Key, token string) (jwt.Token, error
 }
 
 type TokenOption struct {
+	IssuedAt   time.Time
 	Issuer     string
 	Audience   []string
 	Subject    string
-	Claims     []fp.Tuple
-	IssuedAt   time.Time
 	Expiration time.Duration
-	Algo       jwa.SignatureAlgorithm
+	Claims     map[string]any
 }
 
 type authCtxKey string

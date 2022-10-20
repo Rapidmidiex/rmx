@@ -8,9 +8,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwk"
-	"github.com/lestrrat-go/jwx/v2/jwt"
 
 	h "github.com/hyphengolang/prelude/http"
 	"github.com/hyphengolang/prelude/types/email"
@@ -19,7 +17,6 @@ import (
 	// github.com/rog-golang-buddies/rmx/service/internal/auth/auth
 	"github.com/rog-golang-buddies/rmx/internal"
 	"github.com/rog-golang-buddies/rmx/internal/auth"
-	"github.com/rog-golang-buddies/rmx/internal/fp"
 	"github.com/rog-golang-buddies/rmx/internal/suid"
 	// big no-no
 )
@@ -59,58 +56,95 @@ Refresh token
 
 	[?] GET /auth/refresh
 */
+type Service struct {
+	ctx context.Context
+
+	m chi.Router
+
+	r  internal.UserRepo
+	tc internal.TokenClient
+
+	log  func(...any)
+	logf func(string, ...any)
+
+	decode    func(http.ResponseWriter, *http.Request, any) error
+	respond   func(http.ResponseWriter, *http.Request, any, int)
+	created   func(http.ResponseWriter, *http.Request, string)
+	setCookie func(http.ResponseWriter, *http.Cookie)
+}
+
 func (s *Service) routes() {
-	key := auth.NewPairES256()
+	key := auth.ES256()
 
 	s.m.Route("/api/v1/auth", func(r chi.Router) {
 		r.Post("/sign-in", s.handleSignIn(key.Private()))
 		r.Delete("/sign-out", s.handleSignOut())
 		r.Post("/sign-up", s.handleSignUp())
 
-		auth := r.With(
-			auth.ParseAuth(jwa.ES256, key.Public(), cookieName),
-		) // passing cookie is required
-		auth.Get("/refresh", s.handleRefresh(key.Private()))
+		r.Get("/refresh", s.handleRefresh(key.Public(), key.Private()))
 	})
 
 	s.m.Route("/api/v1/account", func(r chi.Router) {
-		auth := r.With(auth.ParseAuth(jwa.ES256, key.Public()))
-		auth.Get("/me", s.handleIdentity())
+		// auth := r.With(auth.ParseAuth(jwa.ES256, key.Public()))
+		r.Get("/me", s.handleIdentity(key.Public()))
 	})
 }
 
-func (s *Service) handleRefresh(key jwk.Key) http.HandlerFunc {
+// FIXME this endpoint is broken due to the redis client
+// We need to try fix this ASAP
+func (s *Service) handleRefresh(public, private jwk.Key) http.HandlerFunc {
 	type token struct {
 		AccessToken string `json:"accessToken"`
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
-
-		// this have to exist else it would have lead to
-		// a 401 response. this is risky and will debate on
-		// whether we should be more cautious
-		j, _ := r.Context().Value(internal.TokenKey).(jwt.Token)
-		e, _ := r.Context().Value(internal.EmailKey).(email.Email)
-
-		// already checked in auth but I am too tired
-		// to come up with a cleaner solution
-		k, _ := r.Cookie(cookieName)
-
-		err := s.tc.ValidateRefreshToken(r.Context(), k.Value)
+		// NOTE temp switch away from auth middleware
+		jtk, err := auth.ParseCookie(r, public, cookieName)
 		if err != nil {
-			s.respond(w, r, err, http.StatusInternalServerError)
+			s.respond(w, r, err, http.StatusUnauthorized)
 			return
 		}
 
-		// token validated, now it should be set inside blacklist
-		// this prevents token reuse
-		err = s.tc.BlackListRefreshToken(r.Context(), k.Value)
-		if err != nil {
-			s.respond(w, r, err, http.StatusInternalServerError)
+		claim, ok := jtk.PrivateClaims()["email"].(string)
+		if !ok {
+			s.respondText(w, r, http.StatusInternalServerError)
+			return
 		}
 
-		cid := j.Subject()
-		_, ats, rts, err := s.signedTokens(key, e.String(), suid.SUID(cid))
+		u, err := s.r.Select(r.Context(), email.Email(claim))
+		if err != nil {
+			s.respond(w, r, err, http.StatusForbidden)
+			return
+		}
+
+		// FIXME commented out as not complete
+		// // already checked in auth but I am too tired
+		// // to come up with a cleaner solution
+		// k, _ := r.Cookie(cookieName)
+
+		// err := s.tc.ValidateRefreshToken(r.Context(), k.Value)
+		// if err != nil {
+		// 	s.respond(w, r, err, http.StatusInternalServerError)
+		// 	return
+		// }
+
+		// // token validated, now it should be set inside blacklist
+		// // this prevents token reuse
+		// err = s.tc.BlackListRefreshToken(r.Context(), k.Value)
+		// if err != nil {
+		// 	s.respond(w, r, err, http.StatusInternalServerError)
+		// }
+
+		// cid := j.Subject()
+		// _, ats, rts, err := s.signedTokens(private, claim.String(), suid.SUID(cid))
+		// if err != nil {
+		// 	s.respond(w, r, err, http.StatusInternalServerError)
+		// 	return
+		// }
+
+		u.ID = suid.MustParse(jtk.Subject())
+
+		_, ats, rts, err := s.signedTokens(private, u)
 		if err != nil {
 			s.respond(w, r, err, http.StatusInternalServerError)
 			return
@@ -135,11 +169,22 @@ func (s *Service) handleRefresh(key jwk.Key) http.HandlerFunc {
 	}
 }
 
-func (s *Service) handleIdentity() http.HandlerFunc {
+func (s *Service) handleIdentity(public jwk.Key) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		email := r.Context().Value(internal.EmailKey).(email.Email)
+		// NOTE temp switch away from auth middleware
+		tk, err := auth.ParseRequest(r, public)
+		if err != nil {
+			s.respond(w, r, err, http.StatusUnauthorized)
+			return
+		}
 
-		u, err := s.r.Select(r.Context(), email)
+		claim, ok := tk.PrivateClaims()["email"].(string)
+		if !ok {
+			s.respondText(w, r, http.StatusInternalServerError)
+			return
+		}
+
+		u, err := s.r.Select(r.Context(), email.Email(claim))
 		if err != nil {
 			s.respond(w, r, err, http.StatusNotFound)
 			return
@@ -173,7 +218,11 @@ func (s *Service) handleSignIn(privateKey jwk.Key) http.HandlerFunc {
 			return
 		}
 
-		its, ats, rts, err := s.signedTokens(privateKey, u.Email.String(), suid.NewSUID())
+		// need to replace u.UUID with a client based ID
+		// this will mean different cookies for multi-device usage
+		u.ID = suid.NewUUID()
+
+		its, ats, rts, err := s.signedTokens(privateKey, u)
 		if err != nil {
 			s.respond(w, r, err, http.StatusInternalServerError)
 			return
@@ -232,21 +281,8 @@ func (s *Service) handleSignUp() http.HandlerFunc {
 	}
 }
 
-type Service struct {
-	ctx context.Context
-
-	m chi.Router
-
-	r  internal.UserRepo
-	tc internal.TokenClient
-
-	log  func(...any)
-	logf func(string, ...any)
-
-	decode    func(http.ResponseWriter, *http.Request, any) error
-	respond   func(http.ResponseWriter, *http.Request, any, int)
-	created   func(http.ResponseWriter, *http.Request, string)
-	setCookie func(http.ResponseWriter, *http.Cookie)
+func (s *Service) respondText(w http.ResponseWriter, r *http.Request, status int) {
+	s.respond(w, r, http.StatusText(status), status)
 }
 
 func (s *Service) newUser(w http.ResponseWriter, r *http.Request, u *internal.User) (err error) {
@@ -276,61 +312,39 @@ func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, 
 }
 
 // TODO there is two cid's being used here, need clarification
-func (s *Service) signedTokens(
-	key jwk.Key,
-	email string,
-	cid suid.SUID,
-) (its, ats, rts []byte, err error) {
-	opt := auth.TokenOption{
-		Issuer:     "github.com/rog-golang-buddies/rmx",
-		Subject:    cid.String(), // new client ID for tracking user connections
-		Expiration: time.Hour * 10,
-		Claims:     []fp.Tuple{{"email", email}},
-		Algo:       jwa.ES256,
+func (s *Service) signedTokens(private jwk.Key, u *internal.User) (its, ats, rts []byte, err error) {
+	o := auth.TokenOption{
+		Issuer:  "github.com/rog-golang-buddies/rmx",
+		Subject: u.ID.ShortUUID().String(), // new client ID for tracking user connections
+		// Audience: []string{},
+		Claims: map[string]any{"email": u.Email},
 	}
 
-	if its, err = auth.SignToken(key, &opt); err != nil {
-		return nil, nil, nil, err
+	// its
+	o.Expiration = time.Hour * 10
+	if its, err = auth.Sign(private, &o); err != nil {
+		return
 	}
 
-	opt.Expiration = time.Minute * 5
-	if ats, err = auth.SignToken(key, &opt); err != nil {
-		return nil, nil, nil, err
+	// ats
+	o.Expiration = time.Minute * 5
+	if ats, err = auth.Sign(private, &o); err != nil {
+		return
 	}
 
-	opt.Expiration = time.Hour * 24 * 7
-	if rts, err = auth.SignToken(key, &opt); err != nil {
-		return nil, nil, nil, err
+	// rts
+	o.Expiration = time.Hour * 24 * 7
+	if rts, err = auth.Sign(private, &o); err != nil {
+		return
 	}
 
-	return its, ats, rts, nil
+	return
 }
 
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.m.ServeHTTP(w, r) }
 
-func NewService(
-	ctx context.Context,
-	m chi.Router,
-	r internal.UserRepo,
-	tc internal.TokenClient,
-) *Service {
-
-	s := &Service{
-		ctx,
-
-		m,
-		r,
-		tc,
-
-		log.Println,
-		log.Printf,
-
-		h.Decode,
-		h.Respond,
-		h.Created,
-		http.SetCookie,
-	}
-
+func NewService(ctx context.Context, m chi.Router, r internal.UserRepo, tc internal.TokenClient) *Service {
+	s := &Service{ctx, m, r, tc, log.Println, log.Printf, h.Decode, h.Respond, h.Created, http.SetCookie}
 	s.routes()
 	return s
 }

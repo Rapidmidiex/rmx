@@ -22,7 +22,7 @@ func TestToken(t *testing.T) {
 	is := is.New(t)
 
 	t.Run(`generate a token and sign`, func(t *testing.T) {
-		key := NewPairES256()
+		key := ES256()
 
 		u := internal.User{
 			ID:       suid.NewUUID(),
@@ -39,16 +39,16 @@ func TestToken(t *testing.T) {
 			Algo:       jwa.ES256,
 		}
 
-		_, err := SignToken(key.Private(), &opt)
+		_, err := Sign(key.Private(), &opt)
 		is.NoErr(err) // sign id token
 
 		opt.Subject = u.ID.String()
 		opt.Expiration = AccessTokenExpiry
-		_, err = SignToken(key.Private(), &opt)
+		_, err = Sign(key.Private(), &opt)
 		is.NoErr(err) // access token
 
 		opt.Expiration = RefreshTokenExpiry
-		_, err = SignToken(key.Private(), &opt)
+		_, err = Sign(key.Private(), &opt)
 		is.NoErr(err) // refresh token
 	})
 }
@@ -58,7 +58,7 @@ func TestMiddleware(t *testing.T) {
 	is := is.New(t)
 
 	t.Run("authenticate against Authorization header", func(t *testing.T) {
-		key := NewPairES256()
+		key := ES256()
 
 		e := email.Email("foobar@gmail.com")
 
@@ -71,7 +71,7 @@ func TestMiddleware(t *testing.T) {
 		}
 
 		// ats
-		ats, err := SignToken(key.Private(), &opt)
+		ats, err := Sign(key.Private(), &opt)
 		is.NoErr(err) // signing access token
 
 		h := ParseAuth(opt.Algo, key.Public())(http.NotFoundHandler())
@@ -86,7 +86,7 @@ func TestMiddleware(t *testing.T) {
 	})
 
 	t.Run("authenticate against Cookie header", func(t *testing.T) {
-		key := NewPairES256()
+		key := ES256()
 
 		e, cookieName := email.Email("foobar@gmail.com"), `__myCookie`
 
@@ -99,7 +99,7 @@ func TestMiddleware(t *testing.T) {
 		}
 
 		// rts
-		rts, err := SignToken(key.Private(), &opt)
+		rts, err := Sign(key.Private(), &opt)
 		is.NoErr(err) // signing refresh token
 
 		h := ParseAuth(opt.Algo, key.Public(), cookieName)(http.NotFoundHandler())
@@ -121,7 +121,7 @@ func TestMiddleware(t *testing.T) {
 	})
 
 	t.Run("jwk parse request", func(t *testing.T) {
-		key := NewPairES256()
+		key := ES256()
 
 		e, cookieName := email.Email("foobar@gmail.com"), `__g`
 
@@ -134,7 +134,7 @@ func TestMiddleware(t *testing.T) {
 		}
 
 		// rts
-		rts, err := SignToken(key.Private(), &opt)
+		rts, err := Sign(key.Private(), &opt)
 		is.NoErr(err) // signing refresh token
 
 		c := &http.Cookie{
