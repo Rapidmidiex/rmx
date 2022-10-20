@@ -36,7 +36,6 @@ type User struct {
 type Repo struct {
 	ctx context.Context
 
-	// connection is using pgx until sqlc is sorted
 	c *pgx.Conn
 }
 
