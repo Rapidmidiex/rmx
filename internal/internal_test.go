@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hyphengolang/prelude/types/email"
+	"github.com/hyphengolang/prelude/types/password"
 	"github.com/rog-golang-buddies/rmx/internal/is"
 )
 
@@ -16,7 +18,7 @@ func TestCustomTypes(t *testing.T) {
 	t.Run(`using "encoding/json" package with password`, func(t *testing.T) {
 		payload := `"this_password_is_complex"`
 
-		var p Password
+		var p password.Password
 		err := json.NewDecoder(strings.NewReader(payload)).Decode(&p)
 		is.NoErr(err) // parse password
 
@@ -30,7 +32,7 @@ func TestCustomTypes(t *testing.T) {
 	t.Run(`using "encoding/json" package with email`, func(t *testing.T) {
 		payload := `"fizz@mail.com"`
 
-		var e Email
+		var e email.Email
 		err := json.NewDecoder(strings.NewReader(payload)).Decode(&e)
 		is.NoErr(err) // parse email
 	})

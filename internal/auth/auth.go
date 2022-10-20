@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v9"
+	"github.com/hyphengolang/prelude/types/email"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jwt"
@@ -246,16 +247,16 @@ func ParseAuth(
 				return
 			}
 
-			email, ok := token.PrivateClaims()["email"].(string)
+			claim, ok := token.PrivateClaims()["email"].(string)
 			if !ok {
 				// NOTE unsure if we need to write anything more to the body
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 
-			// NOTE convert email from `string` type to `internal.Email` ?
+			// NOTE convert email from `string` type to `email.Email` ?
 			r = r.WithContext(
-				context.WithValue(r.Context(), internal.EmailKey, internal.Email(email)),
+				context.WithValue(r.Context(), internal.EmailKey, email.Email(claim)),
 			)
 			h.ServeHTTP(w, r)
 		}
@@ -277,15 +278,15 @@ func ParseAuth(
 				return
 			}
 
-			email, ok := token.PrivateClaims()["email"].(string)
+			claim, ok := token.PrivateClaims()["email"].(string)
 			if !ok {
 				// NOTE unsure if we need to write anything more to the body
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 
-			ctx := context.WithValue(r.Context(), internal.EmailKey, internal.Email(email))
-			// ctx = context.WithValue(ctx, internal.EmailKey, r)
+			ctx := context.WithValue(r.Context(), internal.EmailKey, email.Email(claim))
+			// ctx = context.WithValue(ctx, email.EmailKey, r)
 			r = r.WithContext(context.WithValue(ctx, internal.TokenKey, token))
 			h.ServeHTTP(w, r)
 		}

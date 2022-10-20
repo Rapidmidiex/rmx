@@ -13,6 +13,8 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 
 	h "github.com/hyphengolang/prelude/http"
+	"github.com/hyphengolang/prelude/types/email"
+	"github.com/hyphengolang/prelude/types/password"
 
 	// github.com/rog-golang-buddies/rmx/service/internal/auth/auth
 	"github.com/rog-golang-buddies/rmx/internal"
@@ -88,7 +90,7 @@ func (s *Service) handleRefresh(key jwk.Key) http.HandlerFunc {
 		// a 401 response. this is risky and will debate on
 		// whether we should be more cautious
 		j, _ := r.Context().Value(internal.TokenKey).(jwt.Token)
-		e, _ := r.Context().Value(internal.EmailKey).(internal.Email)
+		e, _ := r.Context().Value(internal.EmailKey).(email.Email)
 
 		// already checked in auth but I am too tired
 		// to come up with a cleaner solution
@@ -135,7 +137,7 @@ func (s *Service) handleRefresh(key jwk.Key) http.HandlerFunc {
 
 func (s *Service) handleIdentity() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		email := r.Context().Value(internal.EmailKey).(internal.Email)
+		email := r.Context().Value(internal.EmailKey).(email.Email)
 
 		u, err := s.r.Select(r.Context(), email)
 		if err != nil {
@@ -253,7 +255,7 @@ func (s *Service) newUser(w http.ResponseWriter, r *http.Request, u *internal.Us
 		return
 	}
 
-	var h internal.PasswordHash
+	var h password.PasswordHash
 	h, err = dto.Password.Hash()
 	if err != nil {
 		return
@@ -341,9 +343,9 @@ func (s *Service) Context() context.Context {
 }
 
 type User struct {
-	Email    internal.Email    `json:"email"`
+	Email    email.Email       `json:"email"`
 	Username string            `json:"username"`
-	Password internal.Password `json:"password"`
+	Password password.Password `json:"password"`
 }
 
 const (

@@ -3,12 +3,11 @@ package internal
 import (
 	"context"
 	"errors"
-	"net/mail"
 	"strings"
 
+	"github.com/hyphengolang/prelude/types/email"
+	"github.com/hyphengolang/prelude/types/password"
 	"github.com/rog-golang-buddies/rmx/internal/suid"
-	gpv "github.com/wagslane/go-password-validator"
-	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -139,69 +138,8 @@ type WUserRepo interface {
 
 // Custom user type required
 type User struct {
-	ID       suid.UUID    `json:"id"`
-	Username string       `json:"username"`
-	Email    Email        `json:"email"`
-	Password PasswordHash `json:"-"`
-}
-
-// Custom email type required
-type Email string
-
-func (e *Email) String() string { return string(*e) }
-
-func (e *Email) IsValid() bool { return e.Valid() == nil }
-
-func (e *Email) Valid() error {
-	_, err := mail.ParseAddress(e.String())
-	return err
-}
-
-func (e *Email) UnmarshalJSON(b []byte) error {
-	*e = Email(b[1 : len(b)-1])
-	return e.Valid()
-}
-
-// During production, this value needs to be > 40
-const minEntropy float64 = 50.0
-
-// Custom password type required
-type Password string
-
-func (p Password) String() string { return string(p) }
-
-func (p Password) IsValid() bool { return p.Valid() == nil }
-
-func (p Password) Valid() error {
-	return gpv.Validate(p.String(), minEntropy)
-}
-
-func (p *Password) UnmarshalJSON(b []byte) error {
-	*p = Password(b[1 : len(b)-1])
-	return p.Valid()
-}
-
-func (p Password) MarshalJSON() (b []byte, err error) {
-	return []byte(`"` + p.String() + `"`), nil
-}
-
-func (p Password) Hash() (PasswordHash, error) {
-	return bcrypt.GenerateFromPassword([]byte(p), bcrypt.DefaultCost)
-}
-
-func (p Password) MustHash() PasswordHash {
-	h, err := p.Hash()
-	if err != nil {
-		panic(err)
-	}
-
-	return h
-}
-
-type PasswordHash []byte
-
-func (h *PasswordHash) String() string { return string(*h) }
-
-func (h *PasswordHash) Compare(cmp string) error {
-	return bcrypt.CompareHashAndPassword(*h, []byte(cmp))
+	ID       suid.UUID             `json:"id"`
+	Username string                `json:"username"`
+	Email    email.Email           `json:"email"`
+	Password password.PasswordHash `json:"-"`
 }

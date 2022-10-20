@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hyphengolang/prelude/types/email"
+	"github.com/hyphengolang/prelude/types/password"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/rog-golang-buddies/rmx/internal"
@@ -26,7 +28,7 @@ func TestToken(t *testing.T) {
 			ID:       suid.NewUUID(),
 			Username: "fizz_user",
 			Email:    "fizz@mail.com",
-			Password: internal.Password("492045rf-vf").MustHash(),
+			Password: password.Password("492045rf-vf").MustHash(),
 		}
 
 		opt := TokenOption{
@@ -58,7 +60,7 @@ func TestMiddleware(t *testing.T) {
 	t.Run("authenticate against Authorization header", func(t *testing.T) {
 		key := NewPairES256()
 
-		e := internal.Email("foobar@gmail.com")
+		e := email.Email("foobar@gmail.com")
 
 		opt := TokenOption{
 			Issuer:     "github.com/rog-golang-buddies/rmx",
@@ -86,7 +88,7 @@ func TestMiddleware(t *testing.T) {
 	t.Run("authenticate against Cookie header", func(t *testing.T) {
 		key := NewPairES256()
 
-		e, cookieName := internal.Email("foobar@gmail.com"), `__myCookie`
+		e, cookieName := email.Email("foobar@gmail.com"), `__myCookie`
 
 		opt := TokenOption{
 			Issuer:     "github.com/rog-golang-buddies/rmx",
@@ -121,7 +123,7 @@ func TestMiddleware(t *testing.T) {
 	t.Run("jwk parse request", func(t *testing.T) {
 		key := NewPairES256()
 
-		e, cookieName := internal.Email("foobar@gmail.com"), `__g`
+		e, cookieName := email.Email("foobar@gmail.com"), `__g`
 
 		opt := TokenOption{
 			Issuer:     "github.com/rog-golang-buddies/rmx",
