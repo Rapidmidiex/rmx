@@ -61,7 +61,6 @@ func (t *MsgTyp) String() string {
 		return "NOTE_ON"
 	case NoteOff:
 		return "NOTE_OFF"
-
 	default:
 		return "UNKNOWN"
 	}
@@ -119,6 +118,7 @@ type UserRepo interface {
 }
 
 type RUserRepo interface {
+	Close(ctx context.Context) error
 	// Returns an array of users subject to any filter
 	// conditions that are required
 	SelectMany(ctx context.Context) ([]User, error)
@@ -126,19 +126,15 @@ type RUserRepo interface {
 	// can be either the "id", "email" or "username"
 	// as these are all given unique values
 	Select(ctx context.Context, key any) (*User, error)
-
-	Close(ctx context.Context) error
 }
 
 type WUserRepo interface {
+	Close(ctx context.Context) error
 	// Insert a new user to the database
 	Insert(ctx context.Context, u *User) error
-
 	// Performs a "hard" delete from database
 	// Restricted to admin only
 	Delete(ctx context.Context, key any) error
-
-	Close(ctx context.Context) error
 }
 
 // Custom user type required
@@ -166,7 +162,7 @@ func (e *Email) UnmarshalJSON(b []byte) error {
 	return e.Valid()
 }
 
-// during production, this value needs to be > 40
+// During production, this value needs to be > 40
 const minEntropy float64 = 50.0
 
 // Custom password type required
@@ -186,11 +182,7 @@ func (p *Password) UnmarshalJSON(b []byte) error {
 }
 
 func (p Password) MarshalJSON() (b []byte, err error) {
-	var sb strings.Builder
-	sb.WriteRune('"')
-	sb.WriteString(p.String())
-	sb.WriteRune('"')
-	return []byte(sb.String()), nil
+	return []byte(`"` + p.String() + `"`), nil
 }
 
 func (p Password) Hash() (PasswordHash, error) {
