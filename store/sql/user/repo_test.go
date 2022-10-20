@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
+	"github.com/hyphengolang/prelude/testing/is"
 	"github.com/hyphengolang/prelude/types/email"
 	"github.com/hyphengolang/prelude/types/password"
 	"github.com/jackc/pgx/v5"
 	"github.com/rog-golang-buddies/rmx/internal"
-	"github.com/rog-golang-buddies/rmx/internal/is"
 	"github.com/rog-golang-buddies/rmx/internal/suid"
 )
 

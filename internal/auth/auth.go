@@ -10,12 +10,10 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v9"
-	"github.com/hyphengolang/prelude/types/email"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/pkg/errors"
-	"github.com/rog-golang-buddies/rmx/internal"
 )
 
 type Client struct {
@@ -109,12 +107,6 @@ func (c *Client) ValidateClientID(ctx context.Context, cid string) error {
 
 	return ErrRTValidate
 }
-
-// Easier to pass an array that two variables with context
-type Pair [2]jwk.Key
-
-func (p *Pair) Private() jwk.Key { return p[0] }
-func (p *Pair) Public() jwk.Key  { return p[1] }
 
 func ES256() (public, private jwk.Key) {
 	raw, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -271,70 +263,3 @@ const (
 	AccessTokenExpiry  = time.Minute * 5
 	EmailKey           = authCtxKey("rmx-email")
 )
-
-/*
- */
-func ParseAuth(
-	algo jwa.SignatureAlgorithm,
-	key jwk.Key,
-	cookieName ...string,
-) func(http.Handler) http.Handler {
-	return func(h http.Handler) http.Handler {
-		var at http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
-			token, err := jwt.ParseRequest(r, jwt.WithKey(algo, key))
-			if err != nil {
-				w.WriteHeader(http.StatusUnauthorized)
-				return
-			}
-
-			claim, ok := token.PrivateClaims()["email"].(string)
-			if !ok {
-				// NOTE unsure if we need to write anything more to the body
-				w.WriteHeader(http.StatusUnauthorized)
-				return
-			}
-
-			// NOTE convert email from `string` type to `email.Email` ?
-			r = r.WithContext(
-				context.WithValue(r.Context(), internal.EmailKey, email.Email(claim)),
-			)
-			h.ServeHTTP(w, r)
-		}
-
-		var rt http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
-			rc, err := r.Cookie(cookieName[0])
-			if err != nil {
-				w.WriteHeader(http.StatusUnauthorized)
-				return
-			}
-
-			token, err := jwt.Parse(
-				[]byte(rc.Value),
-				jwt.WithKey(algo, key),
-				jwt.WithValidate(true),
-			)
-			if err != nil {
-				w.WriteHeader(http.StatusUnauthorized)
-				return
-			}
-
-			claim, ok := token.PrivateClaims()["email"].(string)
-			if !ok {
-				// NOTE unsure if we need to write anything more to the body
-				w.WriteHeader(http.StatusUnauthorized)
-				return
-			}
-
-			ctx := context.WithValue(r.Context(), internal.EmailKey, email.Email(claim))
-			// ctx = context.WithValue(ctx, email.EmailKey, r)
-			r = r.WithContext(context.WithValue(ctx, internal.TokenKey, token))
-			h.ServeHTTP(w, r)
-		}
-
-		if len(cookieName) != 0 {
-			return http.HandlerFunc(rt)
-		}
-
-		return http.HandlerFunc(at)
-	}
-}

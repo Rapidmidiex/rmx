@@ -237,11 +237,7 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.m.ServeH
 func NewService(ctx context.Context, r chi.Router) *Service {
 	s := &Service{
 		r,
-		ws.DefaultClient,
-		log.Print,
-		log.Printf,
-		h.Respond,
-		h.Decode,
+		ws.DefaultClient, log.Print, log.Printf, h.Respond, h.Decode,
 	}
 	s.routes()
 	return s

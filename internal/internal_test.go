@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hyphengolang/prelude/testing/is"
 	"github.com/hyphengolang/prelude/types/email"
 	"github.com/hyphengolang/prelude/types/password"
-	"github.com/rog-golang-buddies/rmx/internal/is"
 )
 
 func TestCustomTypes(t *testing.T) {

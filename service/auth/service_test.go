@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/rog-golang-buddies/rmx/internal/is"
+	"github.com/hyphengolang/prelude/testing/is"
 	"github.com/rog-golang-buddies/rmx/store/auth"
 	"github.com/rog-golang-buddies/rmx/store/sql/user"
 )
