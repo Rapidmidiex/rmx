@@ -74,18 +74,18 @@ type Service struct {
 }
 
 func (s *Service) routes() {
-	kp := auth.ES256()
+	public, private := auth.ES256()
 
 	s.m.Route("/api/v1/auth", func(r chi.Router) {
-		r.Post("/sign-in", s.handleSignIn(kp.Private()))
+		r.Post("/sign-in", s.handleSignIn(private))
 		r.Delete("/sign-out", s.handleSignOut())
 		r.Post("/sign-up", s.handleSignUp())
 
-		r.Get("/refresh", s.handleRefresh(kp.Public(), kp.Private()))
+		r.Get("/refresh", s.handleRefresh(public, private))
 	})
 
 	s.m.Route("/api/v1/account", func(r chi.Router) {
-		r.Get("/me", s.handleIdentity(kp.Public()))
+		r.Get("/me", s.handleIdentity(public))
 	})
 }
 
