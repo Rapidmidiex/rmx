@@ -12,7 +12,6 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/rog-golang-buddies/rmx/internal"
-	"github.com/rog-golang-buddies/rmx/internal/fp"
 	"github.com/rog-golang-buddies/rmx/internal/is"
 	"github.com/rog-golang-buddies/rmx/internal/suid"
 )
@@ -22,7 +21,7 @@ func TestToken(t *testing.T) {
 	is := is.New(t)
 
 	t.Run(`generate a token and sign`, func(t *testing.T) {
-		key := ES256()
+		kp := ES256()
 
 		u := internal.User{
 			ID:       suid.NewUUID(),
@@ -35,20 +34,19 @@ func TestToken(t *testing.T) {
 			Issuer:     "github.com/rog-golang-buddies/rmx",
 			Subject:    suid.NewUUID().String(),
 			Expiration: time.Hour * 10,
-			Claims:     []fp.Tuple{{"email", u.Email.String()}},
-			Algo:       jwa.ES256,
+			Claims:     map[string]any{"email": u.Email.String()},
 		}
 
-		_, err := Sign(key.Private(), &opt)
+		_, err := Sign(kp.Private(), &opt)
 		is.NoErr(err) // sign id token
 
 		opt.Subject = u.ID.String()
 		opt.Expiration = AccessTokenExpiry
-		_, err = Sign(key.Private(), &opt)
+		_, err = Sign(kp.Private(), &opt)
 		is.NoErr(err) // access token
 
 		opt.Expiration = RefreshTokenExpiry
-		_, err = Sign(key.Private(), &opt)
+		_, err = Sign(kp.Private(), &opt)
 		is.NoErr(err) // refresh token
 	})
 }
@@ -58,7 +56,7 @@ func TestMiddleware(t *testing.T) {
 	is := is.New(t)
 
 	t.Run("authenticate against Authorization header", func(t *testing.T) {
-		key := ES256()
+		kp := ES256()
 
 		e := email.Email("foobar@gmail.com")
 
@@ -66,15 +64,14 @@ func TestMiddleware(t *testing.T) {
 			Issuer:     "github.com/rog-golang-buddies/rmx",
 			Subject:    suid.NewUUID().String(),
 			Expiration: time.Hour * 10,
-			Claims:     []fp.Tuple{{"email", e.String()}},
-			Algo:       jwa.ES256,
+			Claims:     map[string]any{"email": e.String()},
 		}
 
 		// ats
-		ats, err := Sign(key.Private(), &opt)
+		ats, err := Sign(kp.Private(), &opt)
 		is.NoErr(err) // signing access token
 
-		h := ParseAuth(opt.Algo, key.Public())(http.NotFoundHandler())
+		h := ParseAuth(jwa.ES256, kp.Public())(http.NotFoundHandler())
 
 		req, _ := http.NewRequest(http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", string(ats)))
@@ -86,7 +83,7 @@ func TestMiddleware(t *testing.T) {
 	})
 
 	t.Run("authenticate against Cookie header", func(t *testing.T) {
-		key := ES256()
+		kp := ES256()
 
 		e, cookieName := email.Email("foobar@gmail.com"), `__myCookie`
 
@@ -94,15 +91,14 @@ func TestMiddleware(t *testing.T) {
 			Issuer:     "github.com/rog-golang-buddies/rmx",
 			Subject:    suid.NewUUID().String(),
 			Expiration: time.Hour * 10,
-			Claims:     []fp.Tuple{{"email", e.String()}},
-			Algo:       jwa.ES256,
+			Claims:     map[string]any{"email": e.String()},
 		}
 
 		// rts
-		rts, err := Sign(key.Private(), &opt)
+		rts, err := Sign(kp.Private(), &opt)
 		is.NoErr(err) // signing refresh token
 
-		h := ParseAuth(opt.Algo, key.Public(), cookieName)(http.NotFoundHandler())
+		h := ParseAuth(jwa.ES256, kp.Public(), cookieName)(http.NotFoundHandler())
 
 		req, _ := http.NewRequest(http.MethodGet, "/", nil)
 		req.AddCookie(&http.Cookie{
@@ -121,7 +117,7 @@ func TestMiddleware(t *testing.T) {
 	})
 
 	t.Run("jwk parse request", func(t *testing.T) {
-		key := ES256()
+		kp := ES256()
 
 		e, cookieName := email.Email("foobar@gmail.com"), `__g`
 
@@ -129,12 +125,11 @@ func TestMiddleware(t *testing.T) {
 			Issuer:     "github.com/rog-golang-buddies/rmx",
 			Subject:    suid.NewUUID().String(),
 			Expiration: time.Hour * 10,
-			Claims:     []fp.Tuple{{"email", e.String()}},
-			Algo:       jwa.ES256,
+			Claims:     map[string]any{"email": e.String()},
 		}
 
 		// rts
-		rts, err := Sign(key.Private(), &opt)
+		rts, err := Sign(kp.Private(), &opt)
 		is.NoErr(err) // signing refresh token
 
 		c := &http.Cookie{
@@ -150,7 +145,7 @@ func TestMiddleware(t *testing.T) {
 
 		_, err = jwt.Parse(
 			[]byte(c.Value),
-			jwt.WithKey(opt.Algo, key.Public()),
+			jwt.WithKey(jwa.ES256, kp.Public()),
 			jwt.WithValidate(true),
 		)
 		is.NoErr(err) // parsing jwk page not found

@@ -111,26 +111,28 @@ func (c *Client) ValidateClientID(ctx context.Context, cid string) error {
 }
 
 // Easier to pass an array that two variables with context
-type Pair [2]jwk.Key
+type KeyPair [2]jwk.Key
 
-func (p *Pair) Private() jwk.Key { return p[0] }
-func (p *Pair) Public() jwk.Key  { return p[1] }
+func (p *KeyPair) Private() jwk.Key { return p[0] }
+func (p *KeyPair) Public() jwk.Key  { return p[1] }
 
-func ES256() (public, private jwk.Key) {
+func ES256() *KeyPair {
 	raw, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		panic(err)
 	}
 
-	if private, err = jwk.FromRaw(raw); err != nil {
+	private, err := jwk.FromRaw(raw)
+	if err != nil {
 		panic(err)
 	}
 
-	if public, err = private.PublicKey(); err != nil {
+	public, err := private.PublicKey()
+	if err != nil {
 		panic(err)
 	}
 
-	return
+	return &KeyPair{private, public}
 }
 
 func RS256() (public, private jwk.Key) {
