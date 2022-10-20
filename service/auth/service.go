@@ -74,19 +74,18 @@ type Service struct {
 }
 
 func (s *Service) routes() {
-	key := auth.ES256()
+	public, private := auth.ES256()
 
 	s.m.Route("/api/v1/auth", func(r chi.Router) {
-		r.Post("/sign-in", s.handleSignIn(key.Private()))
+		r.Post("/sign-in", s.handleSignIn(private))
 		r.Delete("/sign-out", s.handleSignOut())
 		r.Post("/sign-up", s.handleSignUp())
 
-		r.Get("/refresh", s.handleRefresh(key.Public(), key.Private()))
+		r.Get("/refresh", s.handleRefresh(public, private))
 	})
 
 	s.m.Route("/api/v1/account", func(r chi.Router) {
-		// auth := r.With(auth.ParseAuth(jwa.ES256, key.Public()))
-		r.Get("/me", s.handleIdentity(key.Public()))
+		r.Get("/me", s.handleIdentity(public))
 	})
 }
 
@@ -142,7 +141,7 @@ func (s *Service) handleRefresh(public, private jwk.Key) http.HandlerFunc {
 		// 	return
 		// }
 
-		u.ID = suid.MustParse(jtk.Subject())
+		u.ID, _ = suid.ParseString(jtk.Subject())
 
 		_, ats, rts, err := s.signedTokens(private, u)
 		if err != nil {

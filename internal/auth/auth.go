@@ -116,47 +116,38 @@ type Pair [2]jwk.Key
 func (p *Pair) Private() jwk.Key { return p[0] }
 func (p *Pair) Public() jwk.Key  { return p[1] }
 
-func ES256() Pair {
-	rawPriv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+func ES256() (public, private jwk.Key) {
+	raw, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		panic(err)
 	}
 
-	key, err := jwk.FromRaw(rawPriv)
-	if err != nil {
+	if private, err = jwk.FromRaw(raw); err != nil {
 		panic(err)
 	}
 
-	_, ok := key.(jwk.ECDSAPrivateKey)
-	if !ok {
-		panic(ErrGenerateKey)
-	}
-
-	pub, err := key.PublicKey()
-	if err != nil {
+	if public, err = private.PublicKey(); err != nil {
 		panic(err)
 	}
 
-	return Pair{key, pub}
+	return
 }
 
-func RS256() Pair {
-	rawPrv, err := rsa.GenerateKey(rand.Reader, 2048)
+func RS256() (public, private jwk.Key) {
+	raw, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		panic(err)
 	}
 
-	jwkPrv, err := jwk.FromRaw(rawPrv)
-	if err != nil {
+	if private, err = jwk.FromRaw(raw); err != nil {
 		panic(err)
 	}
 
-	jwkPub, err := jwkPrv.PublicKey()
-	if err != nil {
+	if public, err = private.PublicKey(); err != nil {
 		panic(err)
 	}
 
-	return Pair{jwkPrv, jwkPub}
+	return
 }
 
 func Sign(key jwk.Key, o *TokenOption) ([]byte, error) {
