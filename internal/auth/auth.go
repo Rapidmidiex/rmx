@@ -114,15 +114,17 @@ func ES256() (public, private jwk.Key) {
 		panic(err)
 	}
 
-	if private, err = jwk.FromRaw(raw); err != nil {
+	private, err := jwk.FromRaw(raw)
+	if err != nil {
 		panic(err)
 	}
 
-	if public, err = private.PublicKey(); err != nil {
+	public, err := private.PublicKey()
+	if err != nil {
 		panic(err)
 	}
 
-	return
+	return &KeyPair{private, public}
 }
 
 func RS256() (public, private jwk.Key) {
