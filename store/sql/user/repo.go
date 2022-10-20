@@ -6,39 +6,42 @@ import (
 	"sync"
 	"time"
 
+	psql "github.com/hyphengolang/prelude/sql/postgres"
+	"github.com/hyphengolang/prelude/types/email"
+	"github.com/hyphengolang/prelude/types/password"
+
 	"github.com/jackc/pgx/v5"
+
 	"github.com/rog-golang-buddies/rmx/internal"
 	"github.com/rog-golang-buddies/rmx/internal/suid"
 )
 
 /*
-CREATE TABLE users (
-
-	id text NOT NULL PRIMARY KEY,
-	username text NOT NULL,
-	email text NOT NULL,
-	password text NOT NULL,
-	created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-	updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-	deleted_at TIMESTAMP NULL DEFAULT NULL,
-	UNIQUE (email)
-
-);
+User schema
+users
+id uuid primary key,
+text,
+text unique,
+text,
+timestamp default::now,
+timestamp nullable,
+timestamp nullable,
 */
+
 type User struct {
 	ID        suid.UUID
 	Username  string
-	Email     internal.Email
-	Password  internal.PasswordHash
+	Email     email.Email
+	Password  password.PasswordHash
 	CreatedAt time.Time
-	// UpdatedAt *time.Time
-	// DeletedAt *time.Time
+	UpdatedAt *time.Time
+	DeletedAt *time.Time
 }
 
 type Repo struct {
 	ctx context.Context
 
-	// connection is using pgx until SQLC is sorted
+	// connection is using pgx until sqlc is sorted
 	c *pgx.Conn
 }
 
@@ -56,105 +59,66 @@ func NewRepo(ctx context.Context, conn *pgx.Conn) internal.UserRepo {
 	return r
 }
 
-func (r *Repo) Insert(ctx context.Context, iu *internal.User) error {
-	qry := `insert into "user" (id, email, username, password) values ($1, $2, $3, $4)`
-	_, err := r.c.Exec(context.Background(), qry, iu.ID, iu.Email, iu.Username, iu.Password.String())
-	return err
+const (
+	qryInsert = `insert into "user" (id, email, username, password) values (@id, @email, @username, @password)`
+
+	qrySelectMany = `select id, email, username, password from "user" order by id`
+
+	qrySelectByID       = `select id, email, username, password from "user" where id = $1`
+	qrySelectByEmail    = `select id, email, username, password from "user" where email = $1`
+	qrySelectByUsername = `select id, email, username, password from "user" where username = $1`
+
+	qryDeleteByID       = `delete from "user" where id = $1`
+	qryDeleteByEmail    = `delete from "user" where email = $1`
+	qryDeleteByUsername = `delete from "user" where username = $1`
+)
+
+func (r *Repo) Insert(ctx context.Context, u *internal.User) error {
+	args := pgx.NamedArgs{
+		"id":       u.ID,
+		"email":    u.Email,
+		"username": u.Username,
+		"password": u.Password,
+	}
+
+	return psql.Exec(r.c, qryInsert, args)
 }
 
-// We need to setup the config to avoid needing to do this
 func (r *Repo) SelectMany(ctx context.Context) ([]internal.User, error) {
-	qry := `select id, email, username, password from "user" order by id`
-
-	row, err := r.c.Query(context.Background(), qry)
-	if err != nil {
-		return nil, err
-	}
-	defer row.Close()
-
-	var ius []internal.User
-	for row.Next() {
-		var u User
-		if err := row.Scan(&u.ID, &u.Email, &u.Username, &u.Password); err != nil {
-			return nil, err
-		}
-
-		iu := internal.User{ID: u.ID, Email: internal.Email(u.Email), Username: u.Username, Password: u.Password}
-		ius = append(ius, iu)
-	}
-
-	return ius, nil
+	return psql.Query(r.c, qrySelectMany, func(r pgx.Rows, u *internal.User) error {
+		return r.Scan(&u.ID, &u.Email, &u.Username, &u.Password)
+	})
 }
 
-func (r Repo) Select(ctx context.Context, key any) (*internal.User, error) {
-	switch key := key.(type) {
+func (r *Repo) Select(ctx context.Context, key any) (*internal.User, error) {
+	var qry string
+	switch key.(type) {
 	case suid.UUID:
-		return r.selectUUID(ctx, `select id, email, username, password from "user" where id = $1`, key)
-	case internal.Email:
-		return r.selectEmail(ctx, `select id, email, username, password from "user" where email = $1`, key)
+		qry = qrySelectByID
+	case email.Email:
+		qry = qrySelectByEmail
 	case string:
-		return r.selectUsername(ctx, `select id, email, username, password from "user" where username = $1`, key)
+		qry = qrySelectByUsername
+	default:
+		return nil, internal.ErrInvalidType
 	}
-
-	return nil, internal.ErrInvalidType
+	var u internal.User
+	return &u, psql.QueryRow(r.c, qry, func(r pgx.Row) error { return r.Scan(&u.ID, &u.Username, &u.Email, &u.Password) }, key)
 }
 
-func (r Repo) selectUUID(ctx context.Context, qry string, uid suid.UUID) (*internal.User, error) {
-	row := r.c.QueryRow(ctx, qry, uid)
-
-	var u User
-	err := row.Scan(&u.ID, &u.Email, &u.Username, &u.Password)
-
-	iu := &internal.User{ID: u.ID, Email: internal.Email(u.Email), Username: u.Username, Password: u.Password}
-	return iu, err
-}
-
-func (r Repo) selectEmail(ctx context.Context, qry string, email internal.Email) (*internal.User, error) {
-	row := r.c.QueryRow(ctx, qry, email)
-
-	var u User
-	err := row.Scan(&u.ID, &u.Email, &u.Username, &u.Password)
-
-	iu := &internal.User{ID: u.ID, Email: internal.Email(u.Email), Username: u.Username, Password: u.Password}
-	return iu, err
-}
-
-func (r Repo) selectUsername(ctx context.Context, qry string, username string) (*internal.User, error) {
-	row := r.c.QueryRow(ctx, qry, username)
-
-	var u User
-	err := row.Scan(&u.ID, &u.Email, &u.Username, &u.Password)
-
-	iu := &internal.User{ID: u.ID, Email: internal.Email(u.Email), Username: u.Username, Password: u.Password}
-	return iu, err
-}
-
-func (r Repo) Delete(ctx context.Context, key any) error {
-	switch key := key.(type) {
+func (r *Repo) Delete(ctx context.Context, key any) error {
+	var qry string
+	switch key.(type) {
 	case suid.UUID:
-		return r.deleteUUID(ctx, `delete from "user" where id = $1`, key)
-	case internal.Email:
-		return r.deleteEmail(ctx, `delete from "user" where email = $1`, key)
+		qry = qryDeleteByID
+	case email.Email:
+		qry = qryDeleteByEmail
 	case string:
-		return r.deleteUsername(ctx, `delete from "user" where username = $1`, key)
+		qry = qryDeleteByUsername
+	default:
+		return internal.ErrInvalidType
 	}
-
-	return internal.ErrNotImplemented
-}
-
-func (r Repo) deleteUUID(ctx context.Context, qry string, uid suid.UUID) error {
-	_, err := r.c.Exec(ctx, qry, uid.String())
-	return err
-}
-
-func (r Repo) deleteEmail(ctx context.Context, qry string, email internal.Email) error {
-	_, err := r.c.Exec(ctx, qry, email.String())
-	return err
-}
-
-func (r Repo) deleteUsername(ctx context.Context, qry string, username string) error {
-	_, err := r.c.Exec(ctx, qry, username)
-	return err
+	return psql.Exec(r.c, qry, key)
 }
 
 var DefaultRepo = &repo{
@@ -210,7 +174,7 @@ func (r *repo) Select(ctx context.Context, key any) (*internal.User, error) {
 	switch key := key.(type) {
 	case suid.UUID:
 		return r.selectUUID(key)
-	case internal.Email:
+	case email.Email:
 		return r.selectEmail(key)
 	case string:
 		return r.selectUsername(key)
@@ -227,8 +191,8 @@ func (r *repo) selectUUID(uid suid.UUID) (*internal.User, error) {
 		return &internal.User{
 			ID:       u.ID,
 			Username: u.Username,
-			Email:    internal.Email(u.Email),
-			Password: internal.PasswordHash(u.Password),
+			Email:    email.Email(u.Email),
+			Password: password.PasswordHash(u.Password),
 		}, nil
 	}
 
@@ -244,8 +208,8 @@ func (r *repo) selectUsername(username string) (*internal.User, error) {
 			return &internal.User{
 				ID:       u.ID,
 				Username: u.Username,
-				Email:    internal.Email(u.Email),
-				Password: internal.PasswordHash(u.Password),
+				Email:    email.Email(u.Email),
+				Password: password.PasswordHash(u.Password),
 			}, nil
 		}
 	}
@@ -253,7 +217,7 @@ func (r *repo) selectUsername(username string) (*internal.User, error) {
 	return nil, internal.ErrNotFound
 }
 
-func (r *repo) selectEmail(email internal.Email) (*internal.User, error) {
+func (r *repo) selectEmail(email email.Email) (*internal.User, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -261,8 +225,8 @@ func (r *repo) selectEmail(email internal.Email) (*internal.User, error) {
 		return &internal.User{
 			ID:       u.ID,
 			Username: u.Username,
-			Email:    internal.Email(u.Email),
-			Password: internal.PasswordHash(u.Password),
+			Email:    u.Email,
+			Password: password.PasswordHash(u.Password),
 		}, nil
 	}
 

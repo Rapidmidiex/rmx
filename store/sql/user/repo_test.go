@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/hyphengolang/prelude/types/email"
+	"github.com/hyphengolang/prelude/types/password"
 	"github.com/jackc/pgx/v5"
 	"github.com/rog-golang-buddies/rmx/internal"
 	"github.com/rog-golang-buddies/rmx/internal/is"
@@ -15,19 +17,30 @@ https://www.covermymeds.com/main/insights/articles/on-update-timestamps-mysql-vs
 */
 var db internal.UserRepo
 
+const migration = `
+begin;
+
+create extension if not exists "uuid-ossp";
+create extension if not exists "citext";
+
+create temp table if not exists "user" (
+	id uuid primary key default uuid_generate_v4(),
+	username text unique not null check (username <> ''),
+	email citext unique not null check (email ~ '^[a-zA-Z0-9.!#$%&’*+/=?^_\x60{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$'),
+	password citext not null check (password <> ''),
+	created_at timestamp not null default now()
+);
+
+commit;
+`
+
 func init() {
 	c, err := pgx.Connect(context.Background(), `postgres://postgres:postgrespw@localhost:49153/postgres?sslmode=disable`)
 	if err != nil {
 		panic(err)
 	}
 
-	if _, err := c.Exec(context.Background(), `create temp table if not exists "user" (
-		id uuid primary key default uuid_generate_v4(),
-		username text unique not null check (username <> ''),
-		email citext unique not null check (email ~ '^[a-zA-Z0-9.!#$%&’*+/=?^_\x60{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$'),
-		password citext not null check (password <> ''),
-		created_at timestamp not null default now()
-	);`); err != nil {
+	if _, err := c.Exec(context.Background(), migration); err != nil {
 		panic(err)
 	}
 
@@ -51,7 +64,7 @@ func TestPSQL(t *testing.T) {
 			ID:       suid.NewUUID(),
 			Email:    "fizz@mail.com",
 			Username: "fizz",
-			Password: internal.Password("fizz_pw_1").MustHash(),
+			Password: password.Password("fizz_pw_1").MustHash(),
 		}
 
 		err := db.Insert(ctx, &fizz)
@@ -61,7 +74,7 @@ func TestPSQL(t *testing.T) {
 			ID:       suid.NewUUID(),
 			Email:    "buzz@mail.com",
 			Username: "buzz",
-			Password: internal.Password("buzz_pw_1").MustHash(),
+			Password: password.Password("buzz_pw_1").MustHash(),
 		}
 
 		err = db.Insert(ctx, &buzz)
@@ -77,7 +90,7 @@ func TestPSQL(t *testing.T) {
 			ID:       suid.NewUUID(),
 			Email:    "fuzz@mail.com",
 			Username: "fizz",
-			Password: internal.Password("fuzz_pw_1").MustHash(),
+			Password: password.Password("fuzz_pw_1").MustHash(),
 		}
 
 		err := db.Insert(ctx, &fizz)
@@ -89,7 +102,7 @@ func TestPSQL(t *testing.T) {
 		is.NoErr(err)                             // select user where username = "fizz"
 		is.NoErr(u.Password.Compare("fizz_pw_1")) // valid login
 
-		_, err = db.Select(ctx, internal.Email("buzz@mail.com"))
+		_, err = db.Select(ctx, email.Email("buzz@mail.com"))
 		is.NoErr(err) // select user where email = "buzz@mail.com"
 	})
 
