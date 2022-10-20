@@ -16,26 +16,21 @@ import (
 	"github.com/rog-golang-buddies/rmx/internal/suid"
 )
 
-/*
-User schema
-users
-id uuid primary key,
-text,
-text unique,
-text,
-timestamp default::now,
-timestamp nullable,
-timestamp nullable,
-*/
-
 type User struct {
-	ID        suid.UUID
-	Username  string
-	Email     email.Email
-	Password  password.PasswordHash
+	// Primary key.
+	ID suid.UUID
+	// Unique. Stored as text.
+	Username string
+	// Unique. Stored as case-sensitive text.
+	Email email.Email
+	// Required. Stored as case-sensitive text.
+	Password password.PasswordHash
+	// Required. Defaults to current time.
 	CreatedAt time.Time
-	UpdatedAt *time.Time
-	DeletedAt *time.Time
+	// TODO nullable, currently inactive
+	// UpdatedAt *time.Time
+	// TODO nullable, currently inactive
+	// DeletedAt *time.Time
 }
 
 type Repo struct {
