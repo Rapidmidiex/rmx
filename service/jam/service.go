@@ -16,6 +16,7 @@ import (
 	"github.com/rog-golang-buddies/rmx/internal/fp"
 	"github.com/rog-golang-buddies/rmx/internal/suid"
 	ws "github.com/rog-golang-buddies/rmx/internal/websocket"
+	w2 "github.com/rog-golang-buddies/rmx/internal/websocket/x"
 )
 
 func (s *Service) routes() {
@@ -25,10 +26,29 @@ func (s *Service) routes() {
 		r.Get("/{uuid}", s.handleGetRoom())
 	})
 
-	s.m.Route("/ws/jam", func(r chi.Router) {
-		r = r.With(s.connectionPool(nil), s.upgradeHTTP(1024, 1024))
-		r.Get("/{uuid}", s.handleP2PComms())
+	s.m.Route("/ws", func(r chi.Router) {
+		r.Route("/echo", func(r chi.Router) {
+			r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+				conn, err := w2.UpgradeHTTP(w, r)
+				if err != nil {
+					s.respond(w, r, err, http.StatusUpgradeRequired)
+					return
+				}
+
+				defer conn.Close()
+				for {
+					msg, _ := conn.ReadString()
+					_ = conn.WriteString(msg)
+				}
+			})
+		})
+
+		r.Route("/jam", func(r chi.Router) {
+			r = r.With(s.connectionPool(nil), s.upgradeHTTP(1024, 1024))
+			r.Get("/{uuid}", s.handleP2PComms())
+		})
 	})
+
 }
 
 func (s *Service) handleP2PComms() http.HandlerFunc {
