@@ -12,26 +12,45 @@ import (
 	// "github.com/rog-golang-buddies/rmx/internal/websocket"
 )
 
-func TestRoutes(t *testing.T) {
+func TestMultipleClients(t *testing.T) {
 	t.Parallel()
 	is := is.New(t)
 
 	h := NewService(context.Background(), chi.NewMux())
 	srv := httptest.NewServer(h)
 
-	// setup websocket
-	conn, err := w2.Dial(context.Background(), "ws"+strings.TrimPrefix(srv.URL, "http")+"/ws/echo")
-	is.NoErr(err) // dial error
-
-	t.Cleanup(func() { conn.Close(); srv.Close() })
+	t.Cleanup(func() { srv.Close() })
 
 	t.Run(`connect to echo server`, func(t *testing.T) {
-		err := conn.WriteString("Hello, World")
+		c1, err := w2.Dial(context.Background(), "ws"+strings.TrimPrefix(srv.URL, "http")+"/ws/echo")
+		is.NoErr(err) // dial error
+
+		err = c1.WriteString("Hello, World!")
 		is.NoErr(err) // write string to server
 
-		msg, err := conn.ReadString()
+		msg, err := c1.ReadString()
 		is.NoErr(err) // read string from server
 
-		is.Equal(msg, "Hello, World") // server message == client message
+		is.Equal(msg, "Hello, World!") // server message == client message
+
+		c1.Close()
+	})
+
+	t.Run(`communicate between two connections`, func(t *testing.T) {
+		c2, _ := w2.Dial(context.Background(), "ws"+strings.TrimPrefix(srv.URL, "http")+"/ws/echo")
+		c3, _ := w2.Dial(context.Background(), "ws"+strings.TrimPrefix(srv.URL, "http")+"/ws/echo")
+
+		err := c2.WriteString("Hello, World!")
+		is.NoErr(err) // write string to pool
+
+		// time.Sleep(time.Second * 1)
+
+		msg, err := c3.ReadString()
+		is.NoErr(err) // read message sent by c1
+
+		is.Equal(msg, "Hello, World!")
+
+		c2.Close()
+		c3.Close()
 	})
 }

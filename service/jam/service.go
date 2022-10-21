@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"sync"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
@@ -19,6 +20,34 @@ import (
 	w2 "github.com/rog-golang-buddies/rmx/internal/websocket/x"
 )
 
+type Pool struct {
+	mu sync.Mutex
+	m  map[w2.Conn]bool
+}
+
+func (p *Pool) BroadcastString(s string) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	for c := range p.m {
+		if err := c.WriteString(s); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (p *Pool) remove(c w2.Conn) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if err := c.Close(); err != nil {
+		return err
+	}
+	delete(p.m, c)
+	return nil
+}
+
 func (s *Service) routes() {
 	s.m.Route("/api/v1/jam", func(r chi.Router) {
 		r.Get("/", s.handleListRooms())
@@ -27,6 +56,9 @@ func (s *Service) routes() {
 	})
 
 	s.m.Route("/ws", func(r chi.Router) {
+
+		pool := Pool{m: make(map[w2.Conn]bool)}
+
 		r.Route("/echo", func(r chi.Router) {
 			r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 				conn, err := w2.UpgradeHTTP(w, r)
@@ -35,10 +67,18 @@ func (s *Service) routes() {
 					return
 				}
 
-				defer conn.Close()
+				pool.m[conn] = true
+
+				defer pool.remove(conn)
 				for {
-					msg, _ := conn.ReadString()
-					_ = conn.WriteString(msg)
+					msg, err := conn.ReadString()
+					if err != nil {
+						return
+					}
+					// s.log("connection added")
+					if err := pool.BroadcastString(msg); err != nil {
+						return
+					}
 				}
 			})
 		})
