@@ -10,7 +10,7 @@ require (
 	github.com/go-chi/chi/v5 v5.0.7
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/websocket v1.5.0
-	github.com/hyphengolang/prelude v0.1.0
+	github.com/hyphengolang/prelude v0.1.1
 	github.com/lithammer/shortuuid/v4 v4.0.0
 	github.com/manifoldco/promptui v0.9.0
 	github.com/pkg/errors v0.9.1

@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/hyphengolang/prelude/testing/is"
@@ -34,8 +35,11 @@ create temp table if not exists "user" (
 commit;
 `
 
+var connStr = os.ExpandEnv("host=${POSTGRES_HOSTNAME} port=${DB_PORT} user=${POSTGRES_USER} password=${POSTGRES_PASSWORD} dbname=${POSTGRES_DB} sslmode=disable")
+
 func init() {
-	c, err := pgx.Connect(context.Background(), `postgres://postgres:postgrespw@localhost:49153/postgres?sslmode=disable`)
+
+	c, err := pgx.Connect(context.Background(), connStr)
 	if err != nil {
 		panic(err)
 	}
@@ -60,11 +64,12 @@ func TestPSQL(t *testing.T) {
 	})
 
 	t.Run(`insert two new users`, func(t *testing.T) {
+
 		fizz := internal.User{
 			ID:       suid.NewUUID(),
-			Email:    "fizz@mail.com",
+			Email:    email.MustParse("fizz@mail.com"),
 			Username: "fizz",
-			Password: password.Password("fizz_pw_1").MustHash(),
+			Password: password.MustParse("fizz_pw_1").MustHash(),
 		}
 
 		err := db.Insert(ctx, &fizz)
@@ -72,9 +77,9 @@ func TestPSQL(t *testing.T) {
 
 		buzz := internal.User{
 			ID:       suid.NewUUID(),
-			Email:    "buzz@mail.com",
+			Email:    email.MustParse("buzz@mail.com"),
 			Username: "buzz",
-			Password: password.Password("buzz_pw_1").MustHash(),
+			Password: password.MustParse("buzz_pw_1").MustHash(),
 		}
 
 		err = db.Insert(ctx, &buzz)
@@ -88,9 +93,9 @@ func TestPSQL(t *testing.T) {
 	t.Run("reject user with duplicate email/username", func(t *testing.T) {
 		fizz := internal.User{
 			ID:       suid.NewUUID(),
-			Email:    "fuzz@mail.com",
+			Email:    email.MustParse("fuzz@mail.com"),
 			Username: "fizz",
-			Password: password.Password("fuzz_pw_1").MustHash(),
+			Password: password.MustParse("fuzz_pw_1").MustHash(),
 		}
 
 		err := db.Insert(ctx, &fizz)
@@ -102,7 +107,7 @@ func TestPSQL(t *testing.T) {
 		is.NoErr(err)                             // select user where username = "fizz"
 		is.NoErr(u.Password.Compare("fizz_pw_1")) // valid login
 
-		_, err = db.Select(ctx, email.Email("buzz@mail.com"))
+		_, err = db.Select(ctx, email.MustParse("buzz@mail.com"))
 		is.NoErr(err) // select user where email = "buzz@mail.com"
 	})
 
