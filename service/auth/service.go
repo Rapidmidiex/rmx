@@ -61,7 +61,7 @@ type Service struct {
 
 	m chi.Router
 
-	r  internal.UserRepo
+	r  internal.RWUserRepo
 	tc internal.TokenClient
 
 	log  func(...any)
@@ -342,7 +342,7 @@ func (s *Service) signedTokens(private jwk.Key, u *internal.User) (its, ats, rts
 
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.m.ServeHTTP(w, r) }
 
-func NewService(ctx context.Context, m chi.Router, r internal.UserRepo, tc internal.TokenClient) *Service {
+func NewService(ctx context.Context, m chi.Router, r internal.RWUserRepo, tc internal.TokenClient) *Service {
 	s := &Service{ctx, m, r, tc, log.Println, log.Printf, h.Decode, h.Respond, h.Created, http.SetCookie}
 	s.routes()
 	return s

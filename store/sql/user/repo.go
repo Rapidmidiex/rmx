@@ -116,6 +116,8 @@ func (s *Repo) Delete(ctx context.Context, key any) error {
 	return psql.Exec(s.c, qry, key)
 }
 
+// NOTE in-memory implementation not required anymore
+
 var DefaultRepo = &store{
 	miu:  make(map[suid.UUID]*User),
 	mei:  make(map[string]*User),
@@ -123,9 +125,7 @@ var DefaultRepo = &store{
 	logf: log.Printf,
 }
 
-// NOTE in-memory implementation not required anymore
-
-func (s *store) Close(ctx context.Context) error { return nil }
+func (s *store) Close() {}
 
 func (s *store) Delete(ctx context.Context, key any) error { return nil }
 
