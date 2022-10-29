@@ -111,13 +111,23 @@ type WTokenClient interface {
 	BlackListRefreshToken(ctx context.Context, token string) error
 }
 
-type UserRepo interface {
-	RUserRepo
-	WUserRepo
+type RWUserRepo interface {
+	UserCloser
+	UserReader
+	UserWriter
 }
 
-type RUserRepo interface {
-	Close(ctx context.Context) error
+type WUserRepo interface {
+	UserCloser
+	UserWriter
+}
+
+type UserRepo interface {
+	UserCloser
+	UserReader
+}
+
+type UserReader interface {
 	// Returns an array of users subject to any filter
 	// conditions that are required
 	SelectMany(ctx context.Context) ([]User, error)
@@ -127,13 +137,16 @@ type RUserRepo interface {
 	Select(ctx context.Context, key any) (*User, error)
 }
 
-type WUserRepo interface {
-	Close(ctx context.Context) error
+type UserWriter interface {
 	// Insert a new user to the database
 	Insert(ctx context.Context, u *User) error
 	// Performs a "hard" delete from database
 	// Restricted to admin only
 	Delete(ctx context.Context, key any) error
+}
+
+type UserCloser interface {
+	Close()
 }
 
 // Custom user type required

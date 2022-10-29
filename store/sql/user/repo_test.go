@@ -2,13 +2,13 @@ package user
 
 import (
 	"context"
-	"os"
 	"testing"
 
+	psql "github.com/hyphengolang/prelude/sql/postgres"
 	"github.com/hyphengolang/prelude/testing/is"
 	"github.com/hyphengolang/prelude/types/email"
 	"github.com/hyphengolang/prelude/types/password"
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rog-golang-buddies/rmx/internal"
 	"github.com/rog-golang-buddies/rmx/internal/suid"
 )
@@ -16,7 +16,7 @@ import (
 /*
 https://www.covermymeds.com/main/insights/articles/on-update-timestamps-mysql-vs-postgres/
 */
-var db internal.UserRepo
+var db internal.RWUserRepo
 
 const migration = `
 begin;
@@ -35,20 +35,22 @@ create temp table if not exists "user" (
 commit;
 `
 
-var connStr = os.ExpandEnv("host=${POSTGRES_HOSTNAME} port=${DB_PORT} user=${POSTGRES_USER} password=${POSTGRES_PASSWORD} dbname=${POSTGRES_DB} sslmode=disable")
+var pool *pgxpool.Pool
+var err error
 
 func init() {
-
-	c, err := pgx.Connect(context.Background(), connStr)
+	// create pool connection
+	pool, err = pgxpool.New(context.Background(), `postgres://postgres:postgrespw@localhost:49153/testing`)
 	if err != nil {
 		panic(err)
 	}
 
-	if _, err := c.Exec(context.Background(), migration); err != nil {
+	// setup migration
+	if err := psql.Exec(pool, migration); err != nil {
 		panic(err)
 	}
 
-	db = NewRepo(context.Background(), c)
+	db = NewRepo(context.Background(), pool)
 }
 
 func TestPSQL(t *testing.T) {
@@ -56,7 +58,7 @@ func TestPSQL(t *testing.T) {
 
 	is, ctx := is.New(t), context.Background()
 
-	t.Cleanup(func() { db.Close(ctx) })
+	t.Cleanup(func() { pool.Close() })
 
 	t.Run(`select * from "user"`, func(t *testing.T) {
 		_, err := db.SelectMany(ctx)
