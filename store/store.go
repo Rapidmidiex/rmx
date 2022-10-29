@@ -3,33 +3,39 @@ package store
 import (
 	"context"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rog-golang-buddies/rmx/internal"
+	"github.com/rog-golang-buddies/rmx/store/sql/user"
 )
 
 type Store struct {
-	ctx context.Context
-
 	tc internal.TokenClient
-	ur internal.UserRepo
+	ur *user.Repo
 }
 
-func (s *Store) UserRepo() internal.UserRepo {
+func (s *Store) UserRepo() *user.Repo {
+	if s.ur == nil {
+		panic("user repo must not be nil")
+	}
 	return s.ur
 }
 
 func (s *Store) TokenClient() internal.TokenClient {
+	if s.tc == nil {
+		panic("token client must not be nil")
+	}
 	return s.tc
 }
 
-// FIXME this needs to be fleshed out properly
-func New(ctx context.Context, connString string) *Store {
-	s := &Store{ctx: ctx}
-	return s
-}
-
-func (s *Store) Context() context.Context {
-	if s.ctx != nil {
-		return s.ctx
+func New(ctx context.Context, connString string) (*Store, error) {
+	pool, err := pgxpool.New(ctx, connString)
+	if err != nil {
+		return nil, err
 	}
-	return context.Background()
+
+	s := &Store{
+		ur: user.NewRepo(ctx, pool),
+	}
+
+	return s, nil
 }
