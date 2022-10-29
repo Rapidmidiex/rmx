@@ -5,53 +5,75 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"sync"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/gorilla/websocket"
 
 	h "github.com/hyphengolang/prelude/http"
 
-	"github.com/rog-golang-buddies/rmx/internal"
 	"github.com/rog-golang-buddies/rmx/internal/fp"
 	"github.com/rog-golang-buddies/rmx/internal/suid"
 	ws "github.com/rog-golang-buddies/rmx/internal/websocket"
-	w2 "github.com/rog-golang-buddies/rmx/internal/websocket/x"
+	websocket "github.com/rog-golang-buddies/rmx/internal/websocket/x"
 )
 
+type Service struct {
+	m chi.Router
+	c *ws.Client
+
+	log  func(s ...any)
+	logf func(string, ...any)
+
+	created func(http.ResponseWriter, *http.Request, string)
+	respond func(http.ResponseWriter, *http.Request, any, int)
+	decode  func(http.ResponseWriter, *http.Request, interface{}) error
+}
+
 func (s *Service) routes() {
+	// key=suid.SUID <&> value=*websocket.Pool
+	var mux sync.Map
+
 	s.m.Route("/api/v1/jam", func(r chi.Router) {
 		r.Get("/", s.handleListRooms())
-		r.Post("/", s.handleCreateRoom())
+		r.Post("/", s.handleCreateRoom(&mux))
 		r.Get("/{uuid}", s.handleGetRoom())
 	})
 
-	// create a single Pool
-	pool := &w2.Pool{Capacity: 2}
-
 	s.m.Route("/ws/jam", func(r chi.Router) {
-		r.Get("/{uuid}", s.handleP2PComms(pool))
+		r.Get("/{uuid}", s.handleP2PComms(&mux))
 	})
 
 }
 
-func (s *Service) handleP2PComms(pool *w2.Pool) http.HandlerFunc {
+func (s *Service) handleP2PComms(mux *sync.Map) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if pool.IsCap() {
-			s.respond(w, r, "error: pool has reached capacity", http.StatusUpgradeRequired)
+		// decode uuid from
+		sid, err := s.parseUUID(w, r)
+		if err != nil {
+			s.respond(w, r, err, http.StatusBadRequest)
 			return
 		}
 
-		conn, err := w2.UpgradeHTTP(w, r)
+		// NOTE this is avoidable, maybe(?)
+		value, ok := mux.Load(sid.ShortUUID())
+		if !ok {
+			s.respond(w, r, "not found", http.StatusNotFound)
+			return
+		}
+
+		// NOTE this is avoidable, maybe(?)
+		pool := (value).(*websocket.Pool)
+		conn, close, err := s.upgradeHTTP(w, r, pool)
 		if err != nil {
 			s.respond(w, r, err, http.StatusUpgradeRequired)
 			return
 		}
 
-		pool.Append(conn)
-		defer pool.Remove(conn)
+		defer close()
 		for {
 			msg, err := conn.ReadString()
 			if err != nil {
+				conn.WriteString(err.Error())
 				return
 			}
 
@@ -60,19 +82,23 @@ func (s *Service) handleP2PComms(pool *w2.Pool) http.HandlerFunc {
 	}
 }
 
-func (s *Service) handleCreateRoom() http.HandlerFunc {
+func (s *Service) handleCreateRoom(mux *sync.Map) http.HandlerFunc {
+	type payload struct {
+		Capacity uint `json:"capacity"`
+	}
+
 	return func(w http.ResponseWriter, r *http.Request) {
-		// uid, err := s.c.NewPool(4)
-		// if err != nil {
-		// 	s.respond(w, r, err, http.StatusInternalServerError)
-		// 	return
-		// }
+		var pl payload
+		if err := s.decode(w, r, &pl); err != nil {
+			s.respond(w, r, err, http.StatusBadRequest)
+			return
+		}
 
-		// v := &session{ID: suid.FromUUID(uid)}
+		// NOTE add to Mux/Router/Client whatever it will be called
+		sid := suid.NewSUID()
+		mux.Store(sid, &websocket.Pool{Capacity: pl.Capacity})
 
-		// s.respond(w, r, v, http.StatusOK)
-
-		s.respond(w, r, nil, http.StatusNotImplemented)
+		s.created(w, r, sid.String())
 	}
 }
 
@@ -124,65 +150,17 @@ func (s *Service) handleListRooms() http.HandlerFunc {
 	}
 }
 
-// needs to be moved into websocket package as its middleware
-func (s *Service) connectionPool(p *ws.Pool) func(f http.Handler) http.Handler {
-	return func(f http.Handler) http.Handler {
-		var fn func(w http.ResponseWriter, r *http.Request)
-		if p != nil {
-			fn = func(w http.ResponseWriter, r *http.Request) {
-				f.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), internal.RoomKey, p)))
-			}
-		} else {
-			fn = func(w http.ResponseWriter, r *http.Request) {
-				uid, err := s.parseUUID(w, r)
-				if err != nil {
-					s.respond(w, r, err, http.StatusBadRequest)
-					return
-				}
-
-				p, err := s.c.Get(uid)
-				if err != nil {
-					s.respond(w, r, err, http.StatusNotFound)
-					return
-				}
-
-				r = r.WithContext(context.WithValue(r.Context(), internal.RoomKey, p))
-				f.ServeHTTP(w, r)
-			}
-		}
-
-		return http.HandlerFunc(fn)
+func (s *Service) upgradeHTTP(w http.ResponseWriter, r *http.Request, pool *websocket.Pool) (conn websocket.Conn, close func(), err error) {
+	if pool.IsCap() {
+		return nil, nil, errors.New("error: pool has reached capacity")
 	}
-}
 
-// needs to be moved into websocket package as its middleware
-func (s *Service) upgradeHTTP(readBuf, writeBuf int) func(f http.Handler) http.Handler {
-	return func(f http.Handler) http.Handler {
-		u := &websocket.Upgrader{
-			ReadBufferSize:  readBuf,
-			WriteBufferSize: writeBuf,
-			CheckOrigin:     func(r *http.Request) bool { return true },
-		}
-
-		fn := func(w http.ResponseWriter, r *http.Request) {
-			p, _ := r.Context().Value(internal.RoomKey).(*ws.Pool)
-			if p.Size() == p.MaxConn {
-				s.respond(w, r, ws.ErrMaxConn, http.StatusUnauthorized)
-				return
-			}
-
-			c, err := p.NewConn(w, r, u)
-			if err != nil {
-				s.respond(w, r, err, http.StatusInternalServerError)
-				return
-			}
-
-			r = r.WithContext(context.WithValue(r.Context(), internal.UpgradeKey, c))
-			f.ServeHTTP(w, r)
-		}
-
-		return http.HandlerFunc(fn)
+	if conn, err = websocket.UpgradeHTTP(w, r); err != nil {
+		return nil, nil, err
 	}
+
+	pool.Append(conn)
+	return conn, func() { pool.Remove(conn) }, nil
 }
 
 var (
@@ -191,23 +169,12 @@ var (
 	ErrSessionExists   = errors.New("api: session already exists")
 )
 
-type Service struct {
-	m chi.Router
-	c *ws.Client
-
-	log  func(s ...any)
-	logf func(string, ...any)
-
-	respond func(http.ResponseWriter, *http.Request, any, int)
-	decode  func(http.ResponseWriter, *http.Request, interface{}) error
-}
-
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.m.ServeHTTP(w, r) }
 
 func NewService(ctx context.Context, r chi.Router) *Service {
 	s := &Service{
 		r,
-		ws.DefaultClient, log.Print, log.Printf, h.Respond, h.Decode,
+		ws.DefaultClient, log.Print, log.Printf, h.Created, h.Respond, h.Decode,
 	}
 	s.routes()
 	return s
