@@ -11,13 +11,29 @@ import (
 	"github.com/gobwas/ws/wsutil"
 )
 
+// Connection
+
 type Conn interface {
 	Reader
 	Writer
+	Closer
+}
+
+type ReaderCloser interface {
+	Reader
+	Closer
+}
+
+type WriterCloser interface {
+	Writer
+	Closer
+}
+
+type Closer interface {
+	Close() error
 }
 
 type Reader interface {
-	Close() error
 	State() ws.State
 
 	Read() ([]byte, error)

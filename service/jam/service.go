@@ -2,11 +2,9 @@ package jam
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
-	"sync"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
@@ -20,34 +18,6 @@ import (
 	w2 "github.com/rog-golang-buddies/rmx/internal/websocket/x"
 )
 
-type Pool struct {
-	mu sync.Mutex
-	m  map[w2.Conn]bool
-}
-
-func (p *Pool) BroadcastString(s string) error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	for c := range p.m {
-		if err := c.WriteString(s); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (p *Pool) remove(c w2.Conn) error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if err := c.Close(); err != nil {
-		return err
-	}
-	delete(p.m, c)
-	return nil
-}
-
 func (s *Service) routes() {
 	s.m.Route("/api/v1/jam", func(r chi.Router) {
 		r.Get("/", s.handleListRooms())
@@ -55,114 +25,54 @@ func (s *Service) routes() {
 		r.Get("/{uuid}", s.handleGetRoom())
 	})
 
-	s.m.Route("/ws", func(r chi.Router) {
+	// create a single Pool
+	pool := &w2.Pool{Capacity: 2}
 
-		pool := Pool{m: make(map[w2.Conn]bool)}
-
-		r.Route("/echo", func(r chi.Router) {
-			r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-				conn, err := w2.UpgradeHTTP(w, r)
-				if err != nil {
-					s.respond(w, r, err, http.StatusUpgradeRequired)
-					return
-				}
-
-				pool.m[conn] = true
-
-				defer pool.remove(conn)
-				for {
-					msg, err := conn.ReadString()
-					if err != nil {
-						return
-					}
-					// s.log("connection added")
-					if err := pool.BroadcastString(msg); err != nil {
-						return
-					}
-				}
-			})
-		})
-
-		r.Route("/jam", func(r chi.Router) {
-			r = r.With(s.connectionPool(nil), s.upgradeHTTP(1024, 1024))
-			r.Get("/{uuid}", s.handleP2PComms())
-		})
+	s.m.Route("/ws/jam", func(r chi.Router) {
+		r.Get("/{uuid}", s.handleP2PComms(pool))
 	})
 
 }
 
-func (s *Service) handleP2PComms() http.HandlerFunc {
-	// FIXME we will change this as I know this hasn't been
-	// was just my way of getting things working, not yet
-	// full agreement with this.
-	type response[T any] struct {
-		Typ     internal.MsgTyp `json:"type"`
-		Payload T               `json:"payload"`
-	}
-
-	type join struct {
-		ID        suid.SUID `json:"id"`
-		SessionID suid.SUID `json:"sessionId"`
-	}
-
-	type leave struct {
-		ID        suid.SUID `json:"id"`
-		SessionID suid.SUID `json:"sessionId"`
-		Error     any       `json:"err"`
-	}
-
+func (s *Service) handleP2PComms(pool *w2.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		c := r.Context().Value(internal.UpgradeKey).(*ws.Conn)
-
-		defer func() {
-			// FIXME send error when Leaving session pool
-			c.SendMessage(response[leave]{
-				Typ:     internal.Leave,
-				Payload: leave{ID: c.ID.ShortUUID(), SessionID: c.Pool().ID.ShortUUID()},
-			})
-
-			c.Close()
-		}()
-
-		if err := c.SendMessage(response[join]{
-			Typ:     internal.Join,
-			Payload: join{ID: c.ID.ShortUUID(), SessionID: c.Pool().ID.ShortUUID()},
-		}); err != nil {
-			s.log(err)
+		if pool.IsCap() {
+			s.respond(w, r, "error: pool has reached capacity", http.StatusUpgradeRequired)
 			return
 		}
 
-		// TODO could the API be adjusted such that
-		// this for-loop only needs to read and
-		// never touch the code for writing
+		conn, err := w2.UpgradeHTTP(w, r)
+		if err != nil {
+			s.respond(w, r, err, http.StatusUpgradeRequired)
+			return
+		}
+
+		pool.Append(conn)
+		defer pool.Remove(conn)
 		for {
-			var msg response[json.RawMessage]
-			if err := c.ReadJSON(&msg); err != nil {
-				s.log(err)
+			msg, err := conn.ReadString()
+			if err != nil {
 				return
 			}
 
-			// TODO here the message will be passed off to a different handler
-			// via a go routine*
-			if err := c.SendMessage(response[int]{Typ: internal.Message, Payload: 10}); err != nil {
-				s.log(err)
-				return
-			}
+			pool.Broadcast(msg)
 		}
 	}
 }
 
 func (s *Service) handleCreateRoom() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		uid, err := s.c.NewPool(4)
-		if err != nil {
-			s.respond(w, r, err, http.StatusInternalServerError)
-			return
-		}
+		// uid, err := s.c.NewPool(4)
+		// if err != nil {
+		// 	s.respond(w, r, err, http.StatusInternalServerError)
+		// 	return
+		// }
 
-		v := &session{ID: suid.FromUUID(uid)}
+		// v := &session{ID: suid.FromUUID(uid)}
 
-		s.respond(w, r, v, http.StatusOK)
+		// s.respond(w, r, v, http.StatusOK)
+
+		s.respond(w, r, nil, http.StatusNotImplemented)
 	}
 }
 
