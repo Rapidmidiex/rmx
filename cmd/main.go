@@ -20,13 +20,11 @@ func initCLI() *cli.App {
 		EnableBashCompletion: true,
 		Name:                 "rmx",
 		Usage:                "RapidMidiEx Server CLI",
-		Version:              "v0.0.1",
+		Version:              commands.Version,
 		Compiled:             time.Now().UTC(),
-		Action: func(*cli.Context) error {
-			return nil
-		},
-		Flags:    commands.Flags,
-		Commands: commands.Commands,
+		Action:               commands.GetVersion,
+		Flags:                commands.Flags,
+		Commands:             commands.Commands,
 	}
 
 	return c

@@ -2,6 +2,7 @@ package commands
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/urfave/cli/v2"
 	"github.com/urfave/cli/v2/altsrc"
@@ -43,4 +44,12 @@ var Commands = []*cli.Command{
 		Action:      run(true), // enable dev mode
 		Flags:       Flags,
 	},
+}
+
+// shouldn't be here
+const Version = "v0.0.0-a.1"
+
+func GetVersion(cCtx *cli.Context) error {
+	_, err := fmt.Println("rmx version: " + Version)
+	return err
 }

@@ -27,7 +27,7 @@ type Service struct {
 
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.m.ServeHTTP(w, r) }
 
-func New(ctx context.Context, st store.Store) http.Handler {
+func New(ctx context.Context, st *store.Store) http.Handler {
 	s := &Service{chi.NewMux(), log.Print, log.Printf, log.Fatal, log.Fatalf}
 
 	s.routes()
