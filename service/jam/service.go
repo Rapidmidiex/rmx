@@ -11,12 +11,27 @@ import (
 
 	h "github.com/hyphengolang/prelude/http"
 
-	"github.com/rog-golang-buddies/rmx/internal/fp"
 	"github.com/rog-golang-buddies/rmx/internal/suid"
 	ws "github.com/rog-golang-buddies/rmx/internal/websocket"
-	websocket "github.com/rog-golang-buddies/rmx/internal/websocket/x"
 )
 
+// Jam Service Endpoints
+//
+// Create a new jam session.
+//
+//	POST /api/v1/jam
+//
+// List all jam sessions metadata.
+//
+//	GET /api/v1/jam
+//
+// Get a jam sessions metadata.
+//
+//	GET /api/v1/jam/{uuid}
+//
+// Connect to jam session.
+//
+//	GET /ws/jam/{uuid}
 type Service struct {
 	m chi.Router
 	c *ws.Client
@@ -29,23 +44,58 @@ type Service struct {
 	decode  func(http.ResponseWriter, *http.Request, interface{}) error
 }
 
+type muxEntry struct {
+	sid  suid.UUID
+	pool *Pool
+}
+
+func (e muxEntry) String() string { return e.sid.ShortUUID().String() }
+
+type mux struct {
+	mu sync.Mutex
+	mp map[suid.UUID]muxEntry
+}
+
+func (mux *mux) Store(e muxEntry) {
+	mux.mu.Lock()
+	{
+		mux.mp[e.sid] = e
+	}
+	mux.mu.Unlock()
+}
+
+func (mux *mux) Load(sid suid.UUID) (pool *Pool, err error) {
+	mux.mu.Lock()
+	e, ok := mux.mp[sid]
+	mux.mu.Unlock()
+
+	if !ok {
+		return nil, errors.New("pool not found")
+	}
+
+	return e.pool, nil
+}
+
 func (s *Service) routes() {
-	// key=suid.SUID <&> value=*websocket.Pool
-	var mux sync.Map
+	// NOTE this map is temporary
+	//  map[suid.SUID]*websocket.Pool
+	var mux = &mux{
+		mp: make(map[suid.UUID]muxEntry),
+	}
 
 	s.m.Route("/api/v1/jam", func(r chi.Router) {
-		r.Get("/", s.handleListRooms())
-		r.Post("/", s.handleCreateRoom(&mux))
-		r.Get("/{uuid}", s.handleGetRoom())
+		// r.Get("/", s.handleListRooms())
+		r.Post("/", s.handleCreateJamRoom(mux))
+		// r.Get("/{uuid}", s.handleGetRoomData(mux))
 	})
 
 	s.m.Route("/ws/jam", func(r chi.Router) {
-		r.Get("/{uuid}", s.handleP2PComms(&mux))
+		r.Get("/{uuid}", s.handleP2PComms(mux))
 	})
 
 }
 
-func (s *Service) handleP2PComms(mux *sync.Map) http.HandlerFunc {
+func (s *Service) handleP2PComms(mux *mux) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// decode uuid from
 		sid, err := s.parseUUID(w, r)
@@ -54,35 +104,23 @@ func (s *Service) handleP2PComms(mux *sync.Map) http.HandlerFunc {
 			return
 		}
 
-		// NOTE this is avoidable, maybe(?)
-		value, ok := mux.Load(sid.ShortUUID())
-		if !ok {
-			s.respond(w, r, "not found", http.StatusNotFound)
+		pool, err := mux.Load(sid)
+		if err != nil {
+			s.respond(w, r, err, http.StatusNotFound)
 			return
 		}
 
-		// NOTE this is avoidable, maybe(?)
-		pool := (value).(*websocket.Pool)
-		conn, close, err := s.upgradeHTTP(w, r, pool)
+		rwc, err := UpgradeHTTP(w, r)
 		if err != nil {
 			s.respond(w, r, err, http.StatusUpgradeRequired)
 			return
 		}
 
-		defer close()
-		for {
-			msg, err := conn.ReadString()
-			if err != nil {
-				conn.WriteString(err.Error())
-				return
-			}
-
-			pool.Broadcast(msg)
-		}
+		pool.ListenAndServe(rwc)
 	}
 }
 
-func (s *Service) handleCreateRoom(mux *sync.Map) http.HandlerFunc {
+func (s *Service) handleCreateJamRoom(mux *mux) http.HandlerFunc {
 	type payload struct {
 		Capacity uint `json:"capacity"`
 	}
@@ -94,74 +132,77 @@ func (s *Service) handleCreateRoom(mux *sync.Map) http.HandlerFunc {
 			return
 		}
 
-		// NOTE add to Mux/Router/Client whatever it will be called
-		sid := suid.NewSUID()
-		mux.Store(sid, &websocket.Pool{Capacity: pl.Capacity})
+		pool := &Pool{
+			Capacity: pl.Capacity,
+		}
 
-		s.created(w, r, sid.String())
+		e := muxEntry{suid.NewUUID(), pool}
+
+		mux.Store(e)
+		s.created(w, r, e.String())
 	}
 }
 
-func (s *Service) handleGetRoom() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		uid, err := s.parseUUID(w, r)
-		if err != nil {
-			s.respond(w, r, err, http.StatusBadRequest)
-			return
-		}
+// func (s *Service) handleGetRoomData(mux *mux) http.HandlerFunc {
+// 	return func(w http.ResponseWriter, r *http.Request) {
+// 		uid, err := s.parseUUID(w, r)
+// 		if err != nil {
+// 			s.respond(w, r, err, http.StatusBadRequest)
+// 			return
+// 		}
 
-		// FIXME possible rename
-		// method as `Get` is nondescriptive
-		p, err := s.c.Get(uid)
-		if err != nil {
-			s.respond(w, r, err, http.StatusNotFound)
-			return
-		}
+// 		// FIXME possible rename
+// 		// method as `Get` is nondescriptive
+// 		p, err := s.c.Get(uid)
+// 		if err != nil {
+// 			s.respond(w, r, err, http.StatusNotFound)
+// 			return
+// 		}
 
-		v := &session{
-			ID:    p.ID.ShortUUID(),
-			Users: fp.FMap(p.Keys(), func(uid suid.UUID) suid.SUID { return uid.ShortUUID() }),
-		}
+// 		v := &Session{
+// 			ID:    p.ID.ShortUUID(),
+// 			Users: fp.FMap(p.Keys(), func(uid suid.UUID) suid.SUID { return uid.ShortUUID() }),
+// 		}
 
-		s.respond(w, r, v, http.StatusOK)
-	}
-}
+// 		s.respond(w, r, v, http.StatusOK)
+// 	}
+// }
 
-func (s *Service) handleListRooms() http.HandlerFunc {
-	type response struct {
-		Sessions []session `json:"sessions"`
-	}
+// func (s *Service) handleListRooms() http.HandlerFunc {
+// 	type response struct {
+// 		Sessions []Session `json:"sessions"`
+// 	}
 
-	return func(w http.ResponseWriter, r *http.Request) {
-		v := &response{
-			Sessions: fp.FMap(s.c.List(), func(p *ws.Pool) session {
-				return session{
-					ID: p.ID.ShortUUID(),
-					Users: fp.FMap(
-						p.Keys(),
-						func(uid suid.UUID) suid.SUID { return uid.ShortUUID() },
-					),
-					UserCount: p.Size(),
-				}
-			}),
-		}
+// 	return func(w http.ResponseWriter, r *http.Request) {
+// 		v := &response{
+// 			Sessions: fp.FMap(s.c.List(), func(p *ws.Pool) Session {
+// 				return Session{
+// 					ID: p.ID.ShortUUID(),
+// 					Users: fp.FMap(
+// 						p.Keys(),
+// 						func(uid suid.UUID) suid.SUID { return uid.ShortUUID() },
+// 					),
+// 					UserCount: p.Size(),
+// 				}
+// 			}),
+// 		}
 
-		s.respond(w, r, v, http.StatusOK)
-	}
-}
+// 		s.respond(w, r, v, http.StatusOK)
+// 	}
+// }
 
-func (s *Service) upgradeHTTP(w http.ResponseWriter, r *http.Request, pool *websocket.Pool) (conn websocket.Conn, close func(), err error) {
-	if pool.IsCap() {
-		return nil, nil, errors.New("error: pool has reached capacity")
-	}
+// func (s *Service) upgradeHTTP(w http.ResponseWriter, r *http.Request, pool *websocket.Pool) (conn websocket.Conn, close func(), err error) {
+// 	if pool.IsCap() {
+// 		return nil, nil, errors.New("error: pool has reached capacity")
+// 	}
 
-	if conn, err = websocket.UpgradeHTTP(w, r); err != nil {
-		return nil, nil, err
-	}
+// 	if conn, err = websocket.UpgradeHTTP(w, r); err != nil {
+// 		return nil, nil, err
+// 	}
 
-	pool.Append(conn)
-	return conn, func() { pool.Remove(conn) }, nil
-}
+// 	pool.Append(conn)
+// 	return conn, func() { pool.Remove(conn) }, nil
+// }
 
 var (
 	ErrNoCookie        = errors.New("api: cookie not found")
@@ -184,13 +225,13 @@ func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, 
 	return suid.ParseString(chi.URLParam(r, "uuid"))
 }
 
-type jam struct {
+type Jam struct {
 	Name string `json:"name"`
 	BPM  int    `json:"bpm"`
 	ws.Pool
 }
 
-type session struct {
+type Session struct {
 	ID    suid.SUID   `json:"id"`
 	Name  string      `json:"name,omitempty"`
 	Users []suid.SUID `json:"users,omitempty"`
