@@ -5,7 +5,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rog-golang-buddies/rmx/internal"
-	"github.com/rog-golang-buddies/rmx/store/sql/user"
+	"github.com/rog-golang-buddies/rmx/store/user"
 )
 
 type Store struct {
