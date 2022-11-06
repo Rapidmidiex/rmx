@@ -15,10 +15,9 @@ import (
 	"github.com/hyphengolang/prelude/types/password"
 
 	// github.com/rog-golang-buddies/rmx/service/internal/auth/auth
+	"github.com/hyphengolang/prelude/types/suid"
 	"github.com/rog-golang-buddies/rmx/internal"
 	"github.com/rog-golang-buddies/rmx/internal/auth"
-	"github.com/rog-golang-buddies/rmx/internal/suid"
-	// big no-no
 )
 
 var (

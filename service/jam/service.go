@@ -13,8 +13,7 @@ import (
 	h "github.com/hyphengolang/prelude/http"
 	"github.com/hyphengolang/prelude/http/websocket"
 
-	"github.com/rog-golang-buddies/rmx/internal/suid"
-	ws "github.com/rog-golang-buddies/rmx/internal/websocket"
+	"github.com/hyphengolang/prelude/types/suid"
 )
 
 // Jam Service Endpoints
@@ -36,7 +35,7 @@ import (
 //	GET /ws/jam/{uuid}
 type Service struct {
 	m chi.Router
-	c *ws.Client
+	// c *ws.Client
 
 	log  func(s ...any)
 	logf func(string, ...any)
@@ -226,7 +225,7 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.m.ServeH
 func NewService(ctx context.Context, r chi.Router) *Service {
 	s := &Service{
 		r,
-		ws.DefaultClient, log.Print, log.Printf, h.Created, h.Respond, h.Decode,
+		log.Print, log.Printf, h.Created, h.Respond, h.Decode,
 	}
 	s.routes()
 	return s
@@ -239,7 +238,6 @@ func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, 
 type Jam struct {
 	Name string `json:"name"`
 	BPM  int    `json:"bpm"`
-	ws.Pool
 }
 
 type Session struct {
