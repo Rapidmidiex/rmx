@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -112,13 +113,12 @@ func (s *Service) handleP2PComms(mux *mux) http.HandlerFunc {
 			return
 		}
 
-		// if pool is full then reject
-		if pool.IsFull() {
-			// TODO error handling
+		if err := errors.New("pool has reached max capacity"); pool.IsFull() {
+			s.respond(w, r, err, http.StatusServiceUnavailable)
 			return
 		}
 
-		rwc, err := UpgradeHTTP(w, r)
+		rwc, err := websocket.UpgradeHTTP(w, r)
 		if err != nil {
 			s.respond(w, r, err, http.StatusUpgradeRequired)
 			return
@@ -141,7 +141,10 @@ func (s *Service) handleCreateJamRoom(mux *mux) http.HandlerFunc {
 		}
 
 		pool := &websocket.Pool{
-			Capacity: pl.Capacity,
+			Capacity:       pl.Capacity,
+			ReadBufferSize: 512,
+			ReadTimeout:    10 * time.Second,
+			WriteTimeout:   10 * time.Second,
 		}
 
 		e := muxEntry{suid.NewUUID(), pool}
