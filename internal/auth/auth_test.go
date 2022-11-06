@@ -8,10 +8,10 @@ import (
 	"github.com/hyphengolang/prelude/testing/is"
 	"github.com/hyphengolang/prelude/types/email"
 	"github.com/hyphengolang/prelude/types/password"
+	"github.com/hyphengolang/prelude/types/suid"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/rog-golang-buddies/rmx/internal"
-	"github.com/rog-golang-buddies/rmx/internal/suid"
 )
 
 func TestToken(t *testing.T) {

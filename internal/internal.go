@@ -7,7 +7,7 @@ import (
 
 	"github.com/hyphengolang/prelude/types/email"
 	"github.com/hyphengolang/prelude/types/password"
-	"github.com/rog-golang-buddies/rmx/internal/suid"
+	"github.com/hyphengolang/prelude/types/suid"
 )
 
 var (
@@ -111,41 +111,51 @@ type WTokenClient interface {
 	BlackListRefreshToken(ctx context.Context, token string) error
 }
 
+type TokenReader interface {
+	ValidateRefreshToken(ctx context.Context, token string) error
+	ValidateClientID(ctx context.Context, cid string) error
+}
+
+type TokenWriter interface {
+	BlackListClientID(ctx context.Context, cid, email string) error
+	BlackListRefreshToken(ctx context.Context, token string) error
+}
+
 type RWUserRepo interface {
-	UserCloser
-	UserReader
-	UserWriter
+	RepoCloser
+	RepoReader[User]
+	RepoWriter[User]
 }
 
 type WUserRepo interface {
-	UserCloser
-	UserWriter
+	RepoCloser
+	RepoWriter[User]
 }
 
 type UserRepo interface {
-	UserCloser
-	UserReader
+	RepoCloser
+	RepoReader[User]
 }
 
-type UserReader interface {
+type RepoReader[Entry any] interface {
 	// Returns an array of users subject to any filter
 	// conditions that are required
-	SelectMany(ctx context.Context) ([]User, error)
+	SelectMany(ctx context.Context) ([]Entry, error)
 	// Returns a user form the database, the "key"
 	// can be either the "id", "email" or "username"
 	// as these are all given unique values
-	Select(ctx context.Context, key any) (*User, error)
+	Select(ctx context.Context, key any) (*Entry, error)
 }
 
-type UserWriter interface {
-	// Insert a new user to the database
-	Insert(ctx context.Context, u *User) error
+type RepoWriter[Entry any] interface {
+	// Insert a new item to the database
+	Insert(ctx context.Context, e *Entry) error
 	// Performs a "hard" delete from database
 	// Restricted to admin only
 	Delete(ctx context.Context, key any) error
 }
 
-type UserCloser interface {
+type RepoCloser interface {
 	Close()
 }
 
