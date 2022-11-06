@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	h "github.com/hyphengolang/prelude/http"
+	"github.com/hyphengolang/prelude/http/websocket"
 
 	"github.com/rog-golang-buddies/rmx/internal/suid"
 	ws "github.com/rog-golang-buddies/rmx/internal/websocket"
@@ -46,7 +47,7 @@ type Service struct {
 
 type muxEntry struct {
 	sid  suid.UUID
-	pool *Pool
+	pool *websocket.Pool
 }
 
 func (e muxEntry) String() string { return e.sid.ShortUUID().String() }
@@ -64,7 +65,7 @@ func (mux *mux) Store(e muxEntry) {
 	mux.mu.Unlock()
 }
 
-func (mux *mux) Load(sid suid.UUID) (pool *Pool, err error) {
+func (mux *mux) Load(sid suid.UUID) (pool *websocket.Pool, err error) {
 	mux.mu.Lock()
 	e, ok := mux.mp[sid]
 	mux.mu.Unlock()
@@ -96,6 +97,7 @@ func (s *Service) routes() {
 }
 
 func (s *Service) handleP2PComms(mux *mux) http.HandlerFunc {
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		// decode uuid from
 		sid, err := s.parseUUID(w, r)
@@ -107,6 +109,12 @@ func (s *Service) handleP2PComms(mux *mux) http.HandlerFunc {
 		pool, err := mux.Load(sid)
 		if err != nil {
 			s.respond(w, r, err, http.StatusNotFound)
+			return
+		}
+
+		// if pool is full then reject
+		if pool.IsFull() {
+			// TODO error handling
 			return
 		}
 
@@ -132,7 +140,7 @@ func (s *Service) handleCreateJamRoom(mux *mux) http.HandlerFunc {
 			return
 		}
 
-		pool := &Pool{
+		pool := &websocket.Pool{
 			Capacity: pl.Capacity,
 		}
 

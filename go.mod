@@ -11,7 +11,7 @@ require (
 	github.com/gobwas/ws v1.1.0
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/websocket v1.5.0
-	github.com/hyphengolang/prelude v0.1.1
+	github.com/hyphengolang/prelude v0.1.3
 	github.com/lithammer/shortuuid/v4 v4.0.0
 	github.com/manifoldco/promptui v0.9.0
 	github.com/pkg/errors v0.9.1

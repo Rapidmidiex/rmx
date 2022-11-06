@@ -34,7 +34,7 @@ func TestService(t *testing.T) {
 	t.Run(`create a new Room`, func(t *testing.T) {
 		payload := `
 		{
-			"capacity": 0
+			"capacity": 2
 		}`
 
 		res, _ := srv.Client().Post(srv.URL+"/api/v1/jam", "application/json", strings.NewReader(payload))

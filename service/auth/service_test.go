@@ -12,7 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/hyphengolang/prelude/testing/is"
 	"github.com/rog-golang-buddies/rmx/store/auth"
-	"github.com/rog-golang-buddies/rmx/store/sql/user"
+	"github.com/rog-golang-buddies/rmx/store/user"
 )
 
 const applicationJson = "application/json"

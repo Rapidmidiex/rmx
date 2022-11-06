@@ -258,7 +258,7 @@ func serve(cfg *config.Config) error {
 	}
 
 	// init application store
-	s := store.New(sCtx, "") // needs fix
+	s, _ := store.New(sCtx, "") // needs fix
 	// setup a new handler
 	h := service.New(sCtx, s)
 
