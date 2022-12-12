@@ -3,14 +3,13 @@ package jam
 import (
 	"context"
 	"errors"
-	"log"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/rog-golang-buddies/rmx/pkg/service"
 
-	h "github.com/hyphengolang/prelude/http"
 	"github.com/hyphengolang/prelude/http/websocket"
 
 	"github.com/hyphengolang/prelude/types/suid"
@@ -34,15 +33,9 @@ import (
 //
 //	GET /ws/jam/{uuid}
 type Service struct {
-	m chi.Router
+	service.Service
+
 	// c *ws.Client
-
-	log  func(s ...any)
-	logf func(string, ...any)
-
-	created func(http.ResponseWriter, *http.Request, string)
-	respond func(http.ResponseWriter, *http.Request, any, int)
-	decode  func(http.ResponseWriter, *http.Request, interface{}) error
 }
 
 type muxEntry struct {
@@ -84,42 +77,41 @@ func (s *Service) routes() {
 		mp: make(map[suid.UUID]muxEntry),
 	}
 
-	s.m.Route("/api/v1/jam", func(r chi.Router) {
+	s.Route("/api/v1/jam", func(r chi.Router) {
 		// r.Get("/", s.handleListRooms())
 		r.Post("/", s.handleCreateJamRoom(mux))
 		// r.Get("/{uuid}", s.handleGetRoomData(mux))
 	})
 
-	s.m.Route("/ws/jam", func(r chi.Router) {
+	s.Route("/ws/jam", func(r chi.Router) {
 		r.Get("/{uuid}", s.handleP2PComms(mux))
 	})
 
 }
 
 func (s *Service) handleP2PComms(mux *mux) http.HandlerFunc {
-
 	return func(w http.ResponseWriter, r *http.Request) {
 		// decode uuid from
 		sid, err := s.parseUUID(w, r)
 		if err != nil {
-			s.respond(w, r, err, http.StatusBadRequest)
+			s.Respond(w, r, err, http.StatusBadRequest)
 			return
 		}
 
 		pool, err := mux.Load(sid)
 		if err != nil {
-			s.respond(w, r, err, http.StatusNotFound)
+			s.Respond(w, r, err, http.StatusNotFound)
 			return
 		}
 
 		if err := errors.New("pool has reached max capacity"); pool.IsFull() {
-			s.respond(w, r, err, http.StatusServiceUnavailable)
+			s.Respond(w, r, err, http.StatusServiceUnavailable)
 			return
 		}
 
 		rwc, err := websocket.UpgradeHTTP(w, r)
 		if err != nil {
-			s.respond(w, r, err, http.StatusUpgradeRequired)
+			s.Respond(w, r, err, http.StatusUpgradeRequired)
 			return
 		}
 
@@ -134,8 +126,8 @@ func (s *Service) handleCreateJamRoom(mux *mux) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		var pl payload
-		if err := s.decode(w, r, &pl); err != nil {
-			s.respond(w, r, err, http.StatusBadRequest)
+		if err := s.Decode(w, r, &pl); err != nil {
+			s.Respond(w, r, err, http.StatusBadRequest)
 			return
 		}
 
@@ -149,7 +141,7 @@ func (s *Service) handleCreateJamRoom(mux *mux) http.HandlerFunc {
 		e := muxEntry{suid.NewUUID(), pool}
 
 		mux.Store(e)
-		s.created(w, r, e.String())
+		s.Created(w, r, e.String())
 	}
 }
 
@@ -157,7 +149,7 @@ func (s *Service) handleCreateJamRoom(mux *mux) http.HandlerFunc {
 // 	return func(w http.ResponseWriter, r *http.Request) {
 // 		uid, err := s.parseUUID(w, r)
 // 		if err != nil {
-// 			s.respond(w, r, err, http.StatusBadRequest)
+// 			s.Respond(w, r, err, http.StatusBadRequest)
 // 			return
 // 		}
 
@@ -165,7 +157,7 @@ func (s *Service) handleCreateJamRoom(mux *mux) http.HandlerFunc {
 // 		// method as `Get` is nondescriptive
 // 		p, err := s.c.Get(uid)
 // 		if err != nil {
-// 			s.respond(w, r, err, http.StatusNotFound)
+// 			s.Respond(w, r, err, http.StatusNotFound)
 // 			return
 // 		}
 
@@ -174,7 +166,7 @@ func (s *Service) handleCreateJamRoom(mux *mux) http.HandlerFunc {
 // 			Users: fp.FMap(p.Keys(), func(uid suid.UUID) suid.SUID { return uid.ShortUUID() }),
 // 		}
 
-// 		s.respond(w, r, v, http.StatusOK)
+// 		s.Respond(w, r, v, http.StatusOK)
 // 	}
 // }
 
@@ -197,7 +189,7 @@ func (s *Service) handleCreateJamRoom(mux *mux) http.HandlerFunc {
 // 			}),
 // 		}
 
-// 		s.respond(w, r, v, http.StatusOK)
+// 		s.Respond(w, r, v, http.StatusOK)
 // 	}
 // }
 
@@ -220,13 +212,8 @@ var (
 	ErrSessionExists   = errors.New("api: session already exists")
 )
 
-func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.m.ServeHTTP(w, r) }
-
-func NewService(ctx context.Context, r chi.Router) *Service {
-	s := &Service{
-		r,
-		log.Print, log.Printf, h.Created, h.Respond, h.Decode,
-	}
+func NewService(ctx context.Context, mux chi.Router) *Service {
+	s := &Service{service.New(ctx, mux)}
 	s.routes()
 	return s
 }

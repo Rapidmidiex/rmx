@@ -22,10 +22,11 @@ var stripPrefix = func(s string) string {
 }
 
 func TestService(t *testing.T) {
-	t.Parallel()
 	is := is.New(t)
 
-	h := NewService(context.Background(), chi.NewMux())
+	ctx, mux := context.Background(), chi.NewMux()
+
+	h := NewService(ctx, mux)
 	srv := httptest.NewServer(h)
 
 	t.Cleanup(func() { srv.Close() })
