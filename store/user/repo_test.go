@@ -1,3 +1,4 @@
+// TODO - use the standard sql package instead of pgx
 package user
 
 import (
@@ -16,7 +17,7 @@ import (
 /*
 https://www.covermymeds.com/main/insights/articles/on-update-timestamps-mysql-vs-postgres/
 */
-var db internal.RWUserRepo
+var db Repo
 
 const migration = `
 begin;
