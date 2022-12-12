@@ -10,10 +10,10 @@ import (
 
 type Store struct {
 	tc internal.TokenClient
-	ur *user.Repo
+	ur user.Repo
 }
 
-func (s *Store) UserRepo() *user.Repo {
+func (s *Store) UserRepo() user.Repo {
 	if s.ur == nil {
 		panic("user repo must not be nil")
 	}
