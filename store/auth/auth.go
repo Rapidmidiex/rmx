@@ -9,7 +9,7 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
-var DefaultClient = &client{make(map[string]bool), make(map[string]bool)}
+var DefaultTokenClient = &client{make(map[string]bool), make(map[string]bool)}
 
 func (c *client) ValidateRefreshToken(ctx context.Context, token string) error {
 	return ErrNotImplemented
