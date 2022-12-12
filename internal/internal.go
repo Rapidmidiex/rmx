@@ -121,22 +121,6 @@ type TokenWriter interface {
 	BlackListRefreshToken(ctx context.Context, token string) error
 }
 
-type RWUserRepo interface {
-	RepoCloser
-	RepoReader[User]
-	RepoWriter[User]
-}
-
-type WUserRepo interface {
-	RepoCloser
-	RepoWriter[User]
-}
-
-type UserRepo interface {
-	RepoCloser
-	RepoReader[User]
-}
-
 type RepoReader[Entry any] interface {
 	// Returns an array of users subject to any filter
 	// conditions that are required
