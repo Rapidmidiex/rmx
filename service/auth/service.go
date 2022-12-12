@@ -295,19 +295,19 @@ func (s *Service) signedTokens(private jwk.Key, u *internal.User) (its, ats, rts
 	}
 
 	// its
-	o.Expiration = time.Hour * 10
+	o.Expiration = idTokenExp
 	if its, err = auth.Sign(private, &o); err != nil {
 		return
 	}
 
 	// ats
-	o.Expiration = time.Minute * 5
+	o.Expiration = accessTokenExp
 	if ats, err = auth.Sign(private, &o); err != nil {
 		return
 	}
 
 	// rts
-	o.Expiration = time.Hour * 24 * 7
+	o.Expiration = refreshTokenExp
 	if rts, err = auth.Sign(private, &o); err != nil {
 		return
 	}
@@ -333,8 +333,9 @@ type Token struct {
 }
 
 const (
-	issuer     = "github.com/rog-golang-buddies/rmx"
-	cookieName = "RMX_REFRESH_TOKEN"
-	refreshExp = time.Hour * 24 * 7
-	accessExp  = time.Minute * 5
+	issuer          = "github.com/rog-golang-buddies/rmx"
+	cookieName      = "RMX_REFRESH_TOKEN"
+	idTokenExp      = time.Hour * 10
+	refreshTokenExp = time.Hour * 24 * 7
+	accessTokenExp  = time.Minute * 5
 )
