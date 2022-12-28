@@ -42,7 +42,6 @@ func TestService(t *testing.T) {
 		is.NoErr(err) // retrieve location
 
 		firstJam = resource(loc.Path)
-		t.Log(firstJam)
 	})
 
 	t.Run(`Connect to Jam room with id: `+firstJam, func(t *testing.T) {
@@ -51,15 +50,16 @@ func TestService(t *testing.T) {
 
 		t.Cleanup(func() { c1.Close() })
 
-		text := "Hello, World!"
+		data := []byte("Hello World!")
+		typ := []byte{1}
+		m := append(typ, data...)
 
-		err = wsutil.WriteClientBinary(c1, []byte(text))
+		err = wsutil.WriteClientBinary(c1, m)
 		is.NoErr(err) // write to pool
 
-		data, err := wsutil.ReadServerBinary(c1)
+		res, err := wsutil.ReadServerBinary(c1)
 		is.NoErr(err) // read from pool
 
-		is.Equal(string(data), text)
+		is.Equal(res, m)
 	})
-
 }

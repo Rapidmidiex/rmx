@@ -1,6 +1,8 @@
 package websocket
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 type WSMsgTyp int
 

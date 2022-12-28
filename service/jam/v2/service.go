@@ -98,12 +98,10 @@ func (s *Service) handleCreateJamRoom(b *websocket.Broker[Jam, User]) http.Handl
 		sub := b.NewSubscriber(j.Capacity, 512, defaultTimeout, defaultTimeout, &j)
 
 		// add the Subscriber to Broker
-		if err := b.Subscribe(sub); err != nil {
-			s.Respond(w, r, err, http.StatusInternalServerError)
-			return
-		}
+		b.Subscribe(sub)
 
-		if err := sub.Listen(); err != nil {
+		// connect the Subscriber
+		if err := b.Connect(sub); err != nil {
 			s.Respond(w, r, err, http.StatusInternalServerError)
 			return
 		}
@@ -128,7 +126,7 @@ func (s *Service) handleListRooms(b *websocket.Broker[Jam, User]) http.HandlerFu
 
 func (s *Service) handleP2PComms(b *websocket.Broker[Jam, User]) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// decode uuid from
+		// decode uuid from URL
 		sid, err := s.parseUUID(w, r)
 		if err != nil {
 			s.Respond(w, r, sid, http.StatusBadRequest)
@@ -156,6 +154,7 @@ func (s *Service) handleP2PComms(b *websocket.Broker[Jam, User]) http.HandlerFun
 		u.fillDefaults()
 
 		conn := sub.NewConn(rwc, &u)
+		sub.Subscribe(conn)
 		err = sub.Connect(conn)
 		log.Fatal(err)
 	}

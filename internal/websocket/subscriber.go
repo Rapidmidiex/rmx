@@ -35,28 +35,20 @@ type Subscriber[SI, CI any] struct {
 	Context context.Context
 }
 
-func (b *Broker[SI, CI]) NewSubscriber(
-	cap uint,
-	rs int64,
-	rt time.Duration,
-	wt time.Duration,
-	i *SI,
-) *Subscriber[SI, CI] {
-	return &Subscriber[SI, CI]{
-		sid:            suid.NewUUID(),
-		cs:             make(map[suid.UUID]*Conn[CI]),
-		io:             make(chan *message),
-		Capacity:       cap,
-		ReadBufferSize: rs,
-		ReadTimeout:    rt,
-		WriteTimeout:   wt,
-		Info:           i,
-		Context:        b.Context,
+func (s *Subscriber[SI, CI]) NewConn(rwc io.ReadWriteCloser, info *CI) *Conn[CI] {
+	return &Conn[CI]{
+		sid:  suid.NewUUID(),
+		rwc:  rwc,
+		Info: info,
 	}
 }
 
-func (s *Subscriber[SI, CI]) Listen() error {
-	return s.listen()
+func (s *Subscriber[SI, CI]) Subscribe(c *Conn[CI]) {
+	s.subscribe(c)
+}
+
+func (s *Subscriber[SI, CI]) Unsubscribe(c *Conn[CI]) {
+	s.unsubscribe(c)
 }
 
 func (s *Subscriber[SI, CI]) Connect(c *Conn[CI]) error {
@@ -75,62 +67,42 @@ func (s *Subscriber[SI, CI]) IsFull() bool {
 	return len(s.cs) >= int(s.Capacity)
 }
 
-func (s *Subscriber[SI, CI]) NewConn(rwc io.ReadWriteCloser, info *CI) *Conn[CI] {
-	return &Conn[CI]{
-		sid:  suid.NewUUID(),
-		rwc:  rwc,
-		Info: info,
-	}
-}
-
 func (s *Subscriber[SI, CI]) GetID() suid.UUID {
 	return s.sid
 }
 
-// Starts listening on the io channel which Connections send their messages to
-func (s *Subscriber[SI, CI]) listen() error {
-	s.online = true
+func (s *Subscriber[SI, CI]) subscribe(c *Conn[CI]) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
 
-	for m := range s.io {
-		s.lock.RLock()
-		cs := s.cs
-		s.lock.Unlock()
+	// add the connection to the list
+	s.cs[c.sid] = c
+}
 
-		for _, c := range cs {
-			if err := s.write(c, m.marshall()); err != nil {
-				return err
-			}
-		}
-	}
+func (s *Subscriber[SI, CI]) unsubscribe(c *Conn[CI]) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
 
-	return nil
+	// remove connection from the list
+	delete(s.cs, c.sid)
 }
 
 // Connects the given Connection to the Subscriber and adds it to the list of its Connections
 func (s *Subscriber[SI, CI]) connect(c *Conn[CI]) error {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	// create an error group to catch goroutine errors
+	g, _ := errgroup.WithContext(s.Context)
+	g.Go(func() error {
+		return s.read(c)
+	})
 
-	// check if the Subscriber is listening
-	if s.online {
-		// add the connection to the list
-		s.cs[c.sid] = c
-
-		// create an error group to catch goroutine errors
-		g, _ := errgroup.WithContext(s.Context)
-		g.Go(func() error {
-			return s.read(c)
-		})
-
-		// wait for errors
-		err := g.Wait()
-		if err != nil {
-			if err := s.disconnect(c); err != nil {
-				return err
-			}
-
+	// wait for errors
+	err := g.Wait()
+	if err != nil {
+		if err := s.disconnect(c); err != nil {
 			return err
 		}
+
+		return err
 	}
 
 	return nil
@@ -139,13 +111,7 @@ func (s *Subscriber[SI, CI]) connect(c *Conn[CI]) error {
 // Closes the given Connection and removes it from the Connections list
 func (s *Subscriber[SI, CI]) disconnect(c *Conn[CI]) error {
 	// close websocket connection
-	if err := c.rwc.Close(); err != nil {
-		return err
-	}
-
-	// remove connection from the list
-	delete(s.cs, c.sid)
-	return nil
+	return c.rwc.Close()
 }
 
 // Starts reading from the given Connection
@@ -159,14 +125,14 @@ func (s *Subscriber[SI, CI]) read(c *Conn[CI]) error {
 		return err
 	}
 
-	var m *message
+	var m message
 	m.parse(b)
 
 	switch m.typ {
 	case Leave:
 		return s.disconnect(c)
 	default:
-		s.io <- m
+		s.io <- &m
 	}
 
 	return nil
