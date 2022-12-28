@@ -62,9 +62,9 @@ func (u *User) fillDefaults() {
 type Jam struct {
 	id       suid.UUID
 	owner    *User
-	Name     string `json:"name, omitempty"`
-	Capacity uint   `json:"capacity, omitempty"`
-	BPM      uint   `json:"bpm, omitempty"`
+	Name     string `json:"name,omitempty"`
+	Capacity uint   `json:"capacity,omitempty"`
+	BPM      uint   `json:"bpm,omitempty"`
 }
 
 func (j *Jam) fillDefaults() {
@@ -155,7 +155,7 @@ func (s *Service) handleP2PComms(b *websocket.Broker[Jam, User]) http.HandlerFun
 		var u User
 		u.fillDefaults()
 
-		conn := websocket.NewConn(rwc, &u)
+		conn := sub.NewConn(rwc, &u)
 		err = sub.Connect(conn)
 		log.Fatal(err)
 	}
