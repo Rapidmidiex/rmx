@@ -3,7 +3,6 @@ package v2
 import (
 	"context"
 	"errors"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -95,13 +94,14 @@ func (s *Service) handleCreateJamRoom(b *websocket.Broker[Jam, User]) http.Handl
 		j.fillDefaults()
 
 		// create a new Subscriber
-		sub := b.NewSubscriber(j.Capacity, 512, defaultTimeout, defaultTimeout, &j)
-
-		// connect the Subscriber
-		if err := b.Subscribe(sub); err != nil {
+		sub, err := websocket.NewSubscriber[Jam, User](b.Context, j.Capacity, 512, defaultTimeout, defaultTimeout, &j)
+		if err != nil {
 			s.Respond(w, r, err, http.StatusInternalServerError)
 			return
 		}
+
+		// connect the Subscriber
+		b.Subscribe(sub)
 
 		s.Created(w, r, sub.GetID().ShortUUID().String())
 	}
@@ -151,9 +151,7 @@ func (s *Service) handleP2PComms(b *websocket.Broker[Jam, User]) http.HandlerFun
 		u.fillDefaults()
 
 		conn := sub.NewConn(rwc, &u)
-		if err := sub.Subscribe(conn); err != nil {
-			log.Fatal(err)
-		}
+		sub.Subscribe(conn)
 	}
 }
 
