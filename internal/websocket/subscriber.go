@@ -3,12 +3,12 @@ package websocket
 import (
 	"context"
 	"io"
+	"log"
 	"sync"
 	"time"
 
 	"github.com/gobwas/ws/wsutil"
 	"github.com/hyphengolang/prelude/types/suid"
-	"golang.org/x/sync/errgroup"
 )
 
 // Subscriber contains the list of the connections
@@ -21,7 +21,10 @@ type Subscriber[SI, CI any] struct {
 	// Subscriber status
 	online bool
 	// Input/Output channel for new messages
-	io chan *message
+	ic chan *message
+	oc chan *message
+	// error channel
+	errc chan *wserr[CI]
 	// Maximum Capacity clients allowed
 	Capacity uint
 	// Maximum message size allowed from peer.
@@ -35,6 +38,35 @@ type Subscriber[SI, CI any] struct {
 	Context context.Context
 }
 
+func NewSubscriber[SI, CI any](
+	ctx context.Context,
+	cap uint,
+	rs int64,
+	rt time.Duration,
+	wt time.Duration,
+	i *SI,
+) (*Subscriber[SI, CI], error) {
+	s := &Subscriber[SI, CI]{
+		sid: suid.NewUUID(),
+		cs:  make(map[suid.UUID]*Conn[CI]),
+		// I did make
+		ic:             make(chan *message),
+		oc:             make(chan *message),
+		errc:           make(chan *wserr[CI]),
+		Capacity:       cap,
+		ReadBufferSize: rs,
+		ReadTimeout:    rt,
+		WriteTimeout:   wt,
+		Info:           i,
+		Context:        ctx,
+	}
+
+	s.catch()
+	s.listen()
+
+	return s, nil
+}
+
 func (s *Subscriber[SI, CI]) NewConn(rwc io.ReadWriteCloser, info *CI) *Conn[CI] {
 	return &Conn[CI]{
 		sid:  suid.NewUUID(),
@@ -44,20 +76,25 @@ func (s *Subscriber[SI, CI]) NewConn(rwc io.ReadWriteCloser, info *CI) *Conn[CI]
 }
 
 func (s *Subscriber[SI, CI]) Subscribe(c *Conn[CI]) {
-	s.subscribe(c)
+	s.connect(c)
+	s.add(c)
 }
 
-func (s *Subscriber[SI, CI]) Unsubscribe(c *Conn[CI]) {
-	s.unsubscribe(c)
+func (s *Subscriber[SI, CI]) Unsubscribe(c *Conn[CI]) error {
+	if err := s.disconnect(c); err != nil {
+		return err
+	}
+	s.remove(c)
+	return nil
 }
 
-func (s *Subscriber[SI, CI]) Connect(c *Conn[CI]) error {
-	return s.connect(c)
-}
+// func (s *Subscriber[SI, CI]) Connect(c *Conn[CI]) error {
+// 	return s.connect(c)
+// }
 
-func (s *Subscriber[SI, CI]) Disconnect(c *Conn[CI]) error {
-	return s.disconnect(c)
-}
+// func (s *Subscriber[SI, CI]) Disconnect(c *Conn[CI]) error {
+// 	return s.disconnect(c)
+// }
 
 func (s *Subscriber[SI, CI]) IsFull() bool {
 	if s.Capacity == 0 {
@@ -71,7 +108,31 @@ func (s *Subscriber[SI, CI]) GetID() suid.UUID {
 	return s.sid
 }
 
-func (s *Subscriber[SI, CI]) subscribe(c *Conn[CI]) {
+// listen to the input channel and broadcast messages to clients.
+func (s *Subscriber[SI, CI]) listen() {
+	go func() {
+		for p := range s.ic {
+			for _, c := range s.cs {
+				if err := c.write(p.marshall()); err != nil {
+					s.errc <- &wserr[CI]{c, err}
+				}
+			}
+		}
+	}()
+}
+
+func (s *Subscriber[SI, CI]) catch() {
+	go func() {
+		for e := range s.errc {
+
+			if err := s.disconnect(e.conn); err != nil {
+				log.Println(err)
+			}
+		}
+	}()
+}
+
+func (s *Subscriber[SI, CI]) add(c *Conn[CI]) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -79,7 +140,7 @@ func (s *Subscriber[SI, CI]) subscribe(c *Conn[CI]) {
 	s.cs[c.sid] = c
 }
 
-func (s *Subscriber[SI, CI]) unsubscribe(c *Conn[CI]) {
+func (s *Subscriber[SI, CI]) remove(c *Conn[CI]) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -87,61 +148,36 @@ func (s *Subscriber[SI, CI]) unsubscribe(c *Conn[CI]) {
 	delete(s.cs, c.sid)
 }
 
-// Connects the given Connection to the Subscriber and adds it to the list of its Connections
-func (s *Subscriber[SI, CI]) connect(c *Conn[CI]) error {
-	// create an error group to catch goroutine errors
-	g, _ := errgroup.WithContext(s.Context)
-	g.Go(func() error {
-		return s.read(c)
-	})
+// Connects the given Connection to the Subscriber and starts reading from it
+func (s *Subscriber[SI, CI]) connect(c *Conn[CI]) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
 
-	// wait for errors
-	err := g.Wait()
-	if err != nil {
-		if err := s.disconnect(c); err != nil {
-			return err
+	go func() {
+		for {
+			// read binary from connection
+			b, err := wsutil.ReadClientBinary(c.rwc)
+			if err != nil {
+				s.errc <- &wserr[CI]{c, err}
+			}
+
+			var m message
+			m.parse(b)
+
+			switch m.typ {
+			case Leave:
+				if err := s.disconnect(c); err != nil {
+					s.errc <- &wserr[CI]{c, err}
+				}
+			default:
+				s.ic <- &m
+			}
 		}
-
-		return err
-	}
-
-	return nil
+	}()
 }
 
 // Closes the given Connection and removes it from the Connections list
 func (s *Subscriber[SI, CI]) disconnect(c *Conn[CI]) error {
 	// close websocket connection
 	return c.rwc.Close()
-}
-
-// Starts reading from the given Connection
-func (s *Subscriber[SI, CI]) read(c *Conn[CI]) error {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-
-	// read binary from connection
-	b, err := wsutil.ReadClientBinary(c.rwc)
-	if err != nil {
-		return err
-	}
-
-	var m message
-	m.parse(b)
-
-	switch m.typ {
-	case Leave:
-		return s.disconnect(c)
-	default:
-		s.io <- &m
-	}
-
-	return nil
-}
-
-// Writes raw bytes to the Connection
-func (s *Subscriber[SI, CI]) write(c *Conn[CI], b []byte) error {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-
-	return wsutil.WriteServerBinary(c.rwc, b)
 }
