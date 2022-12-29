@@ -115,6 +115,7 @@ func (s *Subscriber[SI, CI]) listen() {
 			for _, c := range s.cs {
 				if err := c.write(p.marshall()); err != nil {
 					s.errc <- &wserr[CI]{c, err}
+					return
 				}
 			}
 		}
@@ -154,11 +155,14 @@ func (s *Subscriber[SI, CI]) connect(c *Conn[CI]) {
 	defer c.lock.RUnlock()
 
 	go func() {
+		defer c.rwc.Close()
+
 		for {
 			// read binary from connection
 			b, err := wsutil.ReadClientBinary(c.rwc)
 			if err != nil {
 				s.errc <- &wserr[CI]{c, err}
+				return
 			}
 
 			var m message
@@ -168,6 +172,7 @@ func (s *Subscriber[SI, CI]) connect(c *Conn[CI]) {
 			case Leave:
 				if err := s.disconnect(c); err != nil {
 					s.errc <- &wserr[CI]{c, err}
+					return
 				}
 			default:
 				s.ic <- &m
