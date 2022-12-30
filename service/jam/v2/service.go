@@ -94,11 +94,14 @@ func (s *Service) handleCreateJamRoom(b *websocket.Broker[Jam, User]) http.Handl
 		j.fillDefaults()
 
 		// create a new Subscriber
-		sub, err := websocket.NewSubscriber[Jam, User](b.Context, j.Capacity, 512, defaultTimeout, defaultTimeout, &j)
-		if err != nil {
-			s.Respond(w, r, err, http.StatusInternalServerError)
-			return
-		}
+		sub := websocket.NewSubscriber[Jam, User](
+			b.Context,
+			j.Capacity,
+			512,
+			defaultTimeout,
+			defaultTimeout,
+			&j,
+		)
 
 		// connect the Subscriber
 		b.Subscribe(sub)

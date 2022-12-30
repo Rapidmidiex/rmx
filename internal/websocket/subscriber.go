@@ -45,7 +45,7 @@ func NewSubscriber[SI, CI any](
 	rt time.Duration,
 	wt time.Duration,
 	i *SI,
-) (*Subscriber[SI, CI], error) {
+) *Subscriber[SI, CI] {
 	s := &Subscriber[SI, CI]{
 		sid: suid.NewUUID(),
 		cs:  make(map[suid.UUID]*Conn[CI]),
@@ -64,7 +64,7 @@ func NewSubscriber[SI, CI any](
 	s.catch()
 	s.listen()
 
-	return s, nil
+	return s
 }
 
 func (s *Subscriber[SI, CI]) NewConn(rwc io.ReadWriteCloser, info *CI) *Conn[CI] {
@@ -125,7 +125,6 @@ func (s *Subscriber[SI, CI]) listen() {
 func (s *Subscriber[SI, CI]) catch() {
 	go func() {
 		for e := range s.errc {
-
 			if err := s.disconnect(e.conn); err != nil {
 				log.Println(err)
 			}

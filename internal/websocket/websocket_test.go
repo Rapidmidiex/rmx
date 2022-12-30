@@ -21,7 +21,7 @@ import (
 func testServerPartA() http.Handler {
 	ctx := context.Background()
 
-	s, _ := websocket.NewSubscriber[any, any](
+	s := websocket.NewSubscriber[any, any](
 		ctx,
 		2,
 		512,
@@ -103,7 +103,7 @@ func testServerPartB() http.Handler {
 			return
 		}
 
-		s, _ := websocket.NewSubscriber[Info, any](ctx, 2, 512, 2*time.Second, 2*time.Second, &Info{
+		s := websocket.NewSubscriber[Info, any](ctx, 2, 512, 2*time.Second, 2*time.Second, &Info{
 			Username: "John Doe",
 		})
 

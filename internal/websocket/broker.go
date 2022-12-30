@@ -21,6 +21,15 @@ type Broker[SI, CI any] struct {
 	Context  context.Context
 }
 
+func NewBroker[SI, CI any](cap uint, ctx context.Context) *Broker[SI, CI] {
+	return &Broker[SI, CI]{
+		ss:       make(map[suid.UUID]*Subscriber[SI, CI]),
+		errc:     make(chan error),
+		Capacity: cap,
+		Context:  ctx,
+	}
+}
+
 // Adds a new Subscriber to the list
 func (b *Broker[SI, CI]) Subscribe(s *Subscriber[SI, CI]) {
 	b.connect(s)
