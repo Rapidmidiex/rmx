@@ -5,6 +5,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rog-golang-buddies/rmx/internal"
+	"github.com/rog-golang-buddies/rmx/store/auth"
 	"github.com/rog-golang-buddies/rmx/store/user"
 )
 
@@ -35,6 +36,7 @@ func New(ctx context.Context, connString string) (*Store, error) {
 
 	s := &Store{
 		ur: user.NewRepo(ctx, pool),
+		tc: auth.DefaultTokenClient,
 	}
 
 	return s, nil
