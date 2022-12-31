@@ -154,7 +154,12 @@ func (s *Subscriber[SI, CI]) connect(c *Conn[CI]) {
 	defer c.lock.RUnlock()
 
 	go func() {
-		defer c.rwc.Close()
+		defer func() {
+			if err := s.disconnect(c); err != nil {
+				s.errc <- &wsErr[CI]{c, err}
+				return
+			}
+		}()
 
 		for {
 			// read binary from connection
