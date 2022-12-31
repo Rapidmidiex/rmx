@@ -30,10 +30,11 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.m.ServeH
 func New(ctx context.Context, st *store.Store) http.Handler {
 	s := &Service{chi.NewMux(), log.Print, log.Printf, log.Fatal, log.Fatalf}
 
+	s.routes()
+
 	// TODO - use mux.Mount instead. But this works
 	auth.NewService(ctx, s.m, st.UserRepo(), st.TokenClient())
 	jam.NewService(ctx, s.m)
 
-	s.routes()
 	return s
 }
