@@ -9,9 +9,17 @@
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "program": "${workspaceFolder}/cmd",
+            "program": "${workspaceFolder}/cmd/server",
             "cwd": "${workspaceFolder}",
-            "envFile": "${workspaceFolder}/cmd/.env",
+            "envFile": "${workspaceFolder}/.env.development"
+        },
+        {
+            "name": "Start CLI Server (dev)",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/cli",
+            "cwd": "${workspaceFolder}",
             "args": ["start", "dev"]
         },
         {

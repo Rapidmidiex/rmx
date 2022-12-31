@@ -296,3 +296,8 @@ func serve(cfg *config.Config) error {
 
 	return g.Wait()
 }
+
+// StartServer starts the RMX application.
+func StartServer(cfg *config.Config) error {
+	return serve(cfg)
+}
