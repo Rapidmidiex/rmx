@@ -24,7 +24,7 @@ type Subscriber[SI, CI any] struct {
 	ic chan *message
 	oc chan *message
 	// error channel
-	errc chan *wserr[CI]
+	errc chan *wsErr[CI]
 	// Maximum Capacity clients allowed
 	Capacity uint
 	// Maximum message size allowed from peer.
@@ -52,7 +52,7 @@ func NewSubscriber[SI, CI any](
 		// I did make
 		ic:             make(chan *message),
 		oc:             make(chan *message),
-		errc:           make(chan *wserr[CI]),
+		errc:           make(chan *wsErr[CI]),
 		Capacity:       cap,
 		ReadBufferSize: rs,
 		ReadTimeout:    rt,
@@ -114,7 +114,7 @@ func (s *Subscriber[SI, CI]) listen() {
 		for p := range s.ic {
 			for _, c := range s.cs {
 				if err := c.write(p.marshall()); err != nil {
-					s.errc <- &wserr[CI]{c, err}
+					s.errc <- &wsErr[CI]{c, err}
 					return
 				}
 			}
@@ -160,7 +160,7 @@ func (s *Subscriber[SI, CI]) connect(c *Conn[CI]) {
 			// read binary from connection
 			b, err := wsutil.ReadClientBinary(c.rwc)
 			if err != nil {
-				s.errc <- &wserr[CI]{c, err}
+				s.errc <- &wsErr[CI]{c, err}
 				return
 			}
 
@@ -170,7 +170,7 @@ func (s *Subscriber[SI, CI]) connect(c *Conn[CI]) {
 			switch m.typ {
 			case Leave:
 				if err := s.disconnect(c); err != nil {
-					s.errc <- &wserr[CI]{c, err}
+					s.errc <- &wsErr[CI]{c, err}
 					return
 				}
 			default:

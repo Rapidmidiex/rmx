@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/gobwas/ws"
 	"github.com/hyphengolang/prelude/types/suid"
+	"github.com/rog-golang-buddies/rmx/internal/fp"
 	"github.com/rog-golang-buddies/rmx/internal/websocket"
 	"github.com/rog-golang-buddies/rmx/pkg/service"
 )
@@ -111,23 +112,39 @@ func (s *Service) handleCreateJamRoom(b *websocket.Broker[Jam, User]) http.Handl
 }
 
 func (s *Service) handleGetRoomData(b *websocket.Broker[Jam, User]) http.HandlerFunc {
-
 	return func(w http.ResponseWriter, r *http.Request) {
+		// decode uuid from URL
+		sid, err := s.parseUUID(r)
+		if err != nil {
+			s.Respond(w, r, sid, http.StatusBadRequest)
+			return
+		}
 
+		sub, err := b.GetSubscriber(sid)
+		if err != nil {
+			s.Respond(w, r, err, http.StatusNotFound)
+			return
+		}
+
+		s.Respond(w, r, sub.Info, http.StatusOK)
 	}
 }
 
 func (s *Service) handleListRooms(b *websocket.Broker[Jam, User]) http.HandlerFunc {
-
 	return func(w http.ResponseWriter, r *http.Request) {
+		subs := b.ListSubscribers()
+		subsInfo := fp.FMap(subs, func(s *websocket.Subscriber[Jam, User]) Jam {
+			return *s.Info
+		})
 
+		s.Respond(w, r, subsInfo, http.StatusOK)
 	}
 }
 
 func (s *Service) handleP2PComms(b *websocket.Broker[Jam, User]) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// decode uuid from URL
-		sid, err := s.parseUUID(w, r)
+		sid, err := s.parseUUID(r)
 		if err != nil {
 			s.Respond(w, r, sid, http.StatusBadRequest)
 			return
@@ -173,6 +190,6 @@ func (s *Service) routes() {
 
 }
 
-func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, error) {
+func (s *Service) parseUUID(r *http.Request) (suid.UUID, error) {
 	return suid.ParseString(chi.URLParam(r, "uuid"))
 }
