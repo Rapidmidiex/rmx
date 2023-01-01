@@ -45,3 +45,16 @@ build:
 .PHONT: tls
 tls:
 	go run /usr/local/go/src/crypto/tls/generate_cert.go --host=$(HOSTNAME)
+
+.PHONY: postgres
+postgres:
+	docker rm -f postgres-rmx || true
+	docker run --name postgres-rmx -e POSTGRES_PASSWORD=postgrespw -p 5432:5432 -e POSTGRES_USER=rmx -d postgres:15-alpine
+
+.PHONY: createdb
+createdb:
+	docker exec -it  postgres-rmx createdb --username=rmx --owner=rmx rmx-dev
+
+.PHONY: droptestdb
+droptestdb:
+	docker exec -it  postgres-rmx dropdb rmx-dev
