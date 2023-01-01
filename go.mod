@@ -1,4 +1,4 @@
-module github.com/rog-golang-buddies/rmx
+module github.com/rapidmidiex/rmx
 
 go 1.19
 

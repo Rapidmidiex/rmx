@@ -11,8 +11,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/hyphengolang/prelude/testing/is"
-	"github.com/rog-golang-buddies/rmx/pkg/repotest"
-	"github.com/rog-golang-buddies/rmx/store/auth"
+	"github.com/rapidmidiex/rmx/pkg/repotest"
+	"github.com/rapidmidiex/rmx/store/auth"
 )
 
 const applicationJson = "application/json"

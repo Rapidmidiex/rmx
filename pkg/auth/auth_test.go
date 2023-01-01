@@ -11,7 +11,7 @@ import (
 	"github.com/hyphengolang/prelude/types/suid"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwt"
-	"github.com/rog-golang-buddies/rmx/internal"
+	"github.com/rapidmidiex/rmx/internal"
 )
 
 func TestToken(t *testing.T) {
@@ -29,7 +29,7 @@ func TestToken(t *testing.T) {
 		}
 
 		o := TokenOption{
-			Issuer:     "github.com/rog-golang-buddies/rmx",
+			Issuer:     "github.com/rapidmidiex/rmx",
 			Subject:    suid.NewUUID().String(),
 			Expiration: time.Hour * 10,
 			Claims:     map[string]any{"email": u.Email},
@@ -60,7 +60,7 @@ func TestMiddleware(t *testing.T) {
 		e, cookieName := email.Email("foobar@gmail.com"), `__g`
 
 		o := TokenOption{
-			Issuer:     "github.com/rog-golang-buddies/rmx",
+			Issuer:     "github.com/rapidmidiex/rmx",
 			Subject:    suid.NewUUID().String(),
 			Expiration: time.Hour * 10,
 			Claims:     map[string]any{"email": e.String()},

@@ -14,7 +14,7 @@ import (
 	"github.com/gobwas/ws/wsutil"
 	"github.com/hyphengolang/prelude/testing/is"
 	"github.com/hyphengolang/prelude/types/suid"
-	"github.com/rog-golang-buddies/rmx/internal/websocket"
+	"github.com/rapidmidiex/rmx/internal/websocket"
 )
 
 // so I am defining a simple echo server here for testing

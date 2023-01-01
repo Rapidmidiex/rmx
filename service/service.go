@@ -7,9 +7,9 @@ import (
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
-	"github.com/rog-golang-buddies/rmx/service/auth"
-	jam "github.com/rog-golang-buddies/rmx/service/jam/v2"
-	"github.com/rog-golang-buddies/rmx/store"
+	"github.com/rapidmidiex/rmx/service/auth"
+	jam "github.com/rapidmidiex/rmx/service/jam/v2"
+	"github.com/rapidmidiex/rmx/store"
 )
 
 func (s *Service) routes() {

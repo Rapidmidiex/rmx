@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/rog-golang-buddies/rmx/internal"
-	"github.com/rog-golang-buddies/rmx/store/auth"
-	"github.com/rog-golang-buddies/rmx/store/user"
+	"github.com/rapidmidiex/rmx/internal"
+	"github.com/rapidmidiex/rmx/store/auth"
+	"github.com/rapidmidiex/rmx/store/user"
 )
 
 type Store struct {

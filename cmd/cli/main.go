@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/rog-golang-buddies/rmx/internal/commands"
+	"github.com/rapidmidiex/rmx/internal/commands"
 	"github.com/urfave/cli/v2"
 )
 

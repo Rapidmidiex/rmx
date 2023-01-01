@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/rog-golang-buddies/rmx/pkg/service"
+	"github.com/rapidmidiex/rmx/pkg/service"
 
 	"github.com/hyphengolang/prelude/http/websocket"
 

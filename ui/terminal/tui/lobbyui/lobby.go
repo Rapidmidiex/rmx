@@ -213,7 +213,7 @@ func (m Model) View() string {
 	return docStyle.Render(doc.String())
 }
 
-// https://github.com/rog-golang-buddies/rapidmidiex-research/issues/9#issuecomment-1204853876
+// https://github.com/rapidmidiex/rapidmidiex-research/issues/9#issuecomment-1204853876
 func makeJamsTable(m Model) table.Model {
 	columns := []table.Column{
 		{Title: "Name", Width: 15},
