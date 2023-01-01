@@ -255,6 +255,7 @@ func serve(cfg *config.Config) error {
 		AllowCredentials: true,
 		AllowedMethods:   []string{http.MethodGet, http.MethodPost},
 		AllowedHeaders:   []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		ExposedHeaders:   []string{"Location"},
 	}
 
 	// init application store
@@ -295,4 +296,9 @@ func serve(cfg *config.Config) error {
 	// }
 
 	return g.Wait()
+}
+
+// StartServer starts the RMX application.
+func StartServer(cfg *config.Config) error {
+	return serve(cfg)
 }

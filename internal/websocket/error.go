@@ -1,10 +1,10 @@
 package websocket
 
-type wserr[CI any] struct {
+type wsErr[CI any] struct {
 	conn *Conn[CI]
 	msg  error
 }
 
-func (e *wserr[CI]) Error() string {
+func (e *wsErr[CI]) Error() string {
 	return e.msg.Error()
 }

@@ -3,7 +3,9 @@ package config
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
+	"net/url"
 	"os"
 )
 
@@ -86,4 +88,39 @@ func ScanConfigFile(dev bool) (*Config, error) {
 	}
 
 	return c, nil
+}
+
+// LoadConfigFromEnv creates a Config from environment variables.
+func LoadConfigFromEnv(dev bool) (*Config, error) {
+	serverPort := os.Getenv("PORT")
+
+	pgURI := os.Getenv("POSTGRES_URI")
+
+	pgParsed, err := url.Parse(pgURI)
+	if err != nil && pgURI != "" {
+		return nil, fmt.Errorf("invalid POSTGRES_URL env var: %q: %w", pgURI, err)
+	}
+
+	pgUser := pgParsed.User.Username()
+	pgPassword, _ := pgParsed.User.Password()
+
+	pgHost := pgParsed.Host
+	pgPort := pgParsed.Port()
+	pgName := pgParsed.Path
+
+	redisHost := os.Getenv("REDIS_HOST")
+	redisPort := os.Getenv("REDIS_PORT")
+	redisPassword := os.Getenv("REDIS_PASSWORD")
+
+	return &Config{
+		ServerPort:    serverPort,
+		DBHost:        pgHost,
+		DBPort:        pgPort,
+		DBName:        pgName,
+		DBUser:        pgUser,
+		DBPassword:    pgPassword,
+		RedisHost:     redisHost,
+		RedisPort:     redisPort,
+		RedisPassword: redisPassword,
+	}, nil
 }

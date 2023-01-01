@@ -13,8 +13,6 @@ type Broker[SI, CI any] struct {
 	lock sync.RWMutex
 	// list of Subscribers
 	ss map[suid.UUID]*Subscriber[SI, CI]
-	// error channel
-	errc chan error
 
 	// Maximum Capacity Subscribers allowed
 	Capacity uint
@@ -24,7 +22,6 @@ type Broker[SI, CI any] struct {
 func NewBroker[SI, CI any](cap uint, ctx context.Context) *Broker[SI, CI] {
 	return &Broker[SI, CI]{
 		ss:       make(map[suid.UUID]*Subscriber[SI, CI]),
-		errc:     make(chan error),
 		Capacity: cap,
 		Context:  ctx,
 	}
@@ -64,6 +61,18 @@ func (b *Broker[SI, CI]) GetSubscriber(sid suid.UUID) (*Subscriber[SI, CI], erro
 	return s, nil
 }
 
+func (b *Broker[SI, CI]) ListSubscribers() []*Subscriber[SI, CI] {
+	b.lock.RLock()
+	defer b.lock.RUnlock()
+
+	subs := make([]*Subscriber[SI, CI], 0, len(b.ss))
+	for _, sub := range b.ss {
+		subs = append(subs, sub)
+	}
+
+	return subs
+}
+
 func (b *Broker[SI, CI]) add(s *Subscriber[SI, CI]) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
@@ -92,7 +101,8 @@ func (b *Broker[SI, CI]) connect(s *Subscriber[SI, CI]) {
 
 			for _, c := range cs {
 				if err := c.write(m.marshall()); err != nil {
-					s.errc <- &wserr[CI]{c, err}
+					s.errc <- &wsErr[CI]{c, err}
+					return
 				}
 			}
 		}

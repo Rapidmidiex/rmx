@@ -21,7 +21,7 @@ bin/
 
 # Other
 .DS_Store
-*.env
+*.env*
 certs
 rmx.config.json
 rmx-dev.config.json

@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/gobwas/ws"
 	"github.com/hyphengolang/prelude/types/suid"
+	"github.com/rog-golang-buddies/rmx/internal/fp"
 	"github.com/rog-golang-buddies/rmx/internal/websocket"
 	"github.com/rog-golang-buddies/rmx/pkg/service"
 )
@@ -59,20 +60,25 @@ func (u *User) fillDefaults() {
 }
 
 type Jam struct {
-	id       suid.UUID
-	owner    *User
-	Name     string `json:"name,omitempty"`
-	Capacity uint   `json:"capacity,omitempty"`
-	BPM      uint   `json:"bpm,omitempty"`
+	// Unique Jam identifier.
+	ID suid.UUID `json:"id,omitempty"`
+	// Owning user of the Jam.
+	owner *User
+	// Public name of the Jam.
+	Name string `json:"name,omitempty"`
+	// Max number of Jam participants.
+	Capacity uint `json:"capacity,omitempty"`
+	// Beats per minute. Used for setting the tempo of MIDI playback.
+	BPM uint `json:"bpm,omitempty"`
 }
 
 func (j *Jam) fillDefaults() {
-	j.id = suid.NewUUID()
+	j.ID = suid.NewUUID()
 	if j.owner == nil {
-		j.owner = &User{j.id, j.Name}
+		j.owner = &User{j.ID, j.Name}
 	}
 	if strings.TrimSpace(j.Name) == "" {
-		j.Name = j.id.ShortUUID().String()
+		j.Name = j.ID.ShortUUID().String()
 	}
 	if j.Capacity == 0 {
 		j.Capacity = 10
@@ -111,23 +117,64 @@ func (s *Service) handleCreateJamRoom(b *websocket.Broker[Jam, User]) http.Handl
 }
 
 func (s *Service) handleGetRoomData(b *websocket.Broker[Jam, User]) http.HandlerFunc {
-
 	return func(w http.ResponseWriter, r *http.Request) {
+		// decode uuid from URL
+		sid, err := s.parseUUID(r)
+		if err != nil {
+			s.Respond(w, r, sid, http.StatusBadRequest)
+			return
+		}
 
+		sub, err := b.GetSubscriber(sid)
+		if err != nil {
+			s.Respond(w, r, err, http.StatusNotFound)
+			return
+		}
+
+		s.Respond(w, r, sub.Info, http.StatusOK)
+	}
+}
+
+func (s *Service) handleGetRoomUsers(b *websocket.Broker[Jam, User]) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// decode uuid from URL
+		sid, err := s.parseUUID(r)
+		if err != nil {
+			s.Respond(w, r, sid, http.StatusBadRequest)
+			return
+		}
+
+		sub, err := b.GetSubscriber(sid)
+		if err != nil {
+			s.Respond(w, r, err, http.StatusNotFound)
+			return
+		}
+
+		conns := sub.ListConns()
+
+		connsInfo := fp.FMap(conns, func(c *websocket.Conn[User]) User {
+			return *c.Info
+		})
+
+		s.Respond(w, r, connsInfo, http.StatusOK)
 	}
 }
 
 func (s *Service) handleListRooms(b *websocket.Broker[Jam, User]) http.HandlerFunc {
-
 	return func(w http.ResponseWriter, r *http.Request) {
+		subs := b.ListSubscribers()
+		subsInfo := fp.FMap(subs, func(s *websocket.Subscriber[Jam, User]) Jam {
+			return *s.Info
+		})
 
+		s.Respond(w, r, subsInfo, http.StatusOK)
 	}
 }
 
 func (s *Service) handleP2PComms(b *websocket.Broker[Jam, User]) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// decode uuid from URL
-		sid, err := s.parseUUID(w, r)
+		sid, err := s.parseUUID(r)
 		if err != nil {
 			s.Respond(w, r, sid, http.StatusBadRequest)
 			return
@@ -164,6 +211,7 @@ func (s *Service) routes() {
 	s.Route("/api/v1/jam", func(r chi.Router) {
 		r.Get("/", s.handleListRooms(broker))
 		r.Get("/{uuid}", s.handleGetRoomData(broker))
+		r.Get("/{uuid}/users", s.handleGetRoomUsers(broker))
 		r.Post("/", s.handleCreateJamRoom(broker))
 	})
 
@@ -173,6 +221,6 @@ func (s *Service) routes() {
 
 }
 
-func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, error) {
+func (s *Service) parseUUID(r *http.Request) (suid.UUID, error) {
 	return suid.ParseString(chi.URLParam(r, "uuid"))
 }

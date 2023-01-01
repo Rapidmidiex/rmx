@@ -24,7 +24,7 @@ type Subscriber[SI, CI any] struct {
 	ic chan *message
 	oc chan *message
 	// error channel
-	errc chan *wserr[CI]
+	errc chan *wsErr[CI]
 	// Maximum Capacity clients allowed
 	Capacity uint
 	// Maximum message size allowed from peer.
@@ -52,7 +52,7 @@ func NewSubscriber[SI, CI any](
 		// I did make
 		ic:             make(chan *message),
 		oc:             make(chan *message),
-		errc:           make(chan *wserr[CI]),
+		errc:           make(chan *wsErr[CI]),
 		Capacity:       cap,
 		ReadBufferSize: rs,
 		ReadTimeout:    rt,
@@ -96,6 +96,18 @@ func (s *Subscriber[SI, CI]) Unsubscribe(c *Conn[CI]) error {
 // 	return s.disconnect(c)
 // }
 
+func (s *Subscriber[SI, CI]) ListConns() []*Conn[CI] {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
+	conns := make([]*Conn[CI], 0, len(s.cs))
+	for _, sub := range s.cs {
+		conns = append(conns, sub)
+	}
+
+	return conns
+}
+
 func (s *Subscriber[SI, CI]) IsFull() bool {
 	if s.Capacity == 0 {
 		return false
@@ -114,7 +126,7 @@ func (s *Subscriber[SI, CI]) listen() {
 		for p := range s.ic {
 			for _, c := range s.cs {
 				if err := c.write(p.marshall()); err != nil {
-					s.errc <- &wserr[CI]{c, err}
+					s.errc <- &wsErr[CI]{c, err}
 					return
 				}
 			}
@@ -154,13 +166,18 @@ func (s *Subscriber[SI, CI]) connect(c *Conn[CI]) {
 	defer c.lock.RUnlock()
 
 	go func() {
-		defer c.rwc.Close()
+		defer func() {
+			if err := s.disconnect(c); err != nil {
+				s.errc <- &wsErr[CI]{c, err}
+				return
+			}
+		}()
 
 		for {
 			// read binary from connection
 			b, err := wsutil.ReadClientBinary(c.rwc)
 			if err != nil {
-				s.errc <- &wserr[CI]{c, err}
+				s.errc <- &wsErr[CI]{c, err}
 				return
 			}
 
@@ -170,7 +187,7 @@ func (s *Subscriber[SI, CI]) connect(c *Conn[CI]) {
 			switch m.typ {
 			case Leave:
 				if err := s.disconnect(c); err != nil {
-					s.errc <- &wserr[CI]{c, err}
+					s.errc <- &wsErr[CI]{c, err}
 					return
 				}
 			default:
