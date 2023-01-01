@@ -11,7 +11,7 @@ import (
 	"github.com/hyphengolang/prelude/types/password"
 	"github.com/hyphengolang/prelude/types/suid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/rog-golang-buddies/rmx/internal"
+	"github.com/rapidmidiex/rmx/internal"
 )
 
 /*

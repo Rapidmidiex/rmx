@@ -10,7 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
 	"github.com/hyphengolang/prelude/testing/is"
-	// "github.com/rog-golang-buddies/rmx/internal/websocket"
+	// "github.com/rapidmidiex/rmx/internal/websocket"
 )
 
 var resource = func(s string) string {

@@ -9,8 +9,8 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/hyphengolang/prelude/types/suid"
 
-	"github.com/rog-golang-buddies/rmx/ui/terminal/tui/jamui"
-	"github.com/rog-golang-buddies/rmx/ui/terminal/tui/lobbyui"
+	"github.com/rapidmidiex/rmx/ui/terminal/tui/jamui"
+	"github.com/rapidmidiex/rmx/ui/terminal/tui/lobbyui"
 )
 
 // ********

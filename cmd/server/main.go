@@ -4,8 +4,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/rog-golang-buddies/rmx/config"
-	"github.com/rog-golang-buddies/rmx/internal/commands"
+	"github.com/rapidmidiex/rmx/config"
+	"github.com/rapidmidiex/rmx/internal/commands"
 )
 
 func main() {

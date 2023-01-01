@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/manifoldco/promptui"
-	"github.com/rog-golang-buddies/rmx/config"
-	"github.com/rog-golang-buddies/rmx/service"
-	"github.com/rog-golang-buddies/rmx/store"
+	"github.com/rapidmidiex/rmx/config"
+	"github.com/rapidmidiex/rmx/service"
+	"github.com/rapidmidiex/rmx/store"
 	"github.com/rs/cors"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/sync/errgroup"

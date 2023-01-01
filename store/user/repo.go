@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/rog-golang-buddies/rmx/internal"
+	"github.com/rapidmidiex/rmx/internal"
 )
 
 // Definition of our User in the DB layer

@@ -13,13 +13,13 @@ import (
 	"github.com/hyphengolang/prelude/types/email"
 	"github.com/hyphengolang/prelude/types/password"
 
-	// github.com/rog-golang-buddies/rmx/service/internal/auth/auth
+	// github.com/rapidmidiex/rmx/service/internal/auth/auth
 	"github.com/hyphengolang/prelude/types/suid"
-	"github.com/rog-golang-buddies/rmx/internal"
-	"github.com/rog-golang-buddies/rmx/store/user"
+	"github.com/rapidmidiex/rmx/internal"
+	"github.com/rapidmidiex/rmx/store/user"
 
-	"github.com/rog-golang-buddies/rmx/pkg/auth"
-	"github.com/rog-golang-buddies/rmx/pkg/service"
+	"github.com/rapidmidiex/rmx/pkg/auth"
+	"github.com/rapidmidiex/rmx/pkg/service"
 )
 
 var (
@@ -333,7 +333,7 @@ type Token struct {
 }
 
 const (
-	issuer          = "github.com/rog-golang-buddies/rmx"
+	issuer          = "github.com/rapidmidiex/rmx"
 	cookieName      = "RMX_REFRESH_TOKEN"
 	idTokenExp      = time.Hour * 10
 	refreshTokenExp = time.Hour * 24 * 7

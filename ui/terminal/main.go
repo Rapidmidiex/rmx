@@ -1,6 +1,6 @@
 package main
 
-import "github.com/rog-golang-buddies/rmx/ui/terminal/tui"
+import "github.com/rapidmidiex/rmx/ui/terminal/tui"
 
 func main() {
 	tui.Run()

@@ -10,9 +10,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/gobwas/ws"
 	"github.com/hyphengolang/prelude/types/suid"
-	"github.com/rog-golang-buddies/rmx/internal/fp"
-	"github.com/rog-golang-buddies/rmx/internal/websocket"
-	"github.com/rog-golang-buddies/rmx/pkg/service"
+	"github.com/rapidmidiex/rmx/internal/fp"
+	"github.com/rapidmidiex/rmx/internal/websocket"
+	"github.com/rapidmidiex/rmx/pkg/service"
 )
 
 // Jam Service Endpoints
