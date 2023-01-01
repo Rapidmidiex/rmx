@@ -5,7 +5,6 @@ import (
 	"context"
 	"testing"
 
-	psql "github.com/hyphengolang/prelude/sql/postgres"
 	"github.com/hyphengolang/prelude/testing/is"
 	"github.com/hyphengolang/prelude/types/email"
 	"github.com/hyphengolang/prelude/types/password"
@@ -39,22 +38,23 @@ commit;
 var pool *pgxpool.Pool
 var err error
 
-func init() {
-	// create pool connection
-	pool, err = pgxpool.New(context.Background(), `postgres://postgres:postgrespw@localhost:49153/testing`)
-	if err != nil {
-		panic(err)
-	}
+// func init() {
+// 	// create pool connection
+// 	pool, err = pgxpool.New(context.Background(), `postgres://postgres:postgrespw@localhost:49153/testing`)
+// 	if err != nil {
+// 		panic(err)
+// 	}
 
-	// setup migration
-	if err := psql.Exec(pool, migration); err != nil {
-		panic(err)
-	}
+// 	// setup migration
+// 	if err := psql.Exec(pool, migration); err != nil {
+// 		panic(err)
+// 	}
 
-	db = NewRepo(context.Background(), pool)
-}
+// 	db = NewRepo(context.Background(), pool)
+// }
 
 func TestPSQL(t *testing.T) {
+	t.Skip()
 	t.Parallel()
 
 	is, ctx := is.New(t), context.Background()
