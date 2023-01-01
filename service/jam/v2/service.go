@@ -60,20 +60,25 @@ func (u *User) fillDefaults() {
 }
 
 type Jam struct {
-	id       suid.UUID
-	owner    *User
-	Name     string `json:"name,omitempty"`
-	Capacity uint   `json:"capacity,omitempty"`
-	BPM      uint   `json:"bpm,omitempty"`
+	// Unique Jam identifier.
+	ID suid.UUID `json:"id,omitempty"`
+	// Owning user of the Jam.
+	owner *User
+	// Public name of the Jam.
+	Name string `json:"name,omitempty"`
+	// Max number of Jam participants.
+	Capacity uint `json:"capacity,omitempty"`
+	// Beats per minute. Used for setting the tempo of MIDI playback.
+	BPM uint `json:"bpm,omitempty"`
 }
 
 func (j *Jam) fillDefaults() {
-	j.id = suid.NewUUID()
+	j.ID = suid.NewUUID()
 	if j.owner == nil {
-		j.owner = &User{j.id, j.Name}
+		j.owner = &User{j.ID, j.Name}
 	}
 	if strings.TrimSpace(j.Name) == "" {
-		j.Name = j.id.ShortUUID().String()
+		j.Name = j.ID.ShortUUID().String()
 	}
 	if j.Capacity == 0 {
 		j.Capacity = 10
