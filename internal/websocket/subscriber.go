@@ -96,6 +96,18 @@ func (s *Subscriber[SI, CI]) Unsubscribe(c *Conn[CI]) error {
 // 	return s.disconnect(c)
 // }
 
+func (s *Subscriber[SI, CI]) ListConns() []*Conn[CI] {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
+	conns := make([]*Conn[CI], 0, len(s.cs))
+	for _, sub := range s.cs {
+		conns = append(conns, sub)
+	}
+
+	return conns
+}
+
 func (s *Subscriber[SI, CI]) IsFull() bool {
 	if s.Capacity == 0 {
 		return false

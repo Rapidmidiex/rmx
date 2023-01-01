@@ -255,6 +255,7 @@ func serve(cfg *config.Config) error {
 		AllowCredentials: true,
 		AllowedMethods:   []string{http.MethodGet, http.MethodPost},
 		AllowedHeaders:   []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		ExposedHeaders:   []string{"Location"},
 	}
 
 	// init application store

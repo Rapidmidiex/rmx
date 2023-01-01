@@ -130,6 +130,31 @@ func (s *Service) handleGetRoomData(b *websocket.Broker[Jam, User]) http.Handler
 	}
 }
 
+func (s *Service) handleGetRoomUsers(b *websocket.Broker[Jam, User]) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// decode uuid from URL
+		sid, err := s.parseUUID(r)
+		if err != nil {
+			s.Respond(w, r, sid, http.StatusBadRequest)
+			return
+		}
+
+		sub, err := b.GetSubscriber(sid)
+		if err != nil {
+			s.Respond(w, r, err, http.StatusNotFound)
+			return
+		}
+
+		conns := sub.ListConns()
+
+		connsInfo := fp.FMap(conns, func(c *websocket.Conn[User]) User {
+			return *c.Info
+		})
+
+		s.Respond(w, r, connsInfo, http.StatusOK)
+	}
+}
+
 func (s *Service) handleListRooms(b *websocket.Broker[Jam, User]) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		subs := b.ListSubscribers()
@@ -181,6 +206,7 @@ func (s *Service) routes() {
 	s.Route("/api/v1/jam", func(r chi.Router) {
 		r.Get("/", s.handleListRooms(broker))
 		r.Get("/{uuid}", s.handleGetRoomData(broker))
+		r.Get("/{uuid}/users", s.handleGetRoomUsers(broker))
 		r.Post("/", s.handleCreateJamRoom(broker))
 	})
 
