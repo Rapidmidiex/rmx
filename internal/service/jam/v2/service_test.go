@@ -1,4 +1,4 @@
-package v2
+package service_test
 
 import (
 	"context"
@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	service "github.com/rapidmidiex/rmx/internal/service/jam/v2"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/gobwas/ws"
@@ -24,7 +26,7 @@ var stripPrefix = func(s string) string {
 func TestService(t *testing.T) {
 	is := is.New(t)
 	ctx, mux := context.Background(), chi.NewMux()
-	h := NewService(ctx, mux)
+	h := service.NewService(ctx, mux)
 	srv := httptest.NewServer(h)
 
 	var firstJam string

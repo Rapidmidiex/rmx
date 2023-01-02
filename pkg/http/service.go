@@ -1,7 +1,6 @@
 package service
 
 import (
-	"context"
 	"log"
 	"net/http"
 
@@ -11,8 +10,6 @@ import (
 
 type Service interface {
 	chi.Router
-
-	Context() context.Context
 
 	Log(...any)
 	Logf(string, ...any)
@@ -25,23 +22,18 @@ type Service interface {
 }
 
 type service struct {
-	ctx context.Context
 	chi.Router
 }
 
-// Context implements Service
-func (s *service) Context() context.Context {
-	if s.ctx == nil {
-		return context.Background()
-	}
-	return s.ctx
+// Created implements Service
+func (*service) Created(w http.ResponseWriter, r *http.Request, id string) {
+	h.Created(w, r, id)
 }
 
-// Created implements Service
-func (*service) Created(w http.ResponseWriter, r *http.Request, id string) { h.Created(w, r, id) }
-
 // Decode implements Service
-func (*service) Decode(w http.ResponseWriter, r *http.Request, v any) error { return h.Decode(w, r, v) }
+func (*service) Decode(w http.ResponseWriter, r *http.Request, v any) error {
+	return h.Decode(w, r, v)
+}
 
 // Log implements Service
 func (*service) Log(v ...any) { log.Println(v...) }
@@ -61,6 +53,23 @@ func (s *service) RespondText(w http.ResponseWriter, r *http.Request, status int
 // SetCookie implements Service
 func (*service) SetCookie(w http.ResponseWriter, c *http.Cookie) { http.SetCookie(w, c) }
 
-func New(ctx context.Context, mux chi.Router) Service {
-	return &service{ctx, mux}
+func New(opt ...Option) Service {
+	var s service
+	for _, o := range opt {
+		o(&s)
+	}
+
+	if s.Router == nil {
+		s.Router = chi.NewRouter()
+	}
+
+	return &s
+}
+
+type Option func(*service)
+
+func WithRouter(mux chi.Router) Option {
+	return func(s *service) {
+		s.Router = mux
+	}
 }

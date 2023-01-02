@@ -1,14 +1,12 @@
-package jam
+package service
 
 import (
-	"context"
 	"errors"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/rapidmidiex/rmx/pkg/service"
+	service "github.com/rapidmidiex/rmx/pkg/http"
 
 	"github.com/hyphengolang/prelude/http/websocket"
 
@@ -33,58 +31,26 @@ import (
 //
 //	GET /ws/jam/{uuid}
 type Service struct {
-	service.Service
+	mux service.Service
 
 	// c *ws.Client
-}
-
-type muxEntry struct {
-	sid  suid.UUID
-	pool *websocket.Pool
-}
-
-func (e muxEntry) String() string { return e.sid.ShortUUID().String() }
-
-type mux struct {
-	mu sync.Mutex
-	mp map[suid.UUID]muxEntry
-}
-
-func (mux *mux) Store(e muxEntry) {
-	mux.mu.Lock()
-	{
-		mux.mp[e.sid] = e
-	}
-	mux.mu.Unlock()
-}
-
-func (mux *mux) Load(sid suid.UUID) (pool *websocket.Pool, err error) {
-	mux.mu.Lock()
-	e, ok := mux.mp[sid]
-	mux.mu.Unlock()
-
-	if !ok {
-		return nil, errors.New("pool not found")
-	}
-
-	return e.pool, nil
 }
 
 func (s *Service) routes() {
 	// NOTE this map is temporary
 	//  map[suid.SUID]*websocket.Pool
-	var mux = &mux{
+	var broker = &mux{
 		mp: make(map[suid.UUID]muxEntry),
 	}
 
-	s.Route("/api/v1/jam", func(r chi.Router) {
+	s.mux.Route("/api/v1/jam", func(r chi.Router) {
 		// r.Get("/", s.handleListRooms())
-		r.Post("/", s.handleCreateJamRoom(mux))
+		r.Post("/", s.handleCreateJamRoom(broker))
 		// r.Get("/{uuid}", s.handleGetRoomData(mux))
 	})
 
-	s.Route("/ws/jam", func(r chi.Router) {
-		r.Get("/{uuid}", s.handleP2PComms(mux))
+	s.mux.Route("/ws/jam", func(r chi.Router) {
+		r.Get("/{uuid}", s.handleP2PComms(broker))
 	})
 
 }
@@ -94,24 +60,24 @@ func (s *Service) handleP2PComms(mux *mux) http.HandlerFunc {
 		// decode uuid from
 		sid, err := s.parseUUID(w, r)
 		if err != nil {
-			s.Respond(w, r, err, http.StatusBadRequest)
+			s.mux.Respond(w, r, err, http.StatusBadRequest)
 			return
 		}
 
 		pool, err := mux.Load(sid)
 		if err != nil {
-			s.Respond(w, r, err, http.StatusNotFound)
+			s.mux.Respond(w, r, err, http.StatusNotFound)
 			return
 		}
 
 		if err := errors.New("pool has reached max capacity"); pool.IsFull() {
-			s.Respond(w, r, err, http.StatusServiceUnavailable)
+			s.mux.Respond(w, r, err, http.StatusServiceUnavailable)
 			return
 		}
 
 		rwc, err := websocket.UpgradeHTTP(w, r)
 		if err != nil {
-			s.Respond(w, r, err, http.StatusUpgradeRequired)
+			s.mux.Respond(w, r, err, http.StatusUpgradeRequired)
 			return
 		}
 
@@ -126,8 +92,8 @@ func (s *Service) handleCreateJamRoom(mux *mux) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		var pl payload
-		if err := s.Decode(w, r, &pl); err != nil {
-			s.Respond(w, r, err, http.StatusBadRequest)
+		if err := s.mux.Decode(w, r, &pl); err != nil {
+			s.mux.Respond(w, r, err, http.StatusBadRequest)
 			return
 		}
 
@@ -141,7 +107,7 @@ func (s *Service) handleCreateJamRoom(mux *mux) http.HandlerFunc {
 		e := muxEntry{suid.NewUUID(), pool}
 
 		mux.Store(e)
-		s.Created(w, r, e.String())
+		s.mux.Created(w, r, e.String())
 	}
 }
 
@@ -149,7 +115,7 @@ func (s *Service) handleCreateJamRoom(mux *mux) http.HandlerFunc {
 // 	return func(w http.ResponseWriter, r *http.Request) {
 // 		uid, err := s.parseUUID(w, r)
 // 		if err != nil {
-// 			s.Respond(w, r, err, http.StatusBadRequest)
+// 			s.mux.Respond(w, r, err, http.StatusBadRequest)
 // 			return
 // 		}
 
@@ -157,7 +123,7 @@ func (s *Service) handleCreateJamRoom(mux *mux) http.HandlerFunc {
 // 		// method as `Get` is nondescriptive
 // 		p, err := s.c.Get(uid)
 // 		if err != nil {
-// 			s.Respond(w, r, err, http.StatusNotFound)
+// 			s.mux.Respond(w, r, err, http.StatusNotFound)
 // 			return
 // 		}
 
@@ -166,7 +132,7 @@ func (s *Service) handleCreateJamRoom(mux *mux) http.HandlerFunc {
 // 			Users: fp.FMap(p.Keys(), func(uid suid.UUID) suid.SUID { return uid.ShortUUID() }),
 // 		}
 
-// 		s.Respond(w, r, v, http.StatusOK)
+// 		s.mux.Respond(w, r, v, http.StatusOK)
 // 	}
 // }
 
@@ -189,7 +155,7 @@ func (s *Service) handleCreateJamRoom(mux *mux) http.HandlerFunc {
 // 			}),
 // 		}
 
-// 		s.Respond(w, r, v, http.StatusOK)
+// 		s.mux.Respond(w, r, v, http.StatusOK)
 // 	}
 // }
 
@@ -212,8 +178,13 @@ var (
 	ErrSessionExists   = errors.New("api: session already exists")
 )
 
-func NewService(ctx context.Context, mux chi.Router) *Service {
-	s := &Service{service.New(ctx, mux)}
+func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.mux.ServeHTTP(w, r)
+}
+
+func NewService(mux chi.Router) http.Handler {
+	s := &Service{mux: service.New(service.WithRouter(mux))}
+
 	s.routes()
 	return s
 }

@@ -1,4 +1,4 @@
-package v2
+package service
 
 import (
 	"context"
@@ -7,12 +7,13 @@ import (
 	"strings"
 	"time"
 
+	service "github.com/rapidmidiex/rmx/pkg/http"
+	"github.com/rapidmidiex/rmx/pkg/http/websocket"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/gobwas/ws"
 	"github.com/hyphengolang/prelude/types/suid"
 	"github.com/rapidmidiex/rmx/internal/fp"
-	"github.com/rapidmidiex/rmx/internal/websocket"
-	"github.com/rapidmidiex/rmx/pkg/service"
 )
 
 // Jam Service Endpoints
@@ -34,11 +35,16 @@ import (
 //	GET /ws/jam/{uuid}
 
 type Service struct {
-	service.Service
+	mux service.Service
 }
 
-func NewService(ctx context.Context, mux chi.Router) *Service {
-	s := &Service{service.New(ctx, mux)}
+func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.mux.ServeHTTP(w, r)
+}
+
+func NewService(ctx context.Context) http.Handler {
+	s := &Service{service.New()}
+
 	s.routes()
 	return s
 }
@@ -91,8 +97,8 @@ func (j *Jam) fillDefaults() {
 func (s *Service) handleCreateJamRoom(b *websocket.Broker[Jam, User]) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var j Jam
-		if err := s.Decode(w, r, &j); err != nil {
-			s.Respond(w, r, err, http.StatusBadRequest)
+		if err := s.mux.Decode(w, r, &j); err != nil {
+			s.mux.Respond(w, r, err, http.StatusBadRequest)
 			return
 		}
 
@@ -112,7 +118,7 @@ func (s *Service) handleCreateJamRoom(b *websocket.Broker[Jam, User]) http.Handl
 		// connect the Subscriber
 		b.Subscribe(sub)
 
-		s.Created(w, r, sub.GetID().ShortUUID().String())
+		s.mux.Created(w, r, sub.GetID().ShortUUID().String())
 	}
 }
 
@@ -121,17 +127,17 @@ func (s *Service) handleGetRoomData(b *websocket.Broker[Jam, User]) http.Handler
 		// decode uuid from URL
 		sid, err := s.parseUUID(r)
 		if err != nil {
-			s.Respond(w, r, sid, http.StatusBadRequest)
+			s.mux.Respond(w, r, sid, http.StatusBadRequest)
 			return
 		}
 
 		sub, err := b.GetSubscriber(sid)
 		if err != nil {
-			s.Respond(w, r, err, http.StatusNotFound)
+			s.mux.Respond(w, r, err, http.StatusNotFound)
 			return
 		}
 
-		s.Respond(w, r, sub.Info, http.StatusOK)
+		s.mux.Respond(w, r, sub.Info, http.StatusOK)
 	}
 }
 
@@ -140,13 +146,13 @@ func (s *Service) handleGetRoomUsers(b *websocket.Broker[Jam, User]) http.Handle
 		// decode uuid from URL
 		sid, err := s.parseUUID(r)
 		if err != nil {
-			s.Respond(w, r, sid, http.StatusBadRequest)
+			s.mux.Respond(w, r, sid, http.StatusBadRequest)
 			return
 		}
 
 		sub, err := b.GetSubscriber(sid)
 		if err != nil {
-			s.Respond(w, r, err, http.StatusNotFound)
+			s.mux.Respond(w, r, err, http.StatusNotFound)
 			return
 		}
 
@@ -156,7 +162,7 @@ func (s *Service) handleGetRoomUsers(b *websocket.Broker[Jam, User]) http.Handle
 			return *c.Info
 		})
 
-		s.Respond(w, r, connsInfo, http.StatusOK)
+		s.mux.Respond(w, r, connsInfo, http.StatusOK)
 	}
 }
 
@@ -167,7 +173,7 @@ func (s *Service) handleListRooms(b *websocket.Broker[Jam, User]) http.HandlerFu
 			return *s.Info
 		})
 
-		s.Respond(w, r, subsInfo, http.StatusOK)
+		s.mux.Respond(w, r, subsInfo, http.StatusOK)
 	}
 }
 
@@ -176,24 +182,24 @@ func (s *Service) handleP2PComms(b *websocket.Broker[Jam, User]) http.HandlerFun
 		// decode uuid from URL
 		sid, err := s.parseUUID(r)
 		if err != nil {
-			s.Respond(w, r, sid, http.StatusBadRequest)
+			s.mux.Respond(w, r, sid, http.StatusBadRequest)
 			return
 		}
 
 		sub, err := b.GetSubscriber(sid)
 		if err != nil {
-			s.Respond(w, r, err, http.StatusNotFound)
+			s.mux.Respond(w, r, err, http.StatusNotFound)
 			return
 		}
 
 		if err := errors.New("subscriber has reached max capacity"); sub.IsFull() {
-			s.Respond(w, r, err, http.StatusServiceUnavailable)
+			s.mux.Respond(w, r, err, http.StatusServiceUnavailable)
 			return
 		}
 
 		rwc, _, _, err := ws.UpgradeHTTP(r, w)
 		if err != nil {
-			s.Respond(w, r, err, http.StatusUpgradeRequired)
+			s.mux.Respond(w, r, err, http.StatusUpgradeRequired)
 			return
 		}
 
@@ -208,14 +214,14 @@ func (s *Service) handleP2PComms(b *websocket.Broker[Jam, User]) http.HandlerFun
 func (s *Service) routes() {
 	broker := websocket.NewBroker[Jam, User](10, context.Background())
 
-	s.Route("/api/v1/jam", func(r chi.Router) {
+	s.mux.Route("/api/v1/jam", func(r chi.Router) {
 		r.Get("/", s.handleListRooms(broker))
 		r.Get("/{uuid}", s.handleGetRoomData(broker))
 		r.Get("/{uuid}/users", s.handleGetRoomUsers(broker))
 		r.Post("/", s.handleCreateJamRoom(broker))
 	})
 
-	s.Route("/ws/jam", func(r chi.Router) {
+	s.mux.Route("/ws/jam", func(r chi.Router) {
 		r.Get("/{uuid}", s.handleP2PComms(broker))
 	})
 

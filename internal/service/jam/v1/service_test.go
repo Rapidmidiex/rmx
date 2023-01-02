@@ -1,16 +1,16 @@
-package jam
+package service_test
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	service "github.com/rapidmidiex/rmx/internal/service/jam/v1"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
 	"github.com/hyphengolang/prelude/testing/is"
-	// "github.com/rapidmidiex/rmx/internal/websocket"
 )
 
 var resource = func(s string) string {
@@ -24,9 +24,9 @@ var stripPrefix = func(s string) string {
 func TestService(t *testing.T) {
 	is := is.New(t)
 
-	ctx, mux := context.Background(), chi.NewMux()
+	mux := chi.NewMux()
 
-	h := NewService(ctx, mux)
+	h := service.NewService(mux)
 	srv := httptest.NewServer(h)
 
 	t.Cleanup(func() { srv.Close() })
