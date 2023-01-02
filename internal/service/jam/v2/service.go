@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	service "github.com/rapidmidiex/rmx/pkg/http"
-	"github.com/rapidmidiex/rmx/pkg/http/websocket"
+	service "github.com/rapidmidiex/rmx/internal/http"
+	"github.com/rapidmidiex/rmx/internal/http/websocket"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/gobwas/ws"

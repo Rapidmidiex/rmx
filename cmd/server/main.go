@@ -19,7 +19,7 @@ func main() {
 		log.Fatalf("Could load config: %v", err)
 	}
 
-	err = commands.StartServer(cfg)
+	err = cmds.StartServer(cfg)
 	if err != nil {
 		log.Fatalf("Could not start server: %v", err)
 	}

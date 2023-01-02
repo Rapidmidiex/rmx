@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	service "github.com/rapidmidiex/rmx/pkg/http"
+	service "github.com/rapidmidiex/rmx/internal/http"
 
 	"github.com/hyphengolang/prelude/http/websocket"
 
