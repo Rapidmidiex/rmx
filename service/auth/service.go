@@ -249,10 +249,6 @@ func (s *Service) newUser(w http.ResponseWriter, r *http.Request, u *internal.Us
 	return nil
 }
 
-func (s *Service) parseUUID(w http.ResponseWriter, r *http.Request) (suid.UUID, error) {
-	return suid.ParseString(chi.URLParam(r, "uuid"))
-}
-
 func (s *Service) newCookie(w http.ResponseWriter, r *http.Request, value string, maxAge time.Duration) *http.Cookie {
 	c := &http.Cookie{
 		Path:     "/",

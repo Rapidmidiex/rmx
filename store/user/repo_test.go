@@ -18,40 +18,7 @@ https://www.covermymeds.com/main/insights/articles/on-update-timestamps-mysql-vs
 */
 var db Repo
 
-const migration = `
-begin;
-
-create extension if not exists "uuid-ossp";
-create extension if not exists "citext";
-
-create temp table if not exists "user" (
-	id uuid primary key default uuid_generate_v4(),
-	username text unique not null check (username <> ''),
-	email citext unique not null check (email ~ '^[a-zA-Z0-9.!#$%&’*+/=?^_\x60{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$'),
-	password citext not null check (password <> ''),
-	created_at timestamp not null default now()
-);
-
-commit;
-`
-
 var pool *pgxpool.Pool
-var err error
-
-// func init() {
-// 	// create pool connection
-// 	pool, err = pgxpool.New(context.Background(), `postgres://postgres:postgrespw@localhost:49153/testing`)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-
-// 	// setup migration
-// 	if err := psql.Exec(pool, migration); err != nil {
-// 		panic(err)
-// 	}
-
-// 	db = NewRepo(context.Background(), pool)
-// }
 
 func TestPSQL(t *testing.T) {
 	t.Skip()

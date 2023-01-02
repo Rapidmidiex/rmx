@@ -67,16 +67,6 @@ func NewRedis(addr, password string) *Client {
 	return c
 }
 
-const (
-	defaultAddr     = "localhost:6379"
-	defaultPassword = ""
-)
-
-// var DefaultClient = &Client{
-// 	rtdb: redis.NewClient(&redis.Options{Addr: defaultAddr, Password: defaultPassword, DB: 0}),
-// 	cidb: redis.NewClient(&redis.Options{Addr: defaultAddr, Password: defaultPassword, DB: 1}),
-// }
-
 func (c *Client) Validate(ctx context.Context, token string) error {
 	tc, err := ParseRefreshTokenClaims(token)
 	if err != nil {
