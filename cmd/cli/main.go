@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/rapidmidiex/rmx/internal/cmds"
+	"github.com/rapidmidiex/rmx/internal/cmd"
 	"github.com/urfave/cli/v2"
 )
 

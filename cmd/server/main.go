@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/rapidmidiex/rmx/config"
-	"github.com/rapidmidiex/rmx/internal/cmds"
+	"github.com/rapidmidiex/rmx/internal/cmd"
 )
 
 func main() {
