@@ -1,4 +1,4 @@
-package v2
+package service_test
 
 import (
 	"context"
@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 	"github.com/hyphengolang/prelude/testing/is"
+	service "github.com/rapidmidiex/rmx/internal/jam/http"
 )
 
 var resource = func(s string) string {
@@ -23,8 +23,8 @@ var stripPrefix = func(s string) string {
 
 func TestService(t *testing.T) {
 	is := is.New(t)
-	ctx, mux := context.Background(), chi.NewMux()
-	h := NewService(ctx, mux)
+	ctx := context.Background()
+	h := service.NewService(ctx)
 	srv := httptest.NewServer(h)
 
 	var firstJam string
