@@ -14,7 +14,7 @@ import (
 
 	"github.com/manifoldco/promptui"
 	"github.com/rapidmidiex/rmx/config"
-	jam "github.com/rapidmidiex/rmx/internal/service/jam/v2"
+	jam "github.com/rapidmidiex/rmx/internal/jam/v2"
 
 	// "github.com/rapidmidiex/rmx/service"
 	// "github.com/rapidmidiex/rmx/store"
