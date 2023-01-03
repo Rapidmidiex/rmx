@@ -21,8 +21,8 @@ type Subscriber[SI, CI any] struct {
 	// Subscriber status
 	online bool
 	// Input/Output channel for new messages
-	ic chan *message
-	oc chan *message
+	ic chan *wsutil.Message
+	oc chan *wsutil.Message
 	// error channel
 	errc chan *wsErr[CI]
 	// Maximum Capacity clients allowed
@@ -47,11 +47,10 @@ func NewSubscriber[SI, CI any](
 	i *SI,
 ) *Subscriber[SI, CI] {
 	s := &Subscriber[SI, CI]{
-		sid: suid.NewUUID(),
-		cs:  make(map[suid.UUID]*Conn[CI]),
-		// I did make
-		ic:             make(chan *message),
-		oc:             make(chan *message),
+		sid:            suid.NewUUID(),
+		cs:             make(map[suid.UUID]*Conn[CI]),
+		ic:             make(chan *wsutil.Message),
+		oc:             make(chan *wsutil.Message),
 		errc:           make(chan *wsErr[CI]),
 		Capacity:       cap,
 		ReadBufferSize: rs,
@@ -125,7 +124,7 @@ func (s *Subscriber[SI, CI]) listen() {
 	go func() {
 		for p := range s.ic {
 			for _, c := range s.cs {
-				if err := c.write(p.marshall()); err != nil {
+				if err := wsutil.WriteClientMessage(c.rwc, p.OpCode, p.Payload); err != nil {
 					s.errc <- &wsErr[CI]{c, err}
 					return
 				}
@@ -175,24 +174,18 @@ func (s *Subscriber[SI, CI]) connect(c *Conn[CI]) {
 
 		for {
 			// read binary from connection
-			b, err := wsutil.ReadClientBinary(c.rwc)
+			b, op, err := wsutil.ReadClientData(c.rwc)
 			if err != nil {
 				s.errc <- &wsErr[CI]{c, err}
 				return
 			}
 
-			var m message
-			m.parse(b)
-
-			switch m.typ {
-			case Leave:
-				if err := s.disconnect(c); err != nil {
-					s.errc <- &wsErr[CI]{c, err}
-					return
-				}
-			default:
-				s.ic <- &m
+			if err != nil {
+				s.errc <- &wsErr[CI]{c, err}
+				return
 			}
+
+			s.ic <- &wsutil.Message{OpCode: op, Payload: b}
 		}
 	}()
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/gobwas/ws/wsutil"
 	"github.com/hyphengolang/prelude/types/suid"
 )
 
@@ -100,7 +101,7 @@ func (b *Broker[SI, CI]) connect(s *Subscriber[SI, CI]) {
 			// s.lock.RUnlock()
 
 			for _, c := range cs {
-				if err := c.write(m.marshall()); err != nil {
+				if err := wsutil.WriteClientMessage(c.rwc, m.OpCode, m.Payload); err != nil {
 					s.errc <- &wsErr[CI]{c, err}
 					return
 				}

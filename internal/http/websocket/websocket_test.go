@@ -1,6 +1,5 @@
 package websocket_test
 
-// ok
 import (
 	"context"
 	"net/http"
@@ -18,7 +17,6 @@ import (
 	"github.com/hyphengolang/prelude/types/suid"
 )
 
-// so I am defining a simple echo server here for testing
 func testServerPartA() http.Handler {
 	ctx := context.Background()
 
@@ -47,8 +45,6 @@ func testServerPartA() http.Handler {
 }
 
 func TestSubscriber(t *testing.T) {
-	// t.Skip()
-
 	is := is.New(t)
 	ctx := context.Background()
 
@@ -58,9 +54,8 @@ func TestSubscriber(t *testing.T) {
 		srv.Close()
 	})
 
-	// NOTE - can you try this test for me please? passed, really?
 	t.Run("create a new client and connect to echo server", func(t *testing.T) {
-		wsPath := stripPrefix(srv.URL + "/ws") // this correct right? yup
+		wsPath := stripPrefix(srv.URL + "/ws")
 
 		cli1, _, _, err := ws.DefaultDialer.Dial(ctx, wsPath)
 		is.NoErr(err)      // connect cli1 to server
@@ -73,15 +68,12 @@ func TestSubscriber(t *testing.T) {
 		_, _, _, err = ws.DefaultDialer.Dial(ctx, wsPath)
 		is.NoErr(err) // cannot connect to the server
 
-		data := []byte("Hello World!")
-		typ := []byte{1}
-		m := append(typ, data...)
+		m := []byte("Hello World!")
 
-		err = wsutil.WriteClientBinary(cli1, m)
+		err = wsutil.WriteClientText(cli1, m)
 		is.NoErr(err) // send message to server
 
-		// now I want to read the message from the server
-		msg, err := wsutil.ReadServerBinary(cli2)
+		msg, err := wsutil.ReadServerText(cli2)
 		is.NoErr(err)    // read message from server
 		is.Equal(m, msg) // check if message is correct
 	})
@@ -111,15 +103,12 @@ func testServerPartB() http.Handler {
 		w.Header().Set("Location", "/"+s.GetID().ShortUUID().String())
 	})
 
-	// so I need to get the subscriber from parsing here right? yes
 	mux.HandleFunc("/ws/{suid}", func(w http.ResponseWriter, r *http.Request) {
 		sid, err := parseSUID(w, r)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-
-		// can you see me?
 
 		s, err := b.GetSubscriber(sid)
 		if err != nil {
@@ -177,7 +166,3 @@ var stripPrefix = func(s string) string {
 func parseSUID(w http.ResponseWriter, r *http.Request) (suid.UUID, error) {
 	return suid.ParseString(chi.URLParam(r, "uuid"))
 }
-
-/*
-
- */
