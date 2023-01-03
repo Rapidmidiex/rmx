@@ -70,3 +70,7 @@ migrateup:
 .PHONY: migratedown
 migratedown:
 	migrate -path store/migration -database "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:5432/$(POSTGRES_DB)?sslmode=disable" -verbose down
+
+.PHONY: sqlc
+sqlc:
+	sqlc generate
