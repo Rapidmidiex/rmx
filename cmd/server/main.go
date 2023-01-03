@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/rapidmidiex/rmx/config"
-	"github.com/rapidmidiex/rmx/internal/commands"
+	"github.com/rapidmidiex/rmx/internal/cmd"
 )
 
 func main() {
@@ -19,7 +19,7 @@ func main() {
 		log.Fatalf("Could load config: %v", err)
 	}
 
-	err = commands.StartServer(cfg)
+	err = cmd.StartServer(cfg)
 	if err != nil {
 		log.Fatalf("Could not start server: %v", err)
 	}

@@ -5,7 +5,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/rapidmidiex/rmx/internal/commands"
+	"github.com/rapidmidiex/rmx/internal/cmd"
+
 	"github.com/urfave/cli/v2"
 )
 
@@ -20,11 +21,11 @@ func initCLI() *cli.App {
 		EnableBashCompletion: true,
 		Name:                 "rmx",
 		Usage:                "RapidMidiEx Server CLI",
-		Version:              commands.Version,
+		Version:              cmd.Version,
 		Compiled:             time.Now().UTC(),
-		Action:               commands.GetVersion,
-		Flags:                commands.Flags,
-		Commands:             commands.Commands,
+		Action:               cmd.GetVersion,
+		Flags:                cmd.Flags,
+		Commands:             cmd.Commands,
 	}
 
 	return c

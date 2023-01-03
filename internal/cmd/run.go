@@ -1,4 +1,4 @@
-package commands
+package cmd
 
 import (
 	"context"
@@ -14,8 +14,8 @@ import (
 
 	"github.com/manifoldco/promptui"
 	"github.com/rapidmidiex/rmx/config"
-	"github.com/rapidmidiex/rmx/service"
-	"github.com/rapidmidiex/rmx/store"
+	jam "github.com/rapidmidiex/rmx/internal/jam/http"
+
 	"github.com/rs/cors"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/sync/errgroup"
@@ -258,10 +258,10 @@ func serve(cfg *config.Config) error {
 		ExposedHeaders:   []string{"Location"},
 	}
 
-	// init application store
-	s, _ := store.New(sCtx, "") // needs fix
-	// setup a new handler
-	h := service.New(sCtx, s)
+	/* FIXME */
+	/* START SERVICES BLOCK */
+	h := jam.NewService(sCtx)
+	/* START SERVICES BLOCK */
 
 	srv := http.Server{
 		Addr:    ":" + cfg.ServerPort,

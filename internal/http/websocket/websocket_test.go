@@ -9,12 +9,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rapidmidiex/rmx/internal/http/websocket"
+
 	"github.com/go-chi/chi"
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 	"github.com/hyphengolang/prelude/testing/is"
 	"github.com/hyphengolang/prelude/types/suid"
-	"github.com/rapidmidiex/rmx/internal/websocket"
 )
 
 // so I am defining a simple echo server here for testing
