@@ -20,7 +20,7 @@ import (
 func testServerPartA() http.Handler {
 	ctx := context.Background()
 
-	s := websocket.NewSubscriber[any, any](
+	s := websocket.NewSession[any, any](
 		ctx,
 		2,
 		512,
@@ -96,7 +96,7 @@ func testServerPartB() http.Handler {
 			return
 		}
 
-		s := websocket.NewSubscriber[Info, any](ctx, 2, 512, 2*time.Second, 2*time.Second, &Info{
+		s := websocket.NewSession[Info, any](ctx, 2, 512, 2*time.Second, 2*time.Second, &Info{
 			Username: "John Doe",
 		})
 
@@ -110,7 +110,7 @@ func testServerPartB() http.Handler {
 			return
 		}
 
-		s, err := b.GetSubscriber(sid)
+		s, err := b.GetSession(sid)
 		if err != nil {
 			w.WriteHeader(http.StatusNotFound)
 			return

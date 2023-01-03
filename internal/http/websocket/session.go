@@ -11,18 +11,15 @@ import (
 	"github.com/hyphengolang/prelude/types/suid"
 )
 
-// Subscriber contains the list of the connections
-type Subscriber[SI, CI any] struct {
-	// unique id for the Subscriber
+// Session contains the list of the connections
+type Session[SI, CI any] struct {
+	// unique id for the Session
 	sid  suid.UUID
 	lock sync.RWMutex
 	// list of Connections
 	cs map[suid.UUID]*Conn[CI]
-	// Subscriber status
+	// Session status
 	online bool
-	// Input/Output channel for new messages
-	ic chan *wsutil.Message
-	oc chan *wsutil.Message
 	// error channel
 	errc chan *wsErr[CI]
 	// Maximum Capacity clients allowed
@@ -38,19 +35,17 @@ type Subscriber[SI, CI any] struct {
 	Context context.Context
 }
 
-func NewSubscriber[SI, CI any](
+func NewSession[SI, CI any](
 	ctx context.Context,
 	cap uint,
 	rs int64,
 	rt time.Duration,
 	wt time.Duration,
 	i *SI,
-) *Subscriber[SI, CI] {
-	s := &Subscriber[SI, CI]{
+) *Session[SI, CI] {
+	s := &Session[SI, CI]{
 		sid:            suid.NewUUID(),
 		cs:             make(map[suid.UUID]*Conn[CI]),
-		ic:             make(chan *wsutil.Message),
-		oc:             make(chan *wsutil.Message),
 		errc:           make(chan *wsErr[CI]),
 		Capacity:       cap,
 		ReadBufferSize: rs,
@@ -61,12 +56,11 @@ func NewSubscriber[SI, CI any](
 	}
 
 	s.catch()
-	s.listen()
 
 	return s
 }
 
-func (s *Subscriber[SI, CI]) NewConn(rwc io.ReadWriteCloser, info *CI) *Conn[CI] {
+func (s *Session[SI, CI]) NewConn(rwc io.ReadWriteCloser, info *CI) *Conn[CI] {
 	return &Conn[CI]{
 		sid:  suid.NewUUID(),
 		rwc:  rwc,
@@ -74,12 +68,12 @@ func (s *Subscriber[SI, CI]) NewConn(rwc io.ReadWriteCloser, info *CI) *Conn[CI]
 	}
 }
 
-func (s *Subscriber[SI, CI]) Subscribe(c *Conn[CI]) {
+func (s *Session[SI, CI]) Subscribe(c *Conn[CI]) {
 	s.connect(c)
 	s.add(c)
 }
 
-func (s *Subscriber[SI, CI]) Unsubscribe(c *Conn[CI]) error {
+func (s *Session[SI, CI]) Unsubscribe(c *Conn[CI]) error {
 	if err := s.disconnect(c); err != nil {
 		return err
 	}
@@ -87,15 +81,7 @@ func (s *Subscriber[SI, CI]) Unsubscribe(c *Conn[CI]) error {
 	return nil
 }
 
-// func (s *Subscriber[SI, CI]) Connect(c *Conn[CI]) error {
-// 	return s.connect(c)
-// }
-
-// func (s *Subscriber[SI, CI]) Disconnect(c *Conn[CI]) error {
-// 	return s.disconnect(c)
-// }
-
-func (s *Subscriber[SI, CI]) ListConns() []*Conn[CI] {
+func (s *Session[SI, CI]) ListConns() []*Conn[CI] {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 
@@ -107,7 +93,7 @@ func (s *Subscriber[SI, CI]) ListConns() []*Conn[CI] {
 	return conns
 }
 
-func (s *Subscriber[SI, CI]) IsFull() bool {
+func (s *Session[SI, CI]) IsFull() bool {
 	if s.Capacity == 0 {
 		return false
 	}
@@ -115,25 +101,20 @@ func (s *Subscriber[SI, CI]) IsFull() bool {
 	return len(s.cs) >= int(s.Capacity)
 }
 
-func (s *Subscriber[SI, CI]) GetID() suid.UUID {
+func (s *Session[SI, CI]) GetID() suid.UUID {
 	return s.sid
 }
 
-// listen to the input channel and broadcast messages to clients.
-func (s *Subscriber[SI, CI]) listen() {
-	go func() {
-		for p := range s.ic {
-			for _, c := range s.cs {
-				if err := wsutil.WriteClientMessage(c.rwc, p.OpCode, p.Payload); err != nil {
-					s.errc <- &wsErr[CI]{c, err}
-					return
-				}
-			}
+func (s *Session[SI, CI]) broadcast(m *wsutil.Message) {
+	for _, c := range s.cs {
+		if err := wsutil.WriteClientMessage(c.rwc, m.OpCode, m.Payload); err != nil {
+			s.errc <- &wsErr[CI]{c, err}
+			return
 		}
-	}()
+	}
 }
 
-func (s *Subscriber[SI, CI]) catch() {
+func (s *Session[SI, CI]) catch() {
 	go func() {
 		for e := range s.errc {
 			if err := s.disconnect(e.conn); err != nil {
@@ -143,7 +124,7 @@ func (s *Subscriber[SI, CI]) catch() {
 	}()
 }
 
-func (s *Subscriber[SI, CI]) add(c *Conn[CI]) {
+func (s *Session[SI, CI]) add(c *Conn[CI]) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -151,7 +132,7 @@ func (s *Subscriber[SI, CI]) add(c *Conn[CI]) {
 	s.cs[c.sid] = c
 }
 
-func (s *Subscriber[SI, CI]) remove(c *Conn[CI]) {
+func (s *Session[SI, CI]) remove(c *Conn[CI]) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -160,7 +141,7 @@ func (s *Subscriber[SI, CI]) remove(c *Conn[CI]) {
 }
 
 // Connects the given Connection to the Subscriber and starts reading from it
-func (s *Subscriber[SI, CI]) connect(c *Conn[CI]) {
+func (s *Session[SI, CI]) connect(c *Conn[CI]) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
@@ -180,18 +161,14 @@ func (s *Subscriber[SI, CI]) connect(c *Conn[CI]) {
 				return
 			}
 
-			if err != nil {
-				s.errc <- &wsErr[CI]{c, err}
-				return
-			}
-
-			s.ic <- &wsutil.Message{OpCode: op, Payload: b}
+			m := &wsutil.Message{OpCode: op, Payload: b}
+			s.broadcast(m)
 		}
 	}()
 }
 
 // Closes the given Connection and removes it from the Connections list
-func (s *Subscriber[SI, CI]) disconnect(c *Conn[CI]) error {
+func (s *Session[SI, CI]) disconnect(c *Conn[CI]) error {
 	// close websocket connection
 	return c.rwc.Close()
 }
