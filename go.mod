@@ -6,6 +6,7 @@ require (
 	github.com/go-chi/chi v1.5.4
 	github.com/go-chi/chi/v5 v5.0.7
 	github.com/gobwas/ws v1.1.0
+	github.com/gorilla/websocket v1.5.0
 	github.com/hyphengolang/prelude v0.1.3
 	github.com/lib/pq v1.10.7
 	github.com/manifoldco/promptui v0.9.0
