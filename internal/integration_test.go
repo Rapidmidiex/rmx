@@ -50,27 +50,31 @@ func TestJamFlowAcceptance(t *testing.T) {
 	rmxSrv := httptest.NewServer(jamHTTP.NewService(context.Background()))
 	defer rmxSrv.Close()
 
-	restBase := rmxSrv.URL + "/ap1/v1"
+	restBase := rmxSrv.URL + "/api/v1"
 	wsBase := "ws" + strings.TrimPrefix(rmxSrv.URL, "http") + "/ws"
-	// *********
-	// Create new Jam
-	restClientA := http.DefaultClient
+
+	// **** Create new Jam **** //
 	jamName := "Jam On It!"
 	newJamBody := fmt.Sprintf(`{"name":%q}`, jamName)
-	newJamResp, err := restClientA.Post(restBase+"/jam", "application/json", strings.NewReader(newJamBody))
+	newJamResp, err := http.Post(restBase+"/jam", "application/json", strings.NewReader(newJamBody))
 	require.NoError(t, err)
+	require.Equal(t, http.StatusCreated, newJamResp.StatusCode)
 
 	var newJam jam.Jam
 	jD := json.NewDecoder(newJamResp.Body)
 	err = jD.Decode(&newJam)
+	// TODO: This fails. Update the endpoint and restore the assertion
+	// TODO: (or don't return the new Jam and remove (only) this assertion)
 	require.NoErrorf(t, err, "POST /jam should return the newly created Jam resource")
 
-	// *********
+	// **** List Jams for selection **** //
 	// Client would list the jams and select the one the want to join
 	// or web client would auto-select the newly created Jam.
 	// The request would be the same in either case.
-	listJamResp, err := restClientA.Get(restBase + "/jam")
+	listJamResp, err := http.Get(restBase + "/jam/")
 	require.NoError(t, err)
+	// TODO: Fails
+	require.Equal(t, http.StatusOK, newJamResp.StatusCode, "GET /jam should return OK status")
 
 	lD := json.NewDecoder(listJamResp.Body)
 	var jamsList []jam.Jam
@@ -78,14 +82,16 @@ func TestJamFlowAcceptance(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, jamsList, 1, "should have one brand new Jam")
 
-	// *********
-	// Use the Jam selection to join the Jam room
+	// **** Use the Jam selection to join the Jam room **** //
+	// **** Client A joins Jam **** //
 	jamWSurl := fmt.Sprintf("%s/jam/%s", wsBase, jamsList[0].ID)
 	// Intentionally external ws client (not rmx) because this client represent a client external to this system. (JS Frontend, TUI frontend)
 	wsConnA, _, err := websocket.DefaultDialer.Dial(jamWSurl, nil)
+	// TODO: Fails. We should be able to join a Jam with the Jam ID. The service should figure out the rest
 	require.NoErrorf(t, err, "client Alpha could not join Jam room: %q (%s)", newJam.Name, newJam.ID)
 	defer wsConnA.Close()
 
+	// **** Client B joins Jam **** //
 	wsConnB, _, err := websocket.DefaultDialer.Dial(jamWSurl, nil)
 	require.NoErrorf(t, err, "client Bravo could not join Jam room: %q (%s)", newJam.Name, newJam.ID)
 	defer wsConnB.Close()
@@ -101,6 +107,7 @@ func TestJamFlowAcceptance(t *testing.T) {
 		ClientID string `json:"clientID"`
 	}
 
+	// **** Client A broadcasts a MIDI message **** //
 	yasiinSend := midiMsg{
 		Typ:      "NOTE_ON",
 		Note:     60,
@@ -110,6 +117,7 @@ func TestJamFlowAcceptance(t *testing.T) {
 	err = wsConnA.WriteJSON(yasiinSend)
 	require.NoErrorf(t, err, "Client A, %q, could not write MIDI note to connection", yasiinSend.ClientID)
 
+	// **** Client B receives the MIDI message **** //
 	// Talib should be albe to hear MIDI note
 	var talibRecv midiMsg
 	err = wsConnB.ReadJSON(talibRecv)
@@ -117,12 +125,14 @@ func TestJamFlowAcceptance(t *testing.T) {
 	require.Equal(t, yasiinSend, talibRecv, "Talib received MIDI message does not match what Yasiin sent")
 }
 
+// newPostJamReq creates a POST /jam request to REST API to create a new Jam.
 func newPostJamReq(t *testing.T, jamBody io.Reader) *http.Request {
 	req, err := http.NewRequest(http.MethodPost, "/api/v1/jam", jamBody)
 	require.NoError(t, err)
 	return req
 }
 
+// newGetJamsReq creates a GET /jam request to REST API to list available Jams.
 func newGetJamsReq(t *testing.T) *http.Request {
 	req, err := http.NewRequest(http.MethodGet, "/api/v1/jam", nil)
 	require.NoError(t, err)
