@@ -53,6 +53,9 @@ func (s *jamService) handleCreateJamRoom() http.HandlerFunc {
 			return
 		}
 
+		// Discuss: The client should not be added to the the Jam Room on this REST endpoint
+		// Only the Jam resource should be created. Then the client should use the Jam ID to connect
+		// to the Jam Room (if they wish).
 		sub := s.newSubscriber(&j)
 		s.mux.Created(w, r, sub.GetID().ShortUUID().String())
 	}
