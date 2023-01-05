@@ -35,7 +35,8 @@ func TestService(t *testing.T) {
 			"bpm":      100
 		}`
 
-		res, _ := srv.Client().Post(srv.URL+"/api/v1/jam", "application/json", strings.NewReader(payload))
+		res, _ := srv.Client().
+			Post(srv.URL+"/api/v1/jam", "application/json", strings.NewReader(payload))
 		is.Equal(res.StatusCode, http.StatusCreated) // created a new resource
 
 		loc, err := res.Location()
@@ -50,16 +51,13 @@ func TestService(t *testing.T) {
 
 		t.Cleanup(func() { c1.Close() })
 
-		data := []byte("Hello World!")
-		typ := []byte{1}
-		m := append(typ, data...)
+		m := []byte("Hello World!")
 
-		err = wsutil.WriteClientBinary(c1, m)
-		is.NoErr(err) // write to pool
+		err = wsutil.WriteClientText(c1, m)
+		is.NoErr(err) // send message to server
 
-		res, err := wsutil.ReadServerBinary(c1)
-		is.NoErr(err) // read from pool
-
-		is.Equal(res, m)
+		msg, err := wsutil.ReadServerText(c1)
+		is.NoErr(err)    // read message from server
+		is.Equal(m, msg) // check if message is correct
 	})
 }

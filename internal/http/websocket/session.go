@@ -107,7 +107,7 @@ func (s *Session[SI, CI]) GetID() suid.UUID {
 
 func (s *Session[SI, CI]) broadcast(m *wsutil.Message) {
 	for _, c := range s.cs {
-		if err := wsutil.WriteClientMessage(c.rwc, m.OpCode, m.Payload); err != nil {
+		if err := c.write(m); err != nil {
 			s.errc <- &wsErr[CI]{c, err}
 			return
 		}
@@ -144,6 +144,10 @@ func (s *Session[SI, CI]) remove(c *Conn[CI]) {
 func (s *Session[SI, CI]) connect(c *Conn[CI]) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
+
+	if !s.online {
+		s.online = true
+	}
 
 	go func() {
 		defer func() {

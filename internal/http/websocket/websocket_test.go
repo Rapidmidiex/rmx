@@ -65,17 +65,18 @@ func TestSubscriber(t *testing.T) {
 		is.NoErr(err)      // connect cli2 to server
 		defer cli2.Close() // ok
 
-		_, _, _, err = ws.DefaultDialer.Dial(ctx, wsPath)
-		is.NoErr(err) // cannot connect to the server
-
 		m := []byte("Hello World!")
 
 		err = wsutil.WriteClientText(cli1, m)
 		is.NoErr(err) // send message to server
 
-		msg, err := wsutil.ReadServerText(cli2)
-		is.NoErr(err)    // read message from server
-		is.Equal(m, msg) // check if message is correct
+		msg1, err := wsutil.ReadServerText(cli1)
+		is.NoErr(err)     // read message from server
+		is.Equal(m, msg1) // check if message is correct
+
+		msg2, err := wsutil.ReadServerText(cli2)
+		is.NoErr(err)     // read message from server
+		is.Equal(m, msg2) // check if message is correct
 	})
 }
 
