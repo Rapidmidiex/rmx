@@ -59,7 +59,7 @@ func TestSubscriber(t *testing.T) {
 	})
 
 	t.Run("create a new client and connect to echo server", func(t *testing.T) {
-		wsPath := stripPrefix(srv.URL + "/ws") // this correct right? yup
+		wsPath := stripPrefix(srv.URL + "/ws")
 
 		cli1, _, _, err := ws.DefaultDialer.Dial(ctx, wsPath)
 		is.NoErr(err)      // connect cli1 to server
@@ -72,14 +72,12 @@ func TestSubscriber(t *testing.T) {
 		_, _, _, err = ws.DefaultDialer.Dial(ctx, wsPath)
 		is.NoErr(err) // cannot connect to the server
 
-		data := []byte("Hello World!")
-		typ := []byte{1}
-		m := append(typ, data...)
+		m := []byte("Hello World!")
 
-		err = wsutil.WriteClientBinary(cli1, m)
+		err = wsutil.WriteClientText(cli1, m)
 		is.NoErr(err) // send message to server
 
-		msg, err := wsutil.ReadServerBinary(cli2)
+		msg, err := wsutil.ReadServerText(cli2)
 		is.NoErr(err)    // read message from server
 		is.Equal(m, msg) // check if message is correct
 	})
@@ -143,19 +141,19 @@ func TestBroker(t *testing.T) {
 		srv.Close()
 	})
 
-	t.Run("create a new subscriber", func(t *testing.T) {
+	t.Run("create a new session", func(t *testing.T) {
 		srv.Client().Post(srv.URL+"/create", "application/json", nil)
 
 		is.NoErr(nil)
 	})
 
-	t.Run("connect to subscriber", func(t *testing.T) {
+	t.Run("connect to session", func(t *testing.T) {
 		t.Skip()
 
 		is.NoErr(nil)
 	})
 
-	t.Run("delete a subscriber", func(t *testing.T) {
+	t.Run("delete a session", func(t *testing.T) {
 		t.Skip()
 		is.NoErr(nil)
 	})

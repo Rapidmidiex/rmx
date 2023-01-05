@@ -18,11 +18,6 @@ type Session[SI, CI any] struct {
 	lock sync.RWMutex
 	// list of Connections
 	cs map[suid.UUID]*Conn[CI]
-	// Subscriber status
-	online bool
-	// Input/Output channel for new messages
-	ic chan *message
-	oc chan *message
 	// error channel
 	errc chan *wsErr[CI]
 	// Maximum Capacity clients allowed
@@ -47,11 +42,8 @@ func NewSession[SI, CI any](
 	i *SI,
 ) *Session[SI, CI] {
 	s := &Session[SI, CI]{
-		sid: suid.NewUUID(),
-		cs:  make(map[suid.UUID]*Conn[CI]),
-		// I did make
-		ic:             make(chan *message),
-		oc:             make(chan *message),
+		sid:            suid.NewUUID(),
+		cs:             make(map[suid.UUID]*Conn[CI]),
 		errc:           make(chan *wsErr[CI]),
 		Capacity:       cap,
 		ReadBufferSize: rs,
@@ -62,8 +54,6 @@ func NewSession[SI, CI any](
 	}
 
 	s.catch()
-	s.listen()
-
 	return s
 }
 
@@ -121,17 +111,13 @@ func (s *Session[SI, CI]) GetID() suid.UUID {
 }
 
 // listen to the input channel and broadcast messages to clients.
-func (s *Session[SI, CI]) listen() {
-	go func() {
-		for p := range s.ic {
-			for _, c := range s.cs {
-				if err := c.write(p.marshall()); err != nil {
-					s.errc <- &wsErr[CI]{c, err}
-					return
-				}
-			}
+func (s *Session[SI, CI]) broadcast(m *wsutil.Message) {
+	for _, c := range s.cs {
+		if err := c.write(m); err != nil {
+			s.errc <- &wsErr[CI]{c, err}
+			return
 		}
-	}()
+	}
 }
 
 func (s *Session[SI, CI]) catch() {
@@ -175,24 +161,15 @@ func (s *Session[SI, CI]) connect(c *Conn[CI]) {
 
 		for {
 			// read binary from connection
-			b, err := wsutil.ReadClientBinary(c.rwc)
+			b, op, err := wsutil.ReadClientData(c.rwc)
 			if err != nil {
 				s.errc <- &wsErr[CI]{c, err}
 				return
 			}
 
-			var m message
-			m.parse(b)
+			m := &wsutil.Message{op, b}
 
-			switch m.typ {
-			case Leave:
-				if err := s.disconnect(c); err != nil {
-					s.errc <- &wsErr[CI]{c, err}
-					return
-				}
-			default:
-				s.ic <- &m
-			}
+			s.broadcast(m)
 		}
 	}()
 }
