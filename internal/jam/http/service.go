@@ -53,7 +53,7 @@ func (s *jamService) handleCreateJamRoom() http.HandlerFunc {
 			return
 		}
 
-		sub := s.newSubscriber(&j)
+		sub := s.newSession(&j)
 		s.mux.Created(w, r, sub.GetID().ShortUUID().String())
 	}
 }
@@ -67,13 +67,13 @@ func (s *jamService) handleGetRoomData() http.HandlerFunc {
 			return
 		}
 
-		sub, err := s.wsb.GetSubscriber(sid)
+		ses, err := s.wsb.GetSession(sid)
 		if err != nil {
 			s.mux.Respond(w, r, err, http.StatusNotFound)
 			return
 		}
 
-		s.mux.Respond(w, r, sub.Info, http.StatusOK)
+		s.mux.Respond(w, r, ses.Info, http.StatusOK)
 	}
 }
 
@@ -86,14 +86,14 @@ func (s *jamService) handleGetRoomUsers() http.HandlerFunc {
 			return
 		}
 
-		sub, err := s.wsb.GetSubscriber(sid)
+		ses, err := s.wsb.GetSession(sid)
 		if err != nil {
 			s.mux.Respond(w, r, err, http.StatusNotFound)
 			return
 		}
 
 		// NOTE - subject to change
-		conns := sub.ListConns()
+		conns := ses.ListConns()
 		connsInfo := fp.FMap(conns, func(c *websocket.Conn[jam.User]) jam.User {
 			return *c.Info
 		})
@@ -105,8 +105,8 @@ func (s *jamService) handleGetRoomUsers() http.HandlerFunc {
 func (s *jamService) handleListRooms() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// NOTE - subject to change
-		subs := s.wsb.ListSubscribers()
-		subsInfo := fp.FMap(subs, func(s *websocket.Subscriber[jam.Jam, jam.User]) jam.Jam {
+		ss := s.wsb.ListSessions()
+		subsInfo := fp.FMap(ss, func(s *websocket.Session[jam.Jam, jam.User]) jam.Jam {
 			return *s.Info
 		})
 
@@ -125,13 +125,13 @@ func (s *jamService) handleP2PComms() http.HandlerFunc {
 			return
 		}
 
-		sub, err := s.wsb.GetSubscriber(sid)
+		ses, err := s.wsb.GetSession(sid)
 		if err != nil {
 			s.mux.Respond(w, r, err, http.StatusNotFound)
 			return
 		}
 
-		if sub.IsFull() {
+		if ses.IsFull() {
 			s.mux.Respond(w, r, ErrCapacity, http.StatusServiceUnavailable)
 			return
 		}
@@ -147,8 +147,8 @@ func (s *jamService) handleP2PComms() http.HandlerFunc {
 		// should be coming from database
 		u := jam.NewUser("")
 
-		conn := sub.NewConn(rwc, u)
-		sub.Subscribe(conn)
+		conn := ses.NewConn(rwc, u)
+		ses.Subscribe(conn)
 	}
 }
 
@@ -170,13 +170,13 @@ func (s *jamService) parseUUID(r *http.Request) (suid.UUID, error) {
 	return suid.ParseString(chi.URLParam(r, "uuid"))
 }
 
-func (s *jamService) newSubscriber(j *jam.Jam) *websocket.Subscriber[jam.Jam, jam.User] {
-	sub := websocket.NewSubscriber[jam.Jam, jam.User](
+func (s *jamService) newSession(j *jam.Jam) *websocket.Session[jam.Jam, jam.User] {
+	ses := websocket.NewSession[jam.Jam, jam.User](
 		s.wsb.Context, j.Capacity, 512, defaultTimeout, defaultTimeout, j,
 	)
 
-	s.wsb.Subscribe(sub)
-	return sub
+	s.wsb.Subscribe(ses)
+	return ses
 }
 
 type Option func(*jamService)
