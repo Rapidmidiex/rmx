@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/gorilla/websocket"
+	"github.com/rapidmidiex/rmx/internal/db"
 	jam "github.com/rapidmidiex/rmx/internal/jam"
 	jamHTTP "github.com/rapidmidiex/rmx/internal/jam/http"
 	"github.com/stretchr/testify/require"
@@ -18,7 +19,8 @@ import (
 
 func TestRESTAcceptance(t *testing.T) {
 	t.Run("As RMX client, I can create a Jam Session through the API", func(t *testing.T) {
-		rmxSrv := jamHTTP.NewService(context.Background())
+		store := db.Store{Q: testQueries}
+		rmxSrv := jamHTTP.NewService(context.Background(), store)
 		// wsBase := rmxSrv.URL + "/ws"
 
 		newJamResp := httptest.NewRecorder()
@@ -40,6 +42,7 @@ func TestRESTAcceptance(t *testing.T) {
 		listD := json.NewDecoder(listJamsResp.Body)
 		var listJamsRespBody []jam.Jam
 		listD.Decode(&listJamsRespBody)
+		require.NotEmpty(t, listJamsRespBody)
 		require.NotEmpty(t, listJamsRespBody[0])
 		require.Equal(t, listJamsRespBody[0].Name, jamName)
 		require.NotEmpty(t, listJamsRespBody[0].ID, "GET /jam Jams should have IDs")
@@ -47,7 +50,12 @@ func TestRESTAcceptance(t *testing.T) {
 }
 
 func TestJamFlowAcceptance(t *testing.T) {
-	rmxSrv := httptest.NewServer(jamHTTP.NewService(context.Background()))
+	store := db.Store{Q: testQueries}
+	jamSvc := jamHTTP.NewService(
+		context.Background(),
+		store,
+	)
+	rmxSrv := httptest.NewServer(jamSvc)
 	defer rmxSrv.Close()
 
 	restBase := rmxSrv.URL + "/api/v1"

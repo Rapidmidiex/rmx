@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"context"
+	"database/sql"
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -14,6 +16,7 @@ import (
 
 	"github.com/manifoldco/promptui"
 	"github.com/rapidmidiex/rmx/config"
+	db "github.com/rapidmidiex/rmx/internal/db"
 	jam "github.com/rapidmidiex/rmx/internal/jam/http"
 
 	"github.com/rs/cors"
@@ -260,7 +263,13 @@ func serve(cfg *config.Config) error {
 
 	/* FIXME */
 	/* START SERVICES BLOCK */
-	h := jam.NewService(sCtx)
+	dbURL := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", cfg.DBUser, cfg.DBPassword, cfg.DBHost, cfg.DBPort, cfg.DBName)
+	conn, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		return err
+	}
+	store := db.NewStore(conn)
+	h := jam.NewService(sCtx, store)
 	/* START SERVICES BLOCK */
 
 	srv := http.Server{

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -16,18 +17,29 @@ import (
 	"github.com/rapidmidiex/rmx/internal/fp"
 )
 
-type jamService struct {
-	mux service.Service
+type (
+	store interface {
+		CreateJam(context.Context, jam.Jam) error
+	}
 
-	wsb *websocket.Broker[jam.Jam, jam.User]
-}
+	jamService struct {
+		mux service.Service
+
+		wsb *websocket.Broker[jam.Jam, jam.User]
+
+		store store
+	}
+)
 
 func (s *jamService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mux.ServeHTTP(w, r)
 }
 
-func NewService(ctx context.Context, opts ...Option) http.Handler {
-	s := jamService{mux: service.New()}
+func NewService(ctx context.Context, store store, opts ...Option) http.Handler {
+	s := jamService{
+		mux:   service.New(),
+		store: store,
+	}
 
 	for _, opt := range opts {
 		opt(&s)
@@ -44,6 +56,23 @@ func NewService(ctx context.Context, opts ...Option) http.Handler {
 const (
 	defaultTimeout = time.Second * 10
 )
+
+func (s *jamService) handleCreateJam() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var j jam.Jam
+		if err := s.mux.Decode(w, r, &j); err != nil {
+			s.mux.Respond(w, r, err, http.StatusBadRequest)
+			return
+		}
+		err := s.store.CreateJam(r.Context(), j)
+		if err != nil {
+			s.mux.Respond(w, r, errors.New("could not create Jam"), http.StatusInternalServerError)
+			return
+		}
+
+		s.mux.Respond(w, r, j, http.StatusCreated)
+	}
+}
 
 func (s *jamService) handleCreateJamRoom() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -160,7 +189,7 @@ func (s *jamService) routes() {
 		r.Get("/", s.handleListRooms())
 		r.Get("/{uuid}", s.handleGetRoomData())
 		r.Get("/{uuid}/users", s.handleGetRoomUsers())
-		r.Post("/", s.handleCreateJamRoom())
+		r.Post("/", s.handleCreateJam())
 	})
 
 	s.mux.Route("/ws/jam", func(r chi.Router) {

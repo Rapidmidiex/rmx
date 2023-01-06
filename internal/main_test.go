@@ -1,4 +1,4 @@
-package db_test
+package rmx_test
 
 import (
 	"database/sql"
@@ -19,7 +19,7 @@ import (
 	db "github.com/rapidmidiex/rmx/internal/db/sqlc"
 )
 
-//go:embed migration/*.sql
+//go:embed db/migration/*.sql
 var migrations embed.FS
 
 var pgdb *sql.DB
@@ -88,7 +88,7 @@ func TestMain(m *testing.M) {
 		log.Fatalf("WithInstance: %s", err)
 	}
 	// https://pkg.go.dev/github.com/golang-migrate/migrate/v4/source/iofs#example-package
-	d, err := iofs.New(migrations, "migration")
+	d, err := iofs.New(migrations, "db/migration")
 	mg, err := migrate.NewWithSourceInstance("iofs", d, databaseUrl)
 	if err != nil {
 		log.Fatalf("migrate New: %s", err)
