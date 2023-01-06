@@ -2,6 +2,7 @@ package db_test
 
 import (
 	"database/sql"
+	"embed"
 	"fmt"
 	"log"
 	"os"
@@ -9,13 +10,17 @@ import (
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 	_ "github.com/lib/pq"
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
 	db "github.com/rapidmidiex/rmx/internal/db/sqlc"
 )
+
+//go:embed migration/*.sql
+var migrations embed.FS
 
 var pgdb *sql.DB
 var testQueries *db.Queries
@@ -79,11 +84,13 @@ func TestMain(m *testing.M) {
 	testQueries = db.New(pgdb)
 
 	// Migrations
-	driver, err := postgres.WithInstance(pgdb, &postgres.Config{})
+	// driver, err := postgres.WithInstance(pgdb, &postgres.Config{})
 	if err != nil {
 		log.Fatalf("WithInstance: %s", err)
 	}
-	mg, err := migrate.NewWithDatabaseInstance("file://../migration", "postgres", driver)
+	// https://pkg.go.dev/github.com/golang-migrate/migrate/v4/source/iofs#example-package
+	d, err := iofs.New(migrations, "migration")
+	mg, err := migrate.NewWithSourceInstance("iofs", d, databaseUrl)
 	if err != nil {
 		log.Fatalf("migrate New: %s", err)
 	}
