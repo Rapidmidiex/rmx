@@ -3,7 +3,7 @@
 //   sqlc v1.16.0
 // source: jam.sql
 
-package store
+package db
 
 import (
 	"context"

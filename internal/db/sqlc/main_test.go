@@ -1,4 +1,4 @@
-package store_test
+package db_test
 
 import (
 	"database/sql"
@@ -13,7 +13,7 @@ import (
 	"github.com/ory/dockertest/v3/docker"
 )
 
-var db *sql.DB
+var pgdb *sql.DB
 
 func TestMain(m *testing.M) {
 	dbName := "rmx-test"
@@ -62,11 +62,11 @@ func TestMain(m *testing.M) {
 	// exponential backoff-retry, because the application in the container might not be ready to accept connections yet
 	pool.MaxWait = 120 * time.Second
 	if err = pool.Retry(func() error {
-		db, err = sql.Open("postgres", databaseUrl)
+		pgdb, err = sql.Open("postgres", databaseUrl)
 		if err != nil {
 			return err
 		}
-		return db.Ping()
+		return pgdb.Ping()
 	}); err != nil {
 		log.Fatalf("Could not connect to docker: %s", err)
 	}
