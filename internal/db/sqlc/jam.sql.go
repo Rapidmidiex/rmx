@@ -15,7 +15,7 @@ const createJam = `-- name: CreateJam :one
 INSERT INTO jam (name, bpm, capacity)
     VALUES ($1, $2, $3)
 RETURNING
-    id, owner_id, name, bpm, capacity, created_at
+    id, name, bpm, capacity, created_at
 `
 
 type CreateJamParams struct {
@@ -29,7 +29,6 @@ func (q *Queries) CreateJam(ctx context.Context, arg *CreateJamParams) (Jam, err
 	var i Jam
 	err := row.Scan(
 		&i.ID,
-		&i.OwnerID,
 		&i.Name,
 		&i.Bpm,
 		&i.Capacity,
@@ -50,7 +49,7 @@ func (q *Queries) DeleteJam(ctx context.Context, id uuid.UUID) error {
 
 const getJam = `-- name: GetJam :one
 SELECT
-    id, owner_id, name, bpm, capacity, created_at
+    id, name, bpm, capacity, created_at
 FROM
     jam
 WHERE
@@ -63,7 +62,6 @@ func (q *Queries) GetJam(ctx context.Context, id uuid.UUID) (Jam, error) {
 	var i Jam
 	err := row.Scan(
 		&i.ID,
-		&i.OwnerID,
 		&i.Name,
 		&i.Bpm,
 		&i.Capacity,
@@ -74,7 +72,7 @@ func (q *Queries) GetJam(ctx context.Context, id uuid.UUID) (Jam, error) {
 
 const listJams = `-- name: ListJams :many
 SELECT
-    id, owner_id, name, bpm, capacity, created_at
+    id, name, bpm, capacity, created_at
 FROM
     jam
 ORDER BY
@@ -98,7 +96,6 @@ func (q *Queries) ListJams(ctx context.Context, arg *ListJamsParams) ([]Jam, err
 		var i Jam
 		if err := rows.Scan(
 			&i.ID,
-			&i.OwnerID,
 			&i.Name,
 			&i.Bpm,
 			&i.Capacity,
@@ -125,7 +122,7 @@ SET
 WHERE
     id = $1
 RETURNING
-    id, owner_id, name, bpm, capacity, created_at
+    id, name, bpm, capacity, created_at
 `
 
 type UpdateJamParams struct {
@@ -138,7 +135,6 @@ func (q *Queries) UpdateJam(ctx context.Context, arg *UpdateJamParams) (Jam, err
 	var i Jam
 	err := row.Scan(
 		&i.ID,
-		&i.OwnerID,
 		&i.Name,
 		&i.Bpm,
 		&i.Capacity,

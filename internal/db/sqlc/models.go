@@ -12,7 +12,6 @@ import (
 
 type Jam struct {
 	ID        uuid.UUID `json:"id"`
-	OwnerID   uuid.UUID `json:"ownerID"`
 	Name      string    `json:"name"`
 	Bpm       int32     `json:"bpm"`
 	Capacity  int32     `json:"capacity"`

@@ -8,12 +8,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
+	db "github.com/rapidmidiex/rmx/internal/db/sqlc"
 )
 
 var pgdb *sql.DB
+var testQueries *db.Queries
 
 func TestMain(m *testing.M) {
 	dbName := "rmx-test"
@@ -69,6 +74,22 @@ func TestMain(m *testing.M) {
 		return pgdb.Ping()
 	}); err != nil {
 		log.Fatalf("Could not connect to docker: %s", err)
+	}
+	// Instantiate testQueries
+	testQueries = db.New(pgdb)
+
+	// Migrations
+	driver, err := postgres.WithInstance(pgdb, &postgres.Config{})
+	if err != nil {
+		log.Fatalf("WithInstance: %s", err)
+	}
+	mg, err := migrate.NewWithDatabaseInstance("file://../migration", "postgres", driver)
+	if err != nil {
+		log.Fatalf("migrate New: %s", err)
+	}
+	err = mg.Up()
+	if err != nil {
+		log.Fatalf("Could not run migrations: %s", err)
 	}
 
 	//Run tests
