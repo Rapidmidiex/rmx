@@ -167,7 +167,7 @@ func (s *Session[SI, CI]) connect(c *Conn[CI]) {
 				return
 			}
 
-			m := &wsutil.Message{op, b}
+			m := &wsutil.Message{OpCode: op, Payload: b}
 
 			s.broadcast(m)
 		}

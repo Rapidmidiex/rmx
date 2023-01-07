@@ -142,9 +142,9 @@ func TestBroker(t *testing.T) {
 	})
 
 	t.Run("create a new session", func(t *testing.T) {
-		srv.Client().Post(srv.URL+"/create", "application/json", nil)
+		_, err := srv.Client().Post(srv.URL+"/create", "application/json", nil)
 
-		is.NoErr(nil)
+		is.NoErr(err)
 	})
 
 	t.Run("connect to session", func(t *testing.T) {
@@ -157,10 +157,6 @@ func TestBroker(t *testing.T) {
 		t.Skip()
 		is.NoErr(nil)
 	})
-}
-
-var resource = func(s string) string {
-	return s[strings.LastIndex(s, "/")+1:]
 }
 
 var stripPrefix = func(s string) string {
