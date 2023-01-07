@@ -19,7 +19,9 @@ import (
 
 func TestRESTAcceptance(t *testing.T) {
 	t.Run("As RMX client, I can create a Jam Session through the API", func(t *testing.T) {
-		// TODO: Drop DB and run migrations before tests
+		err := cleanDB(pgdb)
+		require.NoError(t, err)
+
 		store := db.Store{Q: testQueries}
 		rmxSrv := jamHTTP.NewService(context.Background(), store)
 		// wsBase := rmxSrv.URL + "/ws"
@@ -51,6 +53,9 @@ func TestRESTAcceptance(t *testing.T) {
 }
 
 func TestJamFlowAcceptance(t *testing.T) {
+	err := cleanDB(pgdb)
+	require.NoError(t, err)
+
 	store := db.Store{Q: testQueries}
 	jamSvc := jamHTTP.NewService(
 		context.Background(),
@@ -87,8 +92,6 @@ func TestJamFlowAcceptance(t *testing.T) {
 	err = lD.Decode(&jamsList)
 	require.NoError(t, err)
 
-	// TODO: Drop DB and run migrations before tests
-	// Fails because there is already another Jam
 	require.Len(t, jamsList, 1, "should have one brand new Jam")
 
 	// **** Use the Jam selection to join the Jam room **** //
