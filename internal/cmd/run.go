@@ -264,7 +264,13 @@ func serve(cfg *config.Config) error {
 
 	/* FIXME */
 	/* START SERVICES BLOCK */
-	dbURL := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", cfg.DBUser, cfg.DBPassword, cfg.DBHost, cfg.DBPort, cfg.DBName)
+	dbURL := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", cfg.DBUser, cfg.DBPassword, cfg.DBHost, cfg.DBName)
+
+	// Just use connection string if available
+	if cfg.DBuri != "" {
+		dbURL = cfg.DBuri
+	}
+
 	conn, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		return err
