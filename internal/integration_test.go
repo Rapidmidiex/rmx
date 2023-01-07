@@ -82,7 +82,7 @@ func TestJamFlowAcceptance(t *testing.T) {
 	listJamResp, err := http.Get(restBase + "/jam/")
 	require.NoError(t, err)
 	// TODO: Fails
-	require.Equal(t, http.StatusOK, newJamResp.StatusCode, "GET /jam should return OK status")
+	require.Equal(t, http.StatusOK, listJamResp.StatusCode, "GET /jam should return OK status")
 
 	lD := json.NewDecoder(listJamResp.Body)
 	var jamsList []jam.Jam

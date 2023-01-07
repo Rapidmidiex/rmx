@@ -20,6 +20,7 @@ import (
 type (
 	store interface {
 		CreateJam(context.Context, jam.Jam) error
+		GetJams(context.Context) ([]jam.Jam, error)
 	}
 
 	jamService struct {
@@ -134,6 +135,18 @@ func (s *jamService) handleGetRoomUsers() http.HandlerFunc {
 	}
 }
 
+func (s *jamService) handleListJams() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		jams, err := s.store.GetJams(r.Context())
+		if err != nil {
+			s.mux.Logf("getJams: %v", err)
+			s.mux.Respond(w, r, "Could not fetch Jams.", http.StatusInternalServerError)
+			return
+		}
+		s.mux.Respond(w, r, jams, http.StatusOK)
+	}
+}
+
 func (s *jamService) handleListRooms() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// NOTE - subject to change
@@ -186,7 +199,7 @@ func (s *jamService) handleP2PComms() http.HandlerFunc {
 
 func (s *jamService) routes() {
 	s.mux.Route("/api/v1/jam", func(r chi.Router) {
-		r.Get("/", s.handleListRooms())
+		r.Get("/", s.handleListJams())
 		r.Get("/{uuid}", s.handleGetRoomData())
 		r.Get("/{uuid}/users", s.handleGetRoomUsers())
 		r.Post("/", s.handleCreateJam())

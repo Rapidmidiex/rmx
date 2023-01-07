@@ -76,7 +76,7 @@ SELECT
 FROM
     jam
 ORDER BY
-    OWNER
+    "name"
 LIMIT $1 OFFSET $2
 `
 
