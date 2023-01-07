@@ -18,9 +18,9 @@ type Conn[CI any] struct {
 }
 
 // Writes raw bytes to the Connection
-func (c *Conn[CI]) write(b []byte) error {
+func (c *Conn[CI]) write(m *wsutil.Message) error {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	return wsutil.WriteServerBinary(c.rwc, b)
+	return wsutil.WriteServerMessage(c.rwc, m.OpCode, m.Payload)
 }
