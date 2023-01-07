@@ -3,7 +3,7 @@ module github.com/rapidmidiex/rmx
 go 1.19
 
 require (
-	github.com/go-chi/chi v1.5.4
+	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/go-chi/chi/v5 v5.0.7
 	github.com/gobwas/ws v1.1.0
 	github.com/hyphengolang/prelude v0.1.3
