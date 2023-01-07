@@ -65,7 +65,7 @@ dropdb:
 
 .PHONY: migrateup
 migrateup:
-	migrate -path store/migration -database "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:5432/$(POSTGRES_DB)?sslmode=disable" -verbose up
+	migrate -path internal/db/migration -database "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:5432/$(POSTGRES_DB)?sslmode=disable" -verbose up
 
 .PHONY: migratedown
 migratedown:
