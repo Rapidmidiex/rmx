@@ -8,7 +8,7 @@ require (
 	github.com/gobwas/ws v1.1.0
 	github.com/hyphengolang/prelude v0.1.3
 	github.com/manifoldco/promptui v0.9.0
-	github.com/rs/cors v1.8.2
+	github.com/rs/cors v1.8.3
 	github.com/urfave/cli/v2 v2.23.7
 	golang.org/x/sync v0.0.0-20220923202941-7f9b1623fab7
 )
