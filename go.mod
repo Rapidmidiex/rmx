@@ -3,8 +3,8 @@ module github.com/rapidmidiex/rmx
 go 1.19
 
 require (
-	github.com/go-chi/chi v1.5.4
-	github.com/go-chi/chi/v5 v5.0.7
+	github.com/go-chi/chi v4.1.2+incompatible
+	github.com/go-chi/chi/v5 v5.0.8
 	github.com/gobwas/ws v1.1.0
 	github.com/golang-migrate/migrate/v4 v4.15.2
 	github.com/gorilla/websocket v1.5.0
@@ -12,9 +12,9 @@ require (
 	github.com/lib/pq v1.10.7
 	github.com/manifoldco/promptui v0.9.0
 	github.com/ory/dockertest/v3 v3.9.1
-	github.com/rs/cors v1.8.2
+	github.com/rs/cors v1.8.3
 	github.com/stretchr/testify v1.7.1
-	github.com/urfave/cli/v2 v2.16.3
+	github.com/urfave/cli/v2 v2.23.7
 	golang.org/x/sync v0.0.0-20220923202941-7f9b1623fab7
 )
 
@@ -30,7 +30,7 @@ require (
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
-	github.com/BurntSushi/toml v1.1.0 // indirect
+	github.com/BurntSushi/toml v1.2.1 // indirect
 	github.com/Microsoft/go-winio v0.5.2 // indirect
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/cenkalti/backoff/v4 v4.1.3 // indirect
