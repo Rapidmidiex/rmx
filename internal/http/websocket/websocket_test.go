@@ -22,7 +22,7 @@ import (
 func testServerPartA() http.Handler {
 	ctx := context.Background()
 
-	s := websocket.NewSubscriber[any, any](
+	s := websocket.NewSession[any, any](
 		ctx,
 		2,
 		512,
@@ -58,9 +58,8 @@ func TestSubscriber(t *testing.T) {
 		srv.Close()
 	})
 
-	// NOTE - can you try this test for me please? passed, really?
 	t.Run("create a new client and connect to echo server", func(t *testing.T) {
-		wsPath := stripPrefix(srv.URL + "/ws") // this correct right? yup
+		wsPath := stripPrefix(srv.URL + "/ws")
 
 		cli1, _, _, err := ws.DefaultDialer.Dial(ctx, wsPath)
 		is.NoErr(err)      // connect cli1 to server
@@ -73,15 +72,12 @@ func TestSubscriber(t *testing.T) {
 		_, _, _, err = ws.DefaultDialer.Dial(ctx, wsPath)
 		is.NoErr(err) // cannot connect to the server
 
-		data := []byte("Hello World!")
-		typ := []byte{1}
-		m := append(typ, data...)
+		m := []byte("Hello World!")
 
-		err = wsutil.WriteClientBinary(cli1, m)
+		err = wsutil.WriteClientText(cli1, m)
 		is.NoErr(err) // send message to server
 
-		// now I want to read the message from the server
-		msg, err := wsutil.ReadServerBinary(cli2)
+		msg, err := wsutil.ReadServerText(cli2)
 		is.NoErr(err)    // read message from server
 		is.Equal(m, msg) // check if message is correct
 	})
@@ -104,14 +100,13 @@ func testServerPartB() http.Handler {
 			return
 		}
 
-		s := websocket.NewSubscriber[Info, any](ctx, 2, 512, 2*time.Second, 2*time.Second, &Info{
+		s := websocket.NewSession[Info, any](ctx, 2, 512, 2*time.Second, 2*time.Second, &Info{
 			Username: "John Doe",
 		})
 
 		w.Header().Set("Location", "/"+s.GetID().ShortUUID().String())
 	})
 
-	// so I need to get the subscriber from parsing here right? yes
 	mux.HandleFunc("/ws/{suid}", func(w http.ResponseWriter, r *http.Request) {
 		sid, err := parseSUID(w, r)
 		if err != nil {
@@ -119,9 +114,7 @@ func testServerPartB() http.Handler {
 			return
 		}
 
-		// can you see me?
-
-		s, err := b.GetSubscriber(sid)
+		s, err := b.GetSession(sid)
 		if err != nil {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -148,26 +141,22 @@ func TestBroker(t *testing.T) {
 		srv.Close()
 	})
 
-	t.Run("create a new subscriber", func(t *testing.T) {
-		srv.Client().Post(srv.URL+"/create", "application/json", nil)
+	t.Run("create a new session", func(t *testing.T) {
+		_, err := srv.Client().Post(srv.URL+"/create", "application/json", nil)
 
-		is.NoErr(nil)
+		is.NoErr(err)
 	})
 
-	t.Run("connect to subscriber", func(t *testing.T) {
+	t.Run("connect to session", func(t *testing.T) {
 		t.Skip()
 
 		is.NoErr(nil)
 	})
 
-	t.Run("delete a subscriber", func(t *testing.T) {
+	t.Run("delete a session", func(t *testing.T) {
 		t.Skip()
 		is.NoErr(nil)
 	})
-}
-
-var resource = func(s string) string {
-	return s[strings.LastIndex(s, "/")+1:]
 }
 
 var stripPrefix = func(s string) string {
