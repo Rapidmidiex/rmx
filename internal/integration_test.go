@@ -19,6 +19,7 @@ import (
 
 func TestRESTAcceptance(t *testing.T) {
 	t.Run("As RMX client, I can create a Jam Session through the API", func(t *testing.T) {
+		// TODO: Drop DB and run migrations before tests
 		store := db.Store{Q: testQueries}
 		rmxSrv := jamHTTP.NewService(context.Background(), store)
 		// wsBase := rmxSrv.URL + "/ws"
@@ -71,8 +72,6 @@ func TestJamFlowAcceptance(t *testing.T) {
 	var newJam jam.Jam
 	jD := json.NewDecoder(newJamResp.Body)
 	err = jD.Decode(&newJam)
-	// TODO: This fails. Update the endpoint and restore the assertion
-	// TODO: (or don't return the new Jam and remove (only) this assertion)
 	require.NoErrorf(t, err, "POST /jam should return the newly created Jam resource")
 
 	// **** List Jams for selection **** //
@@ -81,13 +80,15 @@ func TestJamFlowAcceptance(t *testing.T) {
 	// The request would be the same in either case.
 	listJamResp, err := http.Get(restBase + "/jam/")
 	require.NoError(t, err)
-	// TODO: Fails
 	require.Equal(t, http.StatusOK, listJamResp.StatusCode, "GET /jam should return OK status")
 
 	lD := json.NewDecoder(listJamResp.Body)
 	var jamsList []jam.Jam
 	err = lD.Decode(&jamsList)
 	require.NoError(t, err)
+
+	// TODO: Drop DB and run migrations before tests
+	// Fails because there is already another Jam
 	require.Len(t, jamsList, 1, "should have one brand new Jam")
 
 	// **** Use the Jam selection to join the Jam room **** //
