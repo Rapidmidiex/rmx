@@ -18,7 +18,7 @@ import (
 
 type (
 	store interface {
-		CreateJam(context.Context, jam.Jam) error
+		CreateJam(context.Context, jam.Jam) (jam.Jam, error)
 		GetJams(context.Context) ([]jam.Jam, error)
 		GetJamByID(ctx context.Context, id uuid.UUID) (jam.Jam, error)
 	}
@@ -65,13 +65,13 @@ func (s *jamService) handleCreateJam() http.HandlerFunc {
 			s.mux.Respond(w, r, err, http.StatusBadRequest)
 			return
 		}
-		err := s.store.CreateJam(r.Context(), j)
+		created, err := s.store.CreateJam(r.Context(), j)
 		if err != nil {
 			s.mux.Respond(w, r, errors.New("could not create Jam"), http.StatusInternalServerError)
 			return
 		}
 
-		s.mux.Respond(w, r, j, http.StatusCreated)
+		s.mux.Respond(w, r, created, http.StatusCreated)
 	}
 }
 
