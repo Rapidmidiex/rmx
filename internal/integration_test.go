@@ -35,7 +35,12 @@ func TestRESTAcceptance(t *testing.T) {
 		rmxSrv.ServeHTTP(newJamResp, newJamReq)
 
 		require.Equal(t, newJamResp.Result().StatusCode, http.StatusCreated)
+		var createdJam jam.Jam
+		d := json.NewDecoder(newJamResp.Body)
+		err = d.Decode(&createdJam)
+		require.NoError(t, err)
 
+		require.NotEmpty(t, createdJam.ID, "Jam should have an ID from the database")
 		// Client should see the newly created Jam
 		listJamsResp := httptest.NewRecorder()
 
