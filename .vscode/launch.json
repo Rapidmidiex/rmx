@@ -21,16 +21,6 @@
             "program": "${workspaceFolder}/cmd/cli",
             "cwd": "${workspaceFolder}",
             "args": ["start", "dev"]
-        },
-        {
-            "name": "TUI Client",
-            "type": "go",
-            "request": "launch",
-            "mode": "auto",
-            "program": "${workspaceFolder}/ui/terminal",
-            "cwd": "${workspaceFolder}",
-            "args": ["--server", "http://localhost:9003"],
-            "console": "integratedTerminal"
         }
     ]
 }

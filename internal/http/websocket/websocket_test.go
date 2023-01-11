@@ -9,13 +9,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/rapidmidiex/rmx/internal/http/websocket"
 
 	"github.com/go-chi/chi"
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 	"github.com/hyphengolang/prelude/testing/is"
-	"github.com/hyphengolang/prelude/types/suid"
 )
 
 // so I am defining a simple echo server here for testing
@@ -107,8 +107,8 @@ func testServerPartB() http.Handler {
 		w.Header().Set("Location", "/"+s.GetID().ShortUUID().String())
 	})
 
-	mux.HandleFunc("/ws/{suid}", func(w http.ResponseWriter, r *http.Request) {
-		sid, err := parseSUID(w, r)
+	mux.HandleFunc("/ws/{uuid}", func(w http.ResponseWriter, r *http.Request) {
+		sid, err := parseUUID(w, r)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			return
@@ -163,10 +163,6 @@ var stripPrefix = func(s string) string {
 	return "ws" + strings.TrimPrefix(s, "http")
 }
 
-func parseSUID(w http.ResponseWriter, r *http.Request) (suid.UUID, error) {
-	return suid.ParseString(chi.URLParam(r, "uuid"))
+func parseUUID(w http.ResponseWriter, r *http.Request) (uuid.UUID, error) {
+	return uuid.Parse(chi.URLParam(r, "uuid"))
 }
-
-/*
-
- */

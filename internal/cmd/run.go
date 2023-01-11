@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"context"
+	"database/sql"
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -12,8 +14,10 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/manifoldco/promptui"
 	"github.com/rapidmidiex/rmx/config"
+	db "github.com/rapidmidiex/rmx/internal/db"
 	jam "github.com/rapidmidiex/rmx/internal/jam/http"
 
 	"github.com/rs/cors"
@@ -260,7 +264,19 @@ func serve(cfg *config.Config) error {
 
 	/* FIXME */
 	/* START SERVICES BLOCK */
-	h := jam.NewService(sCtx)
+	dbURL := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", cfg.DBUser, cfg.DBPassword, cfg.DBHost, cfg.DBName)
+
+	// Just use connection string if available
+	if cfg.DBuri != "" {
+		dbURL = cfg.DBuri
+	}
+
+	conn, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		return err
+	}
+	store := db.NewStore(conn)
+	h := jam.NewService(sCtx, store)
 	/* START SERVICES BLOCK */
 
 	srv := http.Server{

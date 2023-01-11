@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/hyphengolang/prelude/types/suid"
 )
 
@@ -28,9 +29,7 @@ func NewUser(username string) *User {
 }
 
 type Jam struct {
-	// FIXME - ID ought to be public
-	ID suid.UUID
-	// FIXME - User ought to be public
+	ID       uuid.UUID
 	Owner    *User
 	Name     string `json:"name,omitempty"`
 	Capacity uint   `json:"capacity,omitempty"`
@@ -58,26 +57,4 @@ func (j *Jam) UnmarshalJSON(data []byte) error {
 	}
 
 	return nil
-}
-
-func NewJam(bpm uint, cap uint) *Jam {
-	sid := suid.NewUUID()
-
-	if cap == 0 {
-		cap = 10
-	}
-
-	if bpm == 0 {
-		bpm = 80
-	}
-
-	j := &Jam{
-		ID: sid,
-		// Owner:    NewUser(""),
-		Name:     sid.ShortUUID().String(),
-		Capacity: cap,
-		BPM:      bpm,
-	}
-
-	return j
 }

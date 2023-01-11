@@ -7,10 +7,12 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"strings"
 )
 
 type Config struct {
 	ServerPort    string `json:"serverPort"`
+	DBuri         string `json:"dbUri"`
 	DBHost        string `json:"dbHost"`
 	DBPort        string `json:"dbPort"`
 	DBName        string `json:"dbName"`
@@ -106,7 +108,7 @@ func LoadConfigFromEnv(dev bool) (*Config, error) {
 
 	pgHost := pgParsed.Host
 	pgPort := pgParsed.Port()
-	pgName := pgParsed.Path
+	pgName := strings.TrimPrefix(pgParsed.Path, "/")
 
 	redisHost := os.Getenv("REDIS_HOST")
 	redisPort := os.Getenv("REDIS_PORT")
@@ -114,6 +116,7 @@ func LoadConfigFromEnv(dev bool) (*Config, error) {
 
 	return &Config{
 		ServerPort:    serverPort,
+		DBuri:         pgURI,
 		DBHost:        pgHost,
 		DBPort:        pgPort,
 		DBName:        pgName,

@@ -1,15 +1,16 @@
 version: '2'
 sql:
-    - schema: 'store/sql/schema/user_schema.sql'
-      queries: 'store/sql/schema/user_query.sql'
-      engine: 'mysql'
+    - engine: 'postgresql'
+      queries: './internal/db/query'
+      schema: './internal/db/migration'
       gen:
           go:
-              package: 'user'
-              out: 'store/sql/user'
-              emit_db_tags: true
-              emit_prepared_queries: true
+              package: 'db'
+              out: './internal/db/sqlc'
+              emit_json_tags: true
+              emit_prepared_queries: false
+              emit_interface: false
+              emit_exact_table_names: false
               emit_empty_slices: true
               emit_params_struct_pointers: true
-              emit_json_tags: true
               json_tags_case_style: 'camel'
