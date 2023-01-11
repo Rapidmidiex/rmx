@@ -130,9 +130,9 @@ func TestJamFlowAcceptance(t *testing.T) {
 	require.NoErrorf(t, err, "Client A, %q, could not write MIDI note to connection", yasiinSend.ClientID)
 
 	// **** Client B receives the MIDI message **** //
-	// Talib should be albe to hear MIDI note
+	// Talib should be able to hear MIDI note
 	var talibRecv midiMsg
-	err = wsConnB.ReadJSON(talibRecv)
+	err = wsConnB.ReadJSON(&talibRecv)
 	require.NoError(t, err, "Client B could not read MIDI note from connection")
 	require.Equal(t, yasiinSend, talibRecv, "Talib received MIDI message does not match what Yasiin sent")
 }

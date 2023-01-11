@@ -5,34 +5,38 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/hyphengolang/prelude/types/suid"
+	"github.com/google/uuid"
 )
 
-// Broker contains the list of the Subscribers
-type Broker[SI, CI any] struct {
-	lock sync.RWMutex
-	// list of Subscribers
-	ss map[suid.UUID]*Session[SI, CI]
+// Broker contains the list of the Rooms
+type (
+	Broker[SI, CI any] struct {
+		lock sync.RWMutex
+		// List of rooms.
+		rooms map[uuid.UUID]*Room[SI, CI]
 
-	// Maximum Capacity Subscribers allowed
-	Capacity uint
-	Context  context.Context
-}
+		// Maximum total rooms allowed.
+		Capacity uint
+		Context  context.Context
+	}
+)
+
+var ErrRoomNotFound = errors.New("room not found")
 
 func NewBroker[SI, CI any](cap uint, ctx context.Context) *Broker[SI, CI] {
 	return &Broker[SI, CI]{
-		ss:       make(map[suid.UUID]*Session[SI, CI]),
+		rooms:    make(map[uuid.UUID]*Room[SI, CI]),
 		Capacity: cap,
 		Context:  ctx,
 	}
 }
 
 // Adds a new Subscriber to the list
-func (b *Broker[SI, CI]) Subscribe(s *Session[SI, CI]) {
+func (b *Broker[SI, CI]) Subscribe(s *Room[SI, CI]) {
 	b.add(s)
 }
 
-func (b *Broker[SI, CI]) Unsubscribe(s *Session[SI, CI]) error {
+func (b *Broker[SI, CI]) Unsubscribe(s *Room[SI, CI]) error {
 	if err := b.close(s); err != nil {
 		return err
 	}
@@ -40,10 +44,23 @@ func (b *Broker[SI, CI]) Unsubscribe(s *Session[SI, CI]) error {
 	return nil
 }
 
-func (b *Broker[SI, CI]) GetSession(sid suid.UUID) (*Session[SI, CI], error) {
+// GetRoom retrieves a room by Jam ID. If none found a new room is created.
+func (b *Broker[SI, CI]) GetRoom(sid uuid.UUID) (*Room[SI, CI], error) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
-	s, ok := b.ss[sid]
+	s, ok := b.rooms[sid]
+
+	if !ok {
+		return s, ErrRoomNotFound
+	}
+
+	return s, nil
+}
+
+func (b *Broker[SI, CI]) GetSession(sid uuid.UUID) (*Room[SI, CI], error) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+	s, ok := b.rooms[sid]
 
 	if !ok {
 		return nil, errors.New("session not found")
@@ -52,32 +69,32 @@ func (b *Broker[SI, CI]) GetSession(sid suid.UUID) (*Session[SI, CI], error) {
 	return s, nil
 }
 
-func (b *Broker[SI, CI]) ListSessions() []*Session[SI, CI] {
+func (b *Broker[SI, CI]) ListSessions() []*Room[SI, CI] {
 	b.lock.RLock()
 	defer b.lock.RUnlock()
 
-	ss := make([]*Session[SI, CI], 0, len(b.ss))
-	for _, s := range b.ss {
+	ss := make([]*Room[SI, CI], 0, len(b.rooms))
+	for _, s := range b.rooms {
 		ss = append(ss, s)
 	}
 
 	return ss
 }
 
-func (b *Broker[SI, CI]) add(s *Session[SI, CI]) {
+func (b *Broker[SI, CI]) add(s *Room[SI, CI]) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
-	b.ss[s.sid] = s
+	b.rooms[s.sid] = s
 }
 
-func (b *Broker[SI, CI]) remove(s *Session[SI, CI]) {
+func (b *Broker[SI, CI]) remove(s *Room[SI, CI]) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 	close(s.errc)
-	delete(b.ss, s.sid)
+	delete(b.rooms, s.sid)
 }
 
-func (b *Broker[SI, CI]) close(s *Session[SI, CI]) error {
+func (b *Broker[SI, CI]) close(s *Room[SI, CI]) error {
 	for _, c := range s.cs {
 		if err := s.disconnect(c); err != nil {
 			return err

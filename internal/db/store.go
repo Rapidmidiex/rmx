@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/hyphengolang/prelude/types/suid"
 	db "github.com/rapidmidiex/rmx/internal/db/sqlc"
 	"github.com/rapidmidiex/rmx/internal/jam"
@@ -51,4 +52,20 @@ func (s Store) GetJams(ctx context.Context) ([]jam.Jam, error) {
 		})
 	}
 	return res, nil
+}
+
+func (s Store) GetJamByID(ctx context.Context, id uuid.UUID) (jam.Jam, error) {
+	found, err := s.Q.GetJam(ctx, id)
+	if err != nil {
+		return jam.Jam{}, err
+	}
+
+	return jam.Jam{
+		ID: suid.UUID{
+			UUID: found.ID,
+		},
+		Name:     found.Name,
+		BPM:      uint(found.Bpm),
+		Capacity: uint(found.Capacity),
+	}, nil
 }
