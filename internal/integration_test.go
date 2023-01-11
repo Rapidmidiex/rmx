@@ -44,7 +44,9 @@ func TestRESTAcceptance(t *testing.T) {
 
 		listD := json.NewDecoder(listJamsResp.Body)
 		var listJamsRespBody []jam.Jam
-		listD.Decode(&listJamsRespBody)
+		err = listD.Decode(&listJamsRespBody)
+		require.NoError(t, err)
+
 		require.NotEmpty(t, listJamsRespBody)
 		require.NotEmpty(t, listJamsRespBody[0])
 		require.Equal(t, listJamsRespBody[0].Name, jamName)
