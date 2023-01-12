@@ -1,6 +1,5 @@
 package websocket_test
 
-// ok
 import (
 	"context"
 	"net/http"
@@ -22,13 +21,15 @@ import (
 func testServerPartA() http.Handler {
 	ctx := context.Background()
 
-	s := websocket.NewSession[any, any](
-		ctx,
-		2,
-		512,
-		2*time.Second,
-		2*time.Second,
-		nil,
+	s := websocket.NewRoom[any, any](
+		websocket.NewRoomArgs{
+			Context:        ctx,
+			Capacity:       2,
+			ReadBufferSize: 512,
+			ReadTimeout:    2 * time.Second,
+			WriteTimeout:   2 * time.Second,
+			JamID:          uuid.New(),
+		},
 	)
 
 	mux := http.NewServeMux()
@@ -47,8 +48,6 @@ func testServerPartA() http.Handler {
 }
 
 func TestSubscriber(t *testing.T) {
-	// t.Skip()
-
 	is := is.New(t)
 	ctx := context.Background()
 
@@ -86,11 +85,7 @@ func TestSubscriber(t *testing.T) {
 func testServerPartB() http.Handler {
 	ctx := context.Background()
 
-	type Info struct {
-		Username string
-	}
-
-	b := websocket.NewBroker[Info, any](3, ctx)
+	b := websocket.NewBroker[any, any](3, ctx)
 
 	mux := http.NewServeMux()
 
@@ -100,11 +95,15 @@ func testServerPartB() http.Handler {
 			return
 		}
 
-		s := websocket.NewSession[Info, any](ctx, 2, 512, 2*time.Second, 2*time.Second, &Info{
-			Username: "John Doe",
+		room := websocket.NewRoom[any, any](websocket.NewRoomArgs{Context: ctx,
+			Capacity:       2,
+			ReadBufferSize: 512,
+			ReadTimeout:    2 * time.Second,
+			WriteTimeout:   2 * time.Second,
+			JamID:          uuid.New(),
 		})
 
-		w.Header().Set("Location", "/"+s.GetID().ShortUUID().String())
+		w.Header().Set("Location", "/"+room.ID().String())
 	})
 
 	mux.HandleFunc("/ws/{uuid}", func(w http.ResponseWriter, r *http.Request) {
