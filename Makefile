@@ -52,8 +52,8 @@ tls:
 
 .PHONY: postgres
 postgres:
-	docker rm -f postgres-rmx || true
-	docker run --name postgres-rmx -e POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) -p 5432:5432 -e POSTGRES_USER=$(POSTGRES_USER) -d postgres:15-alpine
+	docker rm -f postgres-rmx &> /dev/null || true
+	docker run --name postgres-rmx -e POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) -p 5432:5432 -e POSTGRES_USER=$(POSTGRES_USER) -d postgres:14.6-alpine
 
 .PHONY: createdb
 createdb:
