@@ -31,11 +31,11 @@ func NewUser(username string) *User {
 }
 
 type Jam struct {
-	ID       uuid.UUID
-	Owner    *User
-	Name     string `json:"name,omitempty"`
-	Capacity uint   `json:"capacity,omitempty"`
-	BPM      uint   `json:"bpm,omitempty"`
+	ID       uuid.UUID `json:"id"`
+	Owner    *User     `json:"owner,omitempty"`
+	Name     string    `json:"name,omitempty"`
+	Capacity uint      `json:"capacity,omitempty"`
+	BPM      uint      `json:"bpm,omitempty"`
 }
 
 func (j *Jam) UnmarshalJSON(data []byte) error {
