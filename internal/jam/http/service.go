@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -29,6 +30,9 @@ type (
 		wsb *websocket.Broker[jam.Jam, jam.User]
 
 		store store
+	}
+	jamsResponse struct {
+		Rooms []jam.Jam `json:"rooms"`
 	}
 )
 
@@ -61,12 +65,17 @@ const (
 func (s *jamService) handleCreateJam() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var j jam.Jam
-		if err := s.mux.Decode(w, r, &j); err != nil {
+		if err := s.mux.Decode(w, r, &j); err != nil && err != io.EOF {
+			s.mux.Logf("decode: %v\n", err)
 			s.mux.Respond(w, r, err, http.StatusBadRequest)
 			return
 		}
+
+		j.SetDefaults()
+
 		created, err := s.store.CreateJam(r.Context(), j)
 		if err != nil {
+			s.mux.Logf("createJam: %v\n", err)
 			s.mux.Respond(w, r, errors.New("could not create Jam"), http.StatusInternalServerError)
 			return
 		}
@@ -104,7 +113,8 @@ func (s *jamService) handleListJams() http.HandlerFunc {
 			s.mux.Respond(w, r, "Could not fetch Jams.", http.StatusInternalServerError)
 			return
 		}
-		s.mux.Respond(w, r, jams, http.StatusOK)
+		resp := jamsResponse{Rooms: jams}
+		s.mux.Respond(w, r, resp, http.StatusOK)
 	}
 }
 
