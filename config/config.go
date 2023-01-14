@@ -96,7 +96,12 @@ func ScanConfigFile(dev bool) (*Config, error) {
 func LoadConfigFromEnv(dev bool) (*Config, error) {
 	serverPort := os.Getenv("PORT")
 
-	pgURI := os.Getenv("POSTGRES_URI")
+	pgURI := os.Getenv("POSTGRES_URL")
+	if pgURI == "" {
+		pgURI = os.Getenv("DATABASE_URL")
+	}
+
+	fmt.Printf("DATABASE_URL: %s\nPOSTGRES_URL: %s\n", os.Getenv("DATABASE_URL"), os.Getenv("POSTGRES_URL"))
 
 	pgParsed, err := url.Parse(pgURI)
 	if err != nil && pgURI != "" {
