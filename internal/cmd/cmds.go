@@ -3,7 +3,11 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"net/url"
+	"os"
+	"strings"
 
+	"github.com/rapidmidiex/rmx/internal/cmd/internal/config"
 	"github.com/urfave/cli/v2"
 	"github.com/urfave/cli/v2/altsrc"
 )
@@ -52,4 +56,46 @@ const Version = "v0.0.0-a.1"
 func GetVersion(cCtx *cli.Context) error {
 	_, err := fmt.Println("rmx version: " + Version)
 	return err
+}
+
+// LoadConfigFromEnv creates a Config from environment variables.
+func LoadConfigFromEnv(dev bool) (*config.Config, error) {
+	serverPort := os.Getenv("PORT")
+
+	pgURI := os.Getenv("POSTGRES_URL")
+	if pgURI == "" {
+		pgURI = os.Getenv("DATABASE_URL")
+	}
+
+	fmt.Printf("DATABASE_URL: %s\nPOSTGRES_URL: %s\n", os.Getenv("DATABASE_URL"), os.Getenv("POSTGRES_URL"))
+
+	pgParsed, err := url.Parse(pgURI)
+	if err != nil && pgURI != "" {
+		return nil, fmt.Errorf("invalid POSTGRES_URL env var: %q: %w", pgURI, err)
+	}
+
+	pgUser := pgParsed.User.Username()
+	pgPassword, _ := pgParsed.User.Password()
+
+	pgHost := pgParsed.Host
+	pgPort := pgParsed.Port()
+	pgName := strings.TrimPrefix(pgParsed.Path, "/")
+
+	redisHost := os.Getenv("REDIS_HOST")
+	redisPort := os.Getenv("REDIS_PORT")
+	redisPassword := os.Getenv("REDIS_PASSWORD")
+
+	return &config.Config{
+		ServerPort:    serverPort,
+		DBURI:         pgURI,
+		DBHost:        pgHost,
+		DBPort:        pgPort,
+		DBName:        pgName,
+		DBUser:        pgUser,
+		DBPassword:    pgPassword,
+		RedisHost:     redisHost,
+		RedisPort:     redisPort,
+		RedisPassword: redisPassword,
+		Dev:           dev,
+	}, nil
 }

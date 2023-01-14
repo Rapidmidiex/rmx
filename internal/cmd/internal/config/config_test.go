@@ -17,14 +17,15 @@ func TestConfig(t *testing.T) {
 		RedisHost:     "localhost",
 		RedisPort:     "6379",
 		RedisPassword: "password",
+		Dev:           true,
 	}
 
-	if err := i.WriteToFile(false); err != nil {
+	if err := i.WriteToFile(); err != nil {
 		t.Fatal(err)
 	}
 
 	// Read config from file
-	o, err := ScanConfigFile(false)
+	o, err := ScanConfigFile()
 	if err != nil {
 		t.Fatal(err)
 	}
