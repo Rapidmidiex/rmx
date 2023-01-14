@@ -10,7 +10,7 @@ A gh-pages site is automatically generated for you when you clone/fork this repo
 
 🎛️ &nbsp; Configure gh-pages as per instructions [here](https://rog-golang-buddies.github.io/golang-template-repository/continuous-integration/mkdocs-material/#ci-setup).
 
-🌐 &nbsp; Goto your site at `<org>.github.io/<repository>` (the link is also made available via **Environments** section in your Github repo).
+🌐 &nbsp; Goto your site at `https://github.com/Rapidmidiex/rmx` (the link is also made available via **Environments** section in your Github repo).
 
 ✋ &nbsp; Take a moment to review the `Quickstart` guide before you get started. It has critical prerequisites.
 
@@ -27,11 +27,13 @@ A gh-pages site is automatically generated for you when you clone/fork this repo
 
 > _The following section provides a sample README template sourced from https://www.makeareadme.com_ -->
 
-# Rapidmidiex
+# RMX
+
+Jams with friends and strangers in realtime.
 
 ## Description
 
-_Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors._
+RMX allows you to play music people around the globe in near realtime.
 
 ## Installation
 
@@ -39,31 +41,113 @@ _Let people know what your project can do specifically. Provide context and add 
 
 <!-- tui installation -->
 
-_Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection._
-
 ## Usage
 
-_Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README._
+### Web
 
-## Support
+TODO
 
-_Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc._
+### TUI
 
-## Roadmap
+TODO
 
-_If you have ideas for releases in the future, it is a good idea to list them in the README._
+## Develop
+
+Clone this repo and grab all the necessary dependencies.
+
+```bash
+$ git clone git@github.com:Rapidmidiex/rmx.git
+$ cd rmx
+$ go mod tidy
+```
+
+### Environment Variables
+
+```env
+POSTGRES_URL=[postgres://user:password@host:5432/rmx?sslmode=disable]
+
+# Optional
+PORT=8080 # Default
+```
+
+### Start the Server
+
+#### Shell
+
+```
+$ go run ./cmd/server
+```
+
+#### VS Code
+
+Copy `env.example` to `.env.development` and fill in the variables.
+
+```
+$ cp env.example .env.development
+```
+
+Run "Start App Server" debugger configuration.
+
+#### CLI
+
+TODO
 
 ## Contributing
 
-_State if you are open to contributions and what your requirements are for accepting them._
+When contributing to this repository, please first discuss the change you wish to make via issue,
+Slack, or any other method with the owners of this repository before making a change.
 
-_For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self._
+Please note we have a code of conduct, please follow it in all your interactions with the project.
 
-_You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser._
+## Pull Request Process
 
-## Authors and acknowledgment
+1. Ensure any install or build dependencies are removed before the end of the layer when doing a
+   build.
+1. Update the README.md with details of changes to the interface, this includes new environment
+   variables, exposed ports, useful file locations and container parameters.
+1. You may merge the Pull Request in once you have the sign-off of two other developers, or if you
+   do not have permission to do that, you may request the second reviewer to merge it for you.
 
-_Show your appreciation to those who have contributed to the project._
+## Code of Conduct
+
+### Our Pledge
+
+In the interest of fostering an open and welcoming environment, we as
+contributors and maintainers pledge to making participation in our project and
+our community a harassment-free experience for everyone, regardless of age, body
+size, disability, ethnicity, gender identity and expression, level of experience,
+nationality, personal appearance, race, religion, or sexual identity and
+orientation.
+
+### Our Standards
+
+Examples of behavior that contributes to creating a positive environment
+include:
+
+-   Using welcoming and inclusive language
+-   Being respectful of differing viewpoints and experiences
+-   Gracefully accepting constructive criticism
+-   Focusing on what is best for the community
+-   Showing empathy towards other community members
+
+Examples of unacceptable behavior by participants include:
+
+-   The use of sexualized language or imagery and unwelcome sexual attention or
+    advances
+-   Trolling, insulting/derogatory comments, and personal or political attacks
+-   Public or private harassment
+-   Publishing others' private information, such as a physical or electronic
+    address, without explicit permission
+-   Other conduct which could reasonably be considered inappropriate in a
+    professional setting
+
+### Attribution
+
+This Code of Conduct is adapted from the [Contributor Covenant][homepage], version 1.4,
+available at [http://contributor-covenant.org/version/1/4][version]
+
+[homepage]: http://contributor-covenant.org
+[version]: http://contributor-covenant.org/version/1/4/
 
 ## License
 
