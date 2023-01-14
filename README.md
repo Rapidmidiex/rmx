@@ -92,6 +92,16 @@ Run "Start App Server" debugger configuration.
 
 TODO
 
+### Runing the tests
+
+We do not use database mocks and test against a real database. By default [dockertest](https://github.com/ory/dockertest) is used to create and tear down a Postgres database for testing.
+
+If you wish to use your own database, supply the `TEST_POSTGRES_URL` environment variable when running the tests.
+
+```
+$ go test ./...
+```
+
 ## Contributing
 
 When contributing to this repository, please first discuss the change you wish to make via issue,
