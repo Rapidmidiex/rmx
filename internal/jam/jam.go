@@ -2,8 +2,10 @@ package jam
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
+	"github.com/brianvoe/gofakeit/v6"
 	"github.com/google/uuid"
 	"github.com/hyphengolang/prelude/types/suid"
 )
@@ -29,11 +31,11 @@ func NewUser(username string) *User {
 }
 
 type Jam struct {
-	ID       uuid.UUID
-	Owner    *User
-	Name     string `json:"name,omitempty"`
-	Capacity uint   `json:"capacity,omitempty"`
-	BPM      uint   `json:"bpm,omitempty"`
+	ID       uuid.UUID `json:"id"`
+	Owner    *User     `json:"owner,omitempty"`
+	Name     string    `json:"name,omitempty"`
+	Capacity uint      `json:"capacity,omitempty"`
+	BPM      uint      `json:"bpm,omitempty"`
 }
 
 func (j *Jam) UnmarshalJSON(data []byte) error {
@@ -57,4 +59,18 @@ func (j *Jam) UnmarshalJSON(data []byte) error {
 	}
 
 	return nil
+}
+
+// SetDefaults set default values for BPM, Name, and Capacity.
+func (j *Jam) SetDefaults() {
+	// We probably want to declare these defaults somewhere else
+	if j.BPM == 0 {
+		j.BPM = 120
+	}
+	if j.Name == "" {
+		j.Name = fmt.Sprintf("%s  %s", gofakeit.AdjectiveDescriptive(), gofakeit.NounAbstract())
+	}
+	if j.Capacity == 0 {
+		j.Capacity = 5
+	}
 }

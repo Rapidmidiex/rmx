@@ -17,6 +17,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type (
+	listJamsResponse struct {
+		Rooms []jam.Jam `json:"rooms"`
+	}
+)
+
 func TestRESTAcceptance(t *testing.T) {
 	t.Run("As RMX client, I can create a Jam Session through the API", func(t *testing.T) {
 		err := cleanDB(pgdb)
@@ -48,14 +54,36 @@ func TestRESTAcceptance(t *testing.T) {
 		require.Equal(t, listJamsResp.Result().StatusCode, http.StatusOK)
 
 		listD := json.NewDecoder(listJamsResp.Body)
-		var listJamsRespBody []jam.Jam
+		var listJamsRespBody listJamsResponse
 		err = listD.Decode(&listJamsRespBody)
 		require.NoError(t, err)
 
-		require.NotEmpty(t, listJamsRespBody)
-		require.NotEmpty(t, listJamsRespBody[0])
-		require.Equal(t, listJamsRespBody[0].Name, jamName)
-		require.NotEmpty(t, listJamsRespBody[0].ID, "GET /jam Jams should have IDs")
+		require.NotEmpty(t, listJamsRespBody.Rooms)
+		require.NotEmpty(t, listJamsRespBody.Rooms[0])
+		require.Equal(t, listJamsRespBody.Rooms[0].Name, jamName)
+		require.NotEmpty(t, listJamsRespBody.Rooms[0].ID, "GET /jam Jams should have IDs")
+	})
+
+	t.Run("Service will set default 'name' and 'bpm'", func(t *testing.T) {
+		err := cleanDB(pgdb)
+		require.NoError(t, err)
+
+		store := db.Store{Q: testQueries}
+		rmxSrv := jamHTTP.NewService(context.Background(), store)
+
+		newJamResp := httptest.NewRecorder()
+		// Send empty JSON body
+		newJamReq := newPostJamReq(t, strings.NewReader(`{}`))
+		rmxSrv.ServeHTTP(newJamResp, newJamReq)
+
+		require.Equal(t, newJamResp.Result().StatusCode, http.StatusCreated)
+		var createdJam jam.Jam
+		d := json.NewDecoder(newJamResp.Body)
+		err = d.Decode(&createdJam)
+		require.NoError(t, err)
+
+		require.NotEmpty(t, createdJam.BPM)
+		require.NotEmpty(t, createdJam.Name)
 	})
 }
 
@@ -95,15 +123,15 @@ func TestJamFlowAcceptance(t *testing.T) {
 	require.Equal(t, http.StatusOK, listJamResp.StatusCode, "GET /jam should return OK status")
 
 	lD := json.NewDecoder(listJamResp.Body)
-	var jamsList []jam.Jam
+	var jamsList listJamsResponse
 	err = lD.Decode(&jamsList)
 	require.NoError(t, err)
 
-	require.Len(t, jamsList, 1, "should have one brand new Jam")
+	require.Len(t, jamsList.Rooms, 1, "should have one brand new Jam")
 
 	// **** Use the Jam selection to join the Jam room **** //
 	// **** Client A joins Jam **** //
-	jamWSurl := fmt.Sprintf("%s/jam/%s", wsBase, jamsList[0].ID)
+	jamWSurl := fmt.Sprintf("%s/jam/%s", wsBase, jamsList.Rooms[0].ID)
 	// Intentionally external ws client (not rmx) because this client represent a client external to this system. (JS Frontend, TUI frontend)
 	wsConnA, _, err := websocket.DefaultDialer.Dial(jamWSurl, nil)
 	// TODO: Fails. We should be able to join a Jam with the Jam ID. The service should figure out the rest
