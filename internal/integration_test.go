@@ -25,7 +25,7 @@ type (
 
 func TestRESTAcceptance(t *testing.T) {
 	t.Run("As RMX client, I can create a Jam Session through the API", func(t *testing.T) {
-		err := cleanDB(pgdb)
+		err := cleanDB(pgDB)
 		require.NoError(t, err)
 
 		store := db.Store{Q: testQueries}
@@ -65,7 +65,7 @@ func TestRESTAcceptance(t *testing.T) {
 	})
 
 	t.Run("Service will set default 'name' and 'bpm'", func(t *testing.T) {
-		err := cleanDB(pgdb)
+		err := cleanDB(pgDB)
 		require.NoError(t, err)
 
 		store := db.Store{Q: testQueries}
@@ -88,7 +88,7 @@ func TestRESTAcceptance(t *testing.T) {
 }
 
 func TestJamFlowAcceptance(t *testing.T) {
-	err := cleanDB(pgdb)
+	err := cleanDB(pgDB)
 	require.NoError(t, err)
 
 	store := db.Store{Q: testQueries}

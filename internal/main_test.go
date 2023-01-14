@@ -22,7 +22,7 @@ import (
 //go:embed db/migration/*.sql
 var migrations embed.FS
 
-var pgdb *sql.DB
+var pgDB *sql.DB
 var testQueries *db.Queries
 var dbName = "rmx-test"
 var pgUser = "rmx-test"
@@ -30,6 +30,21 @@ var pgPass = "password123dev"
 var databaseURL string
 
 func TestMain(m *testing.M) {
+	if os.Getenv("TEST_POSTGRES_URL") != "" {
+		databaseURL = os.Getenv("TEST_POSTGRES_URL")
+		var err error // Avoid shadowing for pgdb
+		pgDB, err = sql.Open("postgres", databaseURL)
+		if err != nil {
+			log.Fatalf("cannot connect to db: %s\nconnection string: %s", err, databaseURL)
+		}
+
+		testQueries = db.New(pgDB)
+		// Run tests
+		code := m.Run()
+		os.Exit(code)
+	}
+
+	// *** Dockertest (default) ***
 	// uses a sensible default on windows (tcp/http) and linux/osx (socket)
 	pool, err := dockertest.NewPool("")
 	if err != nil {
@@ -73,23 +88,23 @@ func TestMain(m *testing.M) {
 	// exponential backoff-retry, because the application in the container might not be ready to accept connections yet
 	pool.MaxWait = 120 * time.Second
 	if err = pool.Retry(func() error {
-		pgdb, err = sql.Open("postgres", databaseURL)
+		pgDB, err = sql.Open("postgres", databaseURL)
 		if err != nil {
 			return err
 		}
-		return pgdb.Ping()
+		return pgDB.Ping()
 	}); err != nil {
 		log.Fatalf("Could not connect to docker: %s", err)
 	}
 	// Instantiate testQueries
-	testQueries = db.New(pgdb)
+	testQueries = db.New(pgDB)
 
 	err = migrateUp()
 	if err != nil {
 		log.Fatalf("Could not run migrations: %s", err)
 	}
 
-	//Run tests
+	// Run tests
 	code := m.Run()
 
 	// You can't defer this because os.Exit doesn't care for defer
