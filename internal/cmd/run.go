@@ -16,7 +16,7 @@ import (
 
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/manifoldco/promptui"
-	"github.com/rapidmidiex/rmx/config"
+	"github.com/rapidmidiex/rmx/internal/cmd/internal/config"
 	db "github.com/rapidmidiex/rmx/internal/db"
 	jam "github.com/rapidmidiex/rmx/internal/jam/http"
 
@@ -52,7 +52,7 @@ func run(dev bool) func(cCtx *cli.Context) error {
 		}
 
 		// check if a config file exists and use that
-		c, err := config.ScanConfigFile(dev) // set dev mode true/false
+		c, err := config.ScanConfigFile() // set dev mode true/false
 		if err != nil {
 			return errors.New("failed to scan config file")
 		}
@@ -205,6 +205,7 @@ func run(dev bool) func(cCtx *cli.Context) error {
 			RedisHost:     redisHost,
 			RedisPort:     redisPort,
 			RedisPassword: redisPassword,
+			Dev:           dev,
 		}
 
 		// prompt to save the config to a file
@@ -232,7 +233,7 @@ func run(dev bool) func(cCtx *cli.Context) error {
 		}
 
 		if strings.ToLower(result) == "y" {
-			if err := c.WriteToFile(dev); err != nil {
+			if err := c.WriteToFile(); err != nil {
 				return err
 			}
 		}
@@ -264,11 +265,17 @@ func serve(cfg *config.Config) error {
 
 	/* FIXME */
 	/* START SERVICES BLOCK */
-	dbURL := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", cfg.DBUser, cfg.DBPassword, cfg.DBHost, cfg.DBName)
+	dbURL := fmt.Sprintf(
+		"postgres://%s:%s@%s/%s?sslmode=disable",
+		cfg.DBUser,
+		cfg.DBPassword,
+		cfg.DBHost,
+		cfg.DBName,
+	)
 
 	// Just use connection string if available
-	if cfg.DBuri != "" {
-		dbURL = cfg.DBuri
+	if cfg.DBURI != "" {
+		dbURL = cfg.DBURI
 	}
 
 	conn, err := sql.Open("postgres", dbURL)

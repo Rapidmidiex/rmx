@@ -4,7 +4,6 @@ import (
 	"log"
 	"os"
 
-	"github.com/rapidmidiex/rmx/config"
 	"github.com/rapidmidiex/rmx/internal/cmd"
 )
 
@@ -14,7 +13,7 @@ func main() {
 	if rmxEnv == "development" {
 		isDev = true
 	}
-	cfg, err := config.LoadConfigFromEnv(isDev)
+	cfg, err := cmd.LoadConfigFromEnv(isDev)
 	if err != nil {
 		log.Fatalf("Could load config: %v", err)
 	}
