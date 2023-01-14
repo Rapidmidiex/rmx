@@ -89,7 +89,7 @@ func LoadConfigFromEnv(dev bool) (*config.Config, error) {
 
 	return &config.Config{
 		ServerPort:    serverPort,
-		DBurl:         pgURL,
+		DBURL:         pgURL,
 		DBHost:        pgHost,
 		DBPort:        pgPort,
 		DBName:        pgName,
