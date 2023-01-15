@@ -3,9 +3,16 @@ PWD = $(shell pwd)
 GO_BUILD= go build
 GOFLAGS= CGO_ENABLED=0
 
-POSTGRES_DB = rmx-dev
-POSTGRES_USER = rmx
-POSTGRES_PASSWORD = postgrespw
+PG_DB=rmx-dev-test
+PG_USER=rmx
+PG_PASSWORD=postgrespw
+PG_HOST=localhost
+PG_PORT=5432
+
+PG_CONN_STRING="postgresql://$(PG_USER):$(PG_PASSWORD)@$(PG_HOST):$(PG_PORT)/$(PG_DB)?sslmode=disable"
+
+PG_CONTAINER_NAME=postgres-rmx
+
 
 ## help: Print this help message
 .PHONY: help
@@ -53,23 +60,23 @@ tls:
 .PHONY: postgres
 postgres:
 	docker rm -f postgres-rmx &> /dev/null || true
-	docker run --name postgres-rmx -e POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) -p 5432:5432 -e POSTGRES_USER=$(POSTGRES_USER) -d postgres:14.6-alpine
+	docker run --name $(PG_CONTAINER_NAME) -e PG_PASSWORD=$(PG_PASSWORD) -p $(PG_PORT):5432 -e PG_USER=$(PG_USER) -d postgres:14.6-alpine
 
 .PHONY: createdb
 createdb:
-	docker exec -it  postgres-rmx createdb --username=$(POSTGRES_USER) --owner=$(POSTGRES_USER) $(POSTGRES_DB)
+	docker exec -it $(PG_CONTAINER_NAME) createdb --username=$(PG_USER) --owner=$(PG_USER) $(PG_DB)
 
 .PHONY: dropdb
 dropdb:
-	docker exec -it  postgres-rmx dropdb --username=$(POSTGRES_USER) $(POSTGRES_DB)
+	docker exec -it $(PG_CONTAINER_NAME) dropdb --username=$(PG_USER) $(PG_DB)
 
 .PHONY: migrateup
 migrateup:
-	migrate -path internal/db/migration -database "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:5432/$(POSTGRES_DB)?sslmode=disable" -verbose up
+	migrate -path internal/db/migration -database $(PG_CONN_STRING) -verbose up
 
 .PHONY: migratedown
 migratedown:
-	migrate -path store/migration -database "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:5432/$(POSTGRES_DB)?sslmode=disable" -verbose down
+	migrate -path internal/db/migration -database $(PG_CONN_STRING) -verbose down
 
 .PHONY: sqlc
 sqlc:
