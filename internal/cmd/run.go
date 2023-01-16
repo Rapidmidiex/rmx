@@ -99,7 +99,7 @@ func run(dev bool) func(cCtx *cli.Context) error {
 
 		// DB Host
 		dbHostPrompt := promptui.Prompt{
-			Label:     "MySQL Database host",
+			Label:     "Postgres Database host",
 			Validate:  validateString,
 			Templates: templates,
 		}
@@ -111,7 +111,7 @@ func run(dev bool) func(cCtx *cli.Context) error {
 
 		// DB Port
 		dbPortPrompt := promptui.Prompt{
-			Label:     "MySQL Database port",
+			Label:     "Postgres Database port",
 			Validate:  validateNumber,
 			Templates: templates,
 		}
@@ -123,7 +123,7 @@ func run(dev bool) func(cCtx *cli.Context) error {
 
 		// DB Name
 		dbNamePrompt := promptui.Prompt{
-			Label:     "MySQL Database name",
+			Label:     "Postgres Database name",
 			Validate:  validateString,
 			Templates: templates,
 		}
@@ -135,7 +135,7 @@ func run(dev bool) func(cCtx *cli.Context) error {
 
 		// DB User
 		dbUserPrompt := promptui.Prompt{
-			Label:     "MySQL Database user",
+			Label:     "Postgres Database user",
 			Validate:  validateString,
 			Templates: templates,
 		}
@@ -147,7 +147,7 @@ func run(dev bool) func(cCtx *cli.Context) error {
 
 		// DB Password
 		dbPasswordPrompt := promptui.Prompt{
-			Label:     "MySQL Database password",
+			Label:     "Postgres Database password",
 			Validate:  validateString,
 			Templates: templates,
 			Mask:      '*',
