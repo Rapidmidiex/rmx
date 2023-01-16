@@ -98,8 +98,8 @@ func (r *Room[SI, CI]) ID() uuid.UUID {
 // listen to the input channel and broadcast messages to clients.
 func (r *Room[SI, CI]) broadcast(m *wsutil.Message) {
 	for _, c := range r.cs {
-		if err := c.write(m); err != nil {
-			log.Println("here2")
+		if err := c.write(m); err != nil && err != io.EOF {
+			log.Printf("connect.unsubscribe: %s\n", err)
 			r.errc <- &wsErr[CI]{c, err}
 			return
 		}
@@ -139,8 +139,8 @@ func (r *Room[SI, CI]) connect(c *Conn[CI]) {
 
 	go func() {
 		defer func() {
-			if err := r.Unsubscribe(c); err != nil {
-				log.Println("here")
+			if err := r.Unsubscribe(c); err != nil && err != io.EOF {
+				log.Printf("connect.unsubscribe: %s\n", err)
 				r.errc <- &wsErr[CI]{c, err}
 				return
 			}
@@ -149,8 +149,8 @@ func (r *Room[SI, CI]) connect(c *Conn[CI]) {
 		for {
 			// read binary from connection
 			b, op, err := wsutil.ReadClientData(c.rwc)
-			if err != nil {
-				log.Println("here1")
+			if err != nil && err != io.EOF {
+				log.Printf("connect.ReadClientData: %s\n", err)
 				r.errc <- &wsErr[CI]{c, err}
 				return
 			}
