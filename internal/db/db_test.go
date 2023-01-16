@@ -4,12 +4,13 @@ import (
 	"context"
 	"testing"
 
+	"github.com/brianvoe/gofakeit/v6"
 	db "github.com/rapidmidiex/rmx/internal/db/sqlc"
 	"github.com/stretchr/testify/require"
 )
 
 func TestCreateJam(t *testing.T) {
-	jamName := "fakegit.Name()"
+	jamName := gofakeit.NounAbstract()
 	want := db.Jam{
 		Name: jamName,
 		Bpm:  90,

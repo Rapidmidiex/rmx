@@ -66,7 +66,7 @@ func (j *Jam) SetDefaults() {
 		j.BPM = 120
 	}
 	if j.Name == "" {
-		j.Name = fmt.Sprintf("%s  %s", gofakeit.AdjectiveDescriptive(), gofakeit.NounAbstract())
+		j.Name = fmt.Sprintf("%s %s", gofakeit.AdjectiveDescriptive(), gofakeit.NounAbstract())
 	}
 	if j.Capacity == 0 {
 		j.Capacity = 5
