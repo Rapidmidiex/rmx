@@ -87,6 +87,7 @@ func (s *jamService) handleGetJam() http.HandlerFunc {
 		jamID, err := s.parseUUID(r)
 
 		if err != nil {
+			s.mux.Logf("parseUUID: %v\n", err)
 			s.mux.Respond(w, r, jamID, http.StatusBadRequest)
 			return
 		}
@@ -94,6 +95,7 @@ func (s *jamService) handleGetJam() http.HandlerFunc {
 		jam, err := s.store.GetJamByID(r.Context(), jamID)
 		if err != nil {
 			// TODO: Check if error actually is not found or something else
+			s.mux.Logf("getJamByID: %v\n", err)
 			s.mux.Respond(w, r, err, http.StatusNotFound)
 			return
 		}
@@ -126,6 +128,7 @@ func (s *jamService) handleP2PComms() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		jamID, err := s.parseUUID(r)
 		if err != nil {
+			s.mux.Logf("parseUUID: %v\n", err)
 			s.mux.Respond(w, r, jamID, http.StatusBadRequest)
 			return
 		}
@@ -142,6 +145,7 @@ func (s *jamService) handleP2PComms() http.HandlerFunc {
 			if err == websocket.ErrRoomNotFound {
 				room = s.newRoom(jamInfo.ID)
 			} else {
+				s.mux.Logf("getRoom: %v\n", err)
 				s.mux.Respond(w, r, err, http.StatusNotFound)
 				return
 			}
@@ -155,6 +159,7 @@ func (s *jamService) handleP2PComms() http.HandlerFunc {
 		rwc, _, _, err := ws.UpgradeHTTP(r, w)
 		if err != nil {
 			// NOTE - this we discovered isn't needed
+			s.mux.Logf("upgradeHTTP: %v\n", err)
 			s.mux.Respond(w, r, err, http.StatusUpgradeRequired)
 			return
 		}

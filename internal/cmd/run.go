@@ -275,8 +275,8 @@ func serve(cfg *config.Config) error {
 	)
 
 	// Just use connection string if available
-	if cfg.DBURI != "" {
-		dbURL = cfg.DBURI
+	if cfg.DBURL != "" {
+		dbURL = cfg.DBURL
 	}
 
 	conn, err := sql.Open("postgres", dbURL)

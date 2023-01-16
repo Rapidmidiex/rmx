@@ -62,11 +62,18 @@ func GetVersion(cCtx *cli.Context) error {
 func LoadConfigFromEnv(dev bool) (*config.Config, error) {
 	serverPort := os.Getenv("PORT")
 
-	pgURI := os.Getenv("POSTGRES_URI")
+	pgURL := os.Getenv("POSTGRES_URL")
+	if pgURL == "" {
+		pgURL = os.Getenv("DATABASE_URL")
+	}
 
-	pgParsed, err := url.Parse(pgURI)
-	if err != nil && pgURI != "" {
-		return nil, fmt.Errorf("invalid POSTGRES_URL env var: %q: %w", pgURI, err)
+	if dev {
+		fmt.Printf("DATABASE_URL: %s\nPOSTGRES_URL: %s\n", os.Getenv("DATABASE_URL"), os.Getenv("POSTGRES_URL"))
+	}
+
+	pgParsed, err := url.Parse(pgURL)
+	if err != nil && pgURL != "" {
+		return nil, fmt.Errorf("invalid POSTGRES_URL env var: %q: %w", pgURL, err)
 	}
 
 	pgUser := pgParsed.User.Username()
@@ -82,7 +89,7 @@ func LoadConfigFromEnv(dev bool) (*config.Config, error) {
 
 	return &config.Config{
 		ServerPort:    serverPort,
-		DBURI:         pgURI,
+		DBURL:         pgURL,
 		DBHost:        pgHost,
 		DBPort:        pgPort,
 		DBName:        pgName,

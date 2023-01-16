@@ -92,7 +92,50 @@ Run "Start App Server" debugger configuration.
 
 TODO
 
-### Runing the tests
+### Database Setup
+
+You can use `make` and `docker` for easy local Postgres setup. Any of the variables can be overridden by passing the variable as an argument to `make`.
+
+```
+$ make PG_PASSWORD=hotdog postgres
+```
+
+If any variables are changed, be sure to update your `POSTGRES_URL` connection string accordingly.
+
+#### Commands
+
+1. Create Postgres 14.6 container
+    ```
+    $ make postgres
+    ```
+1. Create database
+    ```
+    $ make createdb
+    ```
+1. Drop database
+    ```
+    $ make dropdb
+    ```
+1. Run Up migrations
+    ```
+    $ make migrateup
+    ```
+1. Run Down migrations
+    ```
+    $ make migratedown
+    ```
+
+#### Go query/type generation
+
+We use [sqlc](https://sqlc.dev/) to generate type-safe Go code from raw SQL. The SQL queries are defined in `internal/db/query`. The generated Go code is output to `internal/db/sqlc`.
+
+After adding up updating any SQL, regenerate the Go code using the make command:
+
+```
+$ make sqlc
+```
+
+### Running the tests
 
 We do not use database mocks and test against a real database. By default [dockertest](https://github.com/ory/dockertest) is used to create and tear down a Postgres database for testing.
 
