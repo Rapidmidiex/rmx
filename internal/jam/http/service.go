@@ -130,8 +130,7 @@ func (s *jamService) handleP2PComms() http.HandlerFunc {
 			return
 		}
 
-		// should this use context.Background() ?
-		jamInfo, err := s.store.GetJamByID(context.Background(), jamID)
+		jamInfo, err := s.store.GetJamByID(r.Context(), jamID)
 		if err != nil {
 			s.mux.Respond(w, r, err, http.StatusNotFound)
 			return
