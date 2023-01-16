@@ -37,7 +37,7 @@ func TestUnmarshalJam(t *testing.T) {
 		var j jam.Jam
 		err := json.NewDecoder(strings.NewReader(payload)).Decode(&j)
 		is.NoErr(err)                  // decoding passed
-		is.Equal(j.BPM, uint(80))      // default BPM
+		is.Equal(j.BPM, uint(120))     // default BPM
 		is.Equal(j.Capacity, uint(10)) // default capacity
 	})
 }
