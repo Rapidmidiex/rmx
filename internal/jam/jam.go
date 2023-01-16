@@ -16,10 +16,8 @@ type User struct {
 }
 
 func NewUser(username string) *User {
-	sid := suid.NewUUID()
-
 	if strings.TrimSpace(username) == "" {
-		username = sid.ShortUUID().String()
+		username = gofakeit.Username()
 	}
 
 	u := &User{
@@ -55,7 +53,7 @@ func (j *Jam) UnmarshalJSON(data []byte) error {
 	}
 
 	if aux.BPM == 0 {
-		j.BPM = 80
+		j.BPM = 120
 	}
 
 	return nil

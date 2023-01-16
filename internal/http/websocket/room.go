@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log"
 	"sync"
@@ -43,8 +44,10 @@ type (
 	}
 )
 
+var ErrConnNotFound = errors.New("connection not found")
+
 func NewRoom[RoomType, ConnType any](args NewRoomArgs) *Room[RoomType, ConnType] {
-	s := &Room[RoomType, ConnType]{
+	r := &Room[RoomType, ConnType]{
 		sid:            args.JamID,
 		cs:             make(map[uuid.UUID]*Conn[ConnType]),
 		errc:           make(chan *wsErr[ConnType]),
@@ -55,11 +58,11 @@ func NewRoom[RoomType, ConnType any](args NewRoomArgs) *Room[RoomType, ConnType]
 		Context:        args.Context,
 	}
 
-	s.catch()
-	return s
+	r.catch()
+	return r
 }
 
-func (s *Room[RoomType, ConnType]) NewConn(rwc io.ReadWriteCloser, info *ConnType) *Conn[ConnType] {
+func (r *Room[RoomType, ConnType]) NewConn(rwc io.ReadWriteCloser, info *ConnType) *Conn[ConnType] {
 	return &Conn[ConnType]{
 		sid:  suid.NewUUID(),
 		rwc:  rwc,
@@ -67,76 +70,78 @@ func (s *Room[RoomType, ConnType]) NewConn(rwc io.ReadWriteCloser, info *ConnTyp
 	}
 }
 
-func (s *Room[SI, CI]) Subscribe(c *Conn[CI]) {
-	s.connect(c)
-	s.add(c)
+func (r *Room[SI, CI]) Subscribe(c *Conn[CI]) {
+	r.connect(c)
+	r.add(c)
 }
 
-func (s *Room[SI, CI]) Unsubscribe(c *Conn[CI]) error {
-	if err := s.disconnect(c); err != nil {
+func (r *Room[SI, CI]) Unsubscribe(c *Conn[CI]) error {
+	if err := r.disconnect(c); err != nil {
 		return err
 	}
-	s.remove(c)
+	r.remove(c)
 	return nil
 }
 
-func (s *Room[SI, CI]) IsFull() bool {
-	if s.Capacity == 0 {
+func (r *Room[SI, CI]) IsFull() bool {
+	if r.Capacity == 0 {
 		return false
 	}
 
-	return len(s.cs) >= int(s.Capacity)
+	return len(r.cs) >= int(r.Capacity)
 }
 
-func (s *Room[SI, CI]) ID() uuid.UUID {
-	return s.sid
+func (r *Room[SI, CI]) ID() uuid.UUID {
+	return r.sid
 }
 
 // listen to the input channel and broadcast messages to clients.
-func (s *Room[SI, CI]) broadcast(m *wsutil.Message) {
-	for _, c := range s.cs {
-		if err := c.write(m); err != nil {
-			s.errc <- &wsErr[CI]{c, err}
+func (r *Room[SI, CI]) broadcast(m *wsutil.Message) {
+	for _, c := range r.cs {
+		if err := c.write(m); err != nil && err != io.EOF {
+			log.Printf("connect.unsubscribe: %s\n", err)
+			r.errc <- &wsErr[CI]{c, err}
 			return
 		}
 	}
 }
 
-func (s *Room[SI, CI]) catch() {
+func (r *Room[SI, CI]) catch() {
 	go func() {
-		for e := range s.errc {
-			if err := s.disconnect(e.conn); err != nil {
+		for e := range r.errc {
+			if err := r.Unsubscribe(e.conn); err != nil {
 				log.Println(err)
 			}
 		}
 	}()
 }
 
-func (s *Room[SI, CI]) add(c *Conn[CI]) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+func (r *Room[SI, CI]) add(c *Conn[CI]) {
+	r.lock.Lock()
+	defer r.lock.Unlock()
 
 	// add the connection to the list
-	s.cs[c.sid.UUID] = c
+	r.cs[c.sid.UUID] = c
 }
 
-func (s *Room[SI, CI]) remove(c *Conn[CI]) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+func (r *Room[SI, CI]) remove(c *Conn[CI]) {
+	r.lock.Lock()
+	defer r.lock.Unlock()
 
 	// remove connection from the list
-	delete(s.cs, c.sid.UUID)
+	delete(r.cs, c.sid.UUID)
 }
 
 // Connects the given Connection to the Subscriber and starts reading from it
-func (s *Room[SI, CI]) connect(c *Conn[CI]) {
+func (r *Room[SI, CI]) connect(c *Conn[CI]) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
 	go func() {
 		defer func() {
-			if err := s.disconnect(c); err != nil {
-				s.errc <- &wsErr[CI]{c, err}
+			if err := r.Unsubscribe(c); err != nil && err != io.EOF {
+				log.Printf("connect.unsubscribe: %s\n", err)
+				r.errc <- &wsErr[CI]{c, err}
 				return
 			}
 		}()
@@ -144,20 +149,28 @@ func (s *Room[SI, CI]) connect(c *Conn[CI]) {
 		for {
 			// read binary from connection
 			b, op, err := wsutil.ReadClientData(c.rwc)
-			if err != nil {
-				s.errc <- &wsErr[CI]{c, err}
+			if err != nil && err != io.EOF {
+				log.Printf("connect.ReadClientData: %s\n", err)
+				r.errc <- &wsErr[CI]{c, err}
 				return
 			}
 
 			m := &wsutil.Message{OpCode: op, Payload: b}
 
-			s.broadcast(m)
+			r.broadcast(m)
 		}
 	}()
 }
 
 // Closes the given Connection and removes it from the Connections list
-func (s *Room[SI, CI]) disconnect(c *Conn[CI]) error {
+func (r *Room[SI, CI]) disconnect(c *Conn[CI]) error {
+	// check if connection exists
+	_, ok := r.cs[c.sid.UUID]
+
 	// close websocket connection
+	if !ok {
+		return ErrConnNotFound
+	}
+
 	return c.rwc.Close()
 }

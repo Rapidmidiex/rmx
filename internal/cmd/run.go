@@ -261,6 +261,7 @@ func serve(cfg *config.Config) error {
 		AllowedMethods:   []string{http.MethodGet, http.MethodPost},
 		AllowedHeaders:   []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		ExposedHeaders:   []string{"Location"},
+		Debug:            cfg.Dev,
 	}
 
 	/* FIXME */
