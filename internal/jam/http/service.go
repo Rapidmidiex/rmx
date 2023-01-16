@@ -31,9 +31,6 @@ type (
 
 		store store
 	}
-	jamsResponse struct {
-		Rooms []jam.Jam `json:"rooms"`
-	}
 )
 
 func (s *jamService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -106,6 +103,10 @@ func (s *jamService) handleGetJam() http.HandlerFunc {
 }
 
 func (s *jamService) handleListJams() http.HandlerFunc {
+	type response struct {
+		Rooms []jam.Jam `json:"rooms"`
+	}
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		jams, err := s.store.GetJams(r.Context())
 		if err != nil {
@@ -113,7 +114,7 @@ func (s *jamService) handleListJams() http.HandlerFunc {
 			s.mux.Respond(w, r, "Could not fetch Jams.", http.StatusInternalServerError)
 			return
 		}
-		resp := jamsResponse{Rooms: jams}
+		resp := response{Rooms: jams}
 		s.mux.Respond(w, r, resp, http.StatusOK)
 	}
 }
@@ -129,11 +130,18 @@ func (s *jamService) handleP2PComms() http.HandlerFunc {
 			return
 		}
 
-		room, err := s.wsb.GetRoom(jamID)
+		// should this use context.Background() ?
+		jamInfo, err := s.store.GetJamByID(context.Background(), jamID)
+		if err != nil {
+			s.mux.Respond(w, r, err, http.StatusNotFound)
+			return
+		}
+
+		room, err := s.wsb.GetRoom(jamInfo.ID)
 		if err != nil {
 			// Create a new Jam room if one does not exist
 			if err == websocket.ErrRoomNotFound {
-				room = s.newRoom(jamID)
+				room = s.newRoom(jamInfo.ID)
 			} else {
 				s.mux.Respond(w, r, err, http.StatusNotFound)
 				return
