@@ -105,8 +105,12 @@ func (s *jamService) handleGetJam() http.HandlerFunc {
 }
 
 func (s *jamService) handleListJams() http.HandlerFunc {
+	type roomResp struct {
+		jam.Jam
+		NumPlayers int `json:"numPlayers"`
+	}
 	type response struct {
-		Rooms []jam.Jam `json:"rooms"`
+		Rooms []roomResp `json:"rooms"`
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -116,7 +120,14 @@ func (s *jamService) handleListJams() http.HandlerFunc {
 			s.mux.Respond(w, r, "Could not fetch Jams.", http.StatusInternalServerError)
 			return
 		}
-		resp := response{Rooms: jams}
+		var resp response
+		resp.Rooms = make([]roomResp, 0)
+		for _, j := range jams {
+			resp.Rooms = append(resp.Rooms, roomResp{
+				j,
+				s.wsb.ConnCount(j.ID),
+			})
+		}
 		s.mux.Respond(w, r, resp, http.StatusOK)
 	}
 }
