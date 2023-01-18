@@ -151,14 +151,14 @@ func TestJamFlowAcceptance(t *testing.T) {
 
 	type roomsResp struct {
 		Rooms []struct {
-			NumPlayers int `json:"numPlayers"`
+			PlayerCount int `json:"playerCount"`
 		} `json:"rooms"`
 	}
 	var gotRooms roomsResp
 	err = grd.Decode(&gotRooms)
 	require.NoError(t, err)
 
-	require.Equal(t, 2, gotRooms.Rooms[0].NumPlayers, `"numPlayers" field should be 2 since there are two active connections`)
+	require.Equal(t, 2, gotRooms.Rooms[0].PlayerCount, `"playerCount" field should be 2 since there are two active connections`)
 
 	// Alpha sends a MIDI message
 	type midiMsg struct {

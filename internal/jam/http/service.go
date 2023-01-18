@@ -107,7 +107,7 @@ func (s *jamService) handleGetJam() http.HandlerFunc {
 func (s *jamService) handleListJams() http.HandlerFunc {
 	type roomResp struct {
 		jam.Jam
-		NumPlayers int `json:"numPlayers"`
+		PlayerCount int `json:"playerCount"`
 	}
 	type response struct {
 		Rooms []roomResp `json:"rooms"`
