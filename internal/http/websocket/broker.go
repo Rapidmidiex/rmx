@@ -57,28 +57,18 @@ func (b *Broker[SI, CI]) GetRoom(sid uuid.UUID) (*Room[SI, CI], error) {
 	return s, nil
 }
 
-func (b *Broker[SI, CI]) GetSession(sid uuid.UUID) (*Room[SI, CI], error) {
+// ConnCount returns the current number of active connections.
+func (b *Broker[SI, CI]) ConnCount(sid uuid.UUID) int {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 	s, ok := b.rooms[sid]
 
 	if !ok {
-		return nil, errors.New("session not found")
+		// If no room found, just return 0
+		return 0
 	}
 
-	return s, nil
-}
-
-func (b *Broker[SI, CI]) ListSessions() []*Room[SI, CI] {
-	b.lock.RLock()
-	defer b.lock.RUnlock()
-
-	ss := make([]*Room[SI, CI], 0, len(b.rooms))
-	for _, s := range b.rooms {
-		ss = append(ss, s)
-	}
-
-	return ss
+	return len(s.cs)
 }
 
 func (b *Broker[SI, CI]) add(s *Room[SI, CI]) {

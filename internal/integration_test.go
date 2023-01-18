@@ -131,7 +131,8 @@ func TestJamFlowAcceptance(t *testing.T) {
 
 	// **** Use the Jam selection to join the Jam room **** //
 	// **** Client A joins Jam **** //
-	jamWSurl := fmt.Sprintf("%s/jam/%s", wsBase, jamsList.Rooms[0].ID)
+	roomID := jamsList.Rooms[0].ID
+	jamWSurl := fmt.Sprintf("%s/jam/%s", wsBase, roomID)
 	// Intentionally external ws client (not rmx) because this client represent a client external to this system. (JS Frontend, TUI frontend)
 	wsConnA, _, err := websocket.DefaultDialer.Dial(jamWSurl, nil)
 	// TODO: Fails. We should be able to join a Jam with the Jam ID. The service should figure out the rest
@@ -142,6 +143,22 @@ func TestJamFlowAcceptance(t *testing.T) {
 	wsConnB, _, err := websocket.DefaultDialer.Dial(jamWSurl, nil)
 	require.NoErrorf(t, err, "client Bravo could not join Jam room: %q (%s)", newJam.Name, newJam.ID)
 	defer wsConnB.Close()
+
+	// Check the connection count
+	getRoomsResp, err := http.Get(fmt.Sprintf("%s/jam", restBase))
+	require.NoError(t, err)
+	grd := json.NewDecoder(getRoomsResp.Body)
+
+	type roomsResp struct {
+		Rooms []struct {
+			PlayerCount int `json:"playerCount"`
+		} `json:"rooms"`
+	}
+	var gotRooms roomsResp
+	err = grd.Decode(&gotRooms)
+	require.NoError(t, err)
+
+	require.Equal(t, 2, gotRooms.Rooms[0].PlayerCount, `"playerCount" field should be 2 since there are two active connections`)
 
 	// Alpha sends a MIDI message
 	type midiMsg struct {

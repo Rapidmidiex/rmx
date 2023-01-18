@@ -3,6 +3,7 @@ package websocket
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"sync"
@@ -99,8 +100,7 @@ func (r *Room[SI, CI]) ID() uuid.UUID {
 func (r *Room[SI, CI]) broadcast(m *wsutil.Message) {
 	for _, c := range r.cs {
 		if err := c.write(m); err != nil && err != io.EOF {
-			log.Printf("connect.unsubscribe: %s\n", err)
-			r.errc <- &wsErr[CI]{c, err}
+			r.errc <- &wsErr[CI]{c, fmt.Errorf("broadcast: write: %w", err)}
 			return
 		}
 	}
@@ -109,6 +109,7 @@ func (r *Room[SI, CI]) broadcast(m *wsutil.Message) {
 func (r *Room[SI, CI]) catch() {
 	go func() {
 		for e := range r.errc {
+			log.Printf("room err: %s\nunsubscribing..", e)
 			if err := r.Unsubscribe(e.conn); err != nil {
 				log.Println(err)
 			}
@@ -140,8 +141,9 @@ func (r *Room[SI, CI]) connect(c *Conn[CI]) {
 	go func() {
 		defer func() {
 			if err := r.Unsubscribe(c); err != nil && err != io.EOF {
-				log.Printf("connect.unsubscribe: %s\n", err)
-				r.errc <- &wsErr[CI]{c, err}
+				// Hmm, sending an error on this channel will eventually call unsubscribe on the connection.
+				// We need to pick one place to unsubscribe
+				r.errc <- &wsErr[CI]{c, fmt.Errorf("connect: unsubscribe: %w", err)}
 				return
 			}
 		}()
@@ -150,8 +152,7 @@ func (r *Room[SI, CI]) connect(c *Conn[CI]) {
 			// read binary from connection
 			b, op, err := wsutil.ReadClientData(c.rwc)
 			if err != nil && err != io.EOF {
-				log.Printf("connect.ReadClientData: %s\n", err)
-				r.errc <- &wsErr[CI]{c, err}
+				r.errc <- &wsErr[CI]{c, fmt.Errorf("connect: readClientData: %w", err)}
 				return
 			}
 
