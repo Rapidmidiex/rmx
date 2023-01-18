@@ -113,7 +113,7 @@ func testServerPartB() http.Handler {
 			return
 		}
 
-		s, err := b.GetSession(sid)
+		room, err := b.GetRoom(sid)
 		if err != nil {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -124,8 +124,8 @@ func testServerPartB() http.Handler {
 			return
 		}
 
-		wsc := s.NewConn(conn, nil)
-		s.Subscribe(wsc)
+		wsc := room.NewConn(conn, nil)
+		room.Subscribe(wsc)
 	})
 
 	return mux
