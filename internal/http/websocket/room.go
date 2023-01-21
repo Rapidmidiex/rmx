@@ -103,7 +103,6 @@ func (r *Room[SI, CI]) broadcast(m *wsutil.Message) {
 	for _, c := range r.cs {
 		if err := c.write(m); err != nil && err != io.EOF {
 			r.errc <- &wsErr[CI]{c, fmt.Errorf("broadcast: write: %w", err)}
-			return
 		}
 	}
 }
