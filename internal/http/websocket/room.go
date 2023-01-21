@@ -71,11 +71,13 @@ func (r *Room[RoomType, ConnType]) NewConn(rwc io.ReadWriteCloser, info *ConnTyp
 	}
 }
 
+// Subscribe sets up a read loop on the Connection and broadcasts all messages to the other Connections in the Room.
 func (r *Room[SI, CI]) Subscribe(c *Conn[CI]) {
 	r.connect(c)
 	r.add(c)
 }
 
+// Unsubscribe disconnects the given Connection and removes it from the Connections list.
 func (r *Room[SI, CI]) Unsubscribe(c *Conn[CI]) error {
 	if err := r.disconnect(c); err != nil {
 		return err
@@ -96,7 +98,7 @@ func (r *Room[SI, CI]) ID() uuid.UUID {
 	return r.sid
 }
 
-// listen to the input channel and broadcast messages to clients.
+// Broadcast listens to the input channel and broadcasts messages to clients.
 func (r *Room[SI, CI]) broadcast(m *wsutil.Message) {
 	for _, c := range r.cs {
 		if err := c.write(m); err != nil && err != io.EOF {
@@ -139,19 +141,12 @@ func (r *Room[SI, CI]) connect(c *Conn[CI]) {
 	defer c.lock.RUnlock()
 
 	go func() {
-		defer func() {
-			if err := r.Unsubscribe(c); err != nil && err != io.EOF {
-				// Hmm, sending an error on this channel will eventually call unsubscribe on the connection.
-				// We need to pick one place to unsubscribe
-				r.errc <- &wsErr[CI]{c, fmt.Errorf("connect: unsubscribe: %w", err)}
-				return
-			}
-		}()
-
 		for {
 			// read binary from connection
 			b, op, err := wsutil.ReadClientData(c.rwc)
 			if err != nil && err != io.EOF {
+				// TODO: Handle peer CONNRESET.
+				// We don't want to close the connection for everyone if one client goes down
 				r.errc <- &wsErr[CI]{c, fmt.Errorf("connect: readClientData: %w", err)}
 				return
 			}
@@ -163,7 +158,7 @@ func (r *Room[SI, CI]) connect(c *Conn[CI]) {
 	}()
 }
 
-// Closes the given Connection and removes it from the Connections list
+// Disconnect closes the given connection.
 func (r *Room[SI, CI]) disconnect(c *Conn[CI]) error {
 	// check if connection exists
 	_, ok := r.cs[c.sid.UUID]
