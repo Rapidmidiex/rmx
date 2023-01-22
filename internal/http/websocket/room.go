@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 	"github.com/google/uuid"
 	"github.com/hyphengolang/prelude/types/suid"
@@ -150,9 +151,19 @@ func (r *Room[SI, CI]) connect(c *Conn[CI]) {
 				return
 			}
 
-			m := &wsutil.Message{OpCode: op, Payload: b}
+			// Only broadcast Text messages
+			// Not client closes,ping/pong, etc
+			// Maybe use ws.isData()
+			if op == ws.OpText {
+				m := &wsutil.Message{OpCode: op, Payload: b}
 
-			r.broadcast(m)
+				r.broadcast(m)
+				continue
+			}
+
+			// TODO: Handle other op codes
+			log.Printf("unhandled op code: %v", OpCodeToString(op))
+
 		}
 	}()
 }
