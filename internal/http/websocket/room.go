@@ -162,7 +162,7 @@ func (r *Room[SI, CI]) connect(c *Conn[CI]) {
 			}
 
 			// TODO: Handle other op codes
-			log.Printf("unhandled op code: %v", OpCodeToString(op))
+			log.Printf("unhandled op code: %v\n", OpCodeToString(op))
 
 		}
 	}()
