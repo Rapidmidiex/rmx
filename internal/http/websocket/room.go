@@ -85,25 +85,23 @@ func (r *Room[SI, CI]) Subscribe(c *Conn[CI]) error {
 		UserID:   c.sid.UUID,
 		UserName: gofakeit.Username(),
 	}
-	// TODO: Extract message marshaling
-	payload, err := json.Marshal(conMsg)
+	envelope := msg.Envelope{
+		Typ:    msg.CONNECT,
+		UserID: conMsg.UserID,
+	}
+	err := envelope.SetPayload(conMsg)
 	if err != nil {
 		return fmt.Errorf("marshall payload: %w", err)
 	}
 	// Write connect message back to client
-	b, err := json.Marshal(&msg.Envelope{
-		Typ:     msg.CONNECT,
-		UserID:  conMsg.UserID,
-		Payload: payload,
-	})
-
+	payload, err := json.Marshal(&envelope)
 	if err != nil {
 		return fmt.Errorf("marshall envelope: %w", err)
 	}
 
 	c.write(&wsutil.Message{
 		OpCode:  ws.OpText,
-		Payload: b,
+		Payload: payload,
 	})
 	return nil
 }

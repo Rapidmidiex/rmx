@@ -14,6 +14,7 @@ import (
 	"github.com/rapidmidiex/rmx/internal/db"
 	jam "github.com/rapidmidiex/rmx/internal/jam"
 	jamHTTP "github.com/rapidmidiex/rmx/internal/jam/http"
+	"github.com/rapidmidiex/rmx/internal/msg"
 	"github.com/stretchr/testify/require"
 )
 
@@ -139,10 +140,30 @@ func TestJamFlowAcceptance(t *testing.T) {
 	require.NoErrorf(t, err, "client Alpha could not join Jam room: %q (%s)", newJam.Name, newJam.ID)
 	defer wsConnA.Close()
 
+	// Get user ID from Connection Message
+	var envelope msg.Envelope
+	var aConMsg msg.ConnectMsg
+	err = wsConnA.ReadJSON(&envelope)
+	require.NoError(t, err)
+
+	err = json.Unmarshal(envelope.Payload, &aConMsg)
+	require.NoError(t, err)
+	userIDA := aConMsg.UserID
+
 	// **** Client B joins Jam **** //
 	wsConnB, _, err := websocket.DefaultDialer.Dial(jamWSurl, nil)
 	require.NoErrorf(t, err, "client Bravo could not join Jam room: %q (%s)", newJam.Name, newJam.ID)
 	defer wsConnB.Close()
+
+	// Get user ID B from Connection Message
+	var bConMsg msg.ConnectMsg
+	err = wsConnB.ReadJSON(&envelope)
+	require.NoError(t, err)
+	require.Equal(t, msg.CONNECT, envelope.Typ, "should be a Connect message")
+	err = json.Unmarshal(envelope.Payload, &bConMsg)
+	require.NoError(t, err)
+	userIDB := bConMsg.UserID
+	require.NotEmpty(t, userIDB, "User B should have received a connect message containing their user ID")
 
 	// Check the connection count
 	getRoomsResp, err := http.Get(fmt.Sprintf("%s/jam", restBase))
@@ -161,31 +182,28 @@ func TestJamFlowAcceptance(t *testing.T) {
 	require.Equal(t, 2, gotRooms.Rooms[0].PlayerCount, `"playerCount" field should be 2 since there are two active connections`)
 
 	// Alpha sends a MIDI message
-	type midiMsg struct {
-		Typ string `json:"type"` // NOTE_ON | NOTE_OFF
-		// MIDI Note # in "C3 Convention", C3 = 60. Available values: (0-127)
-		Note int `json:"note"`
-		// MIDI Velocity (0-127)
-		Velocity int `json:"velocity"`
-		// RMX client identifier
-		ClientID string `json:"clientID"`
-	}
-
 	// **** Client A broadcasts a MIDI message **** //
-	yasiinSend := midiMsg{
-		Typ:      "NOTE_ON",
-		Note:     60,
-		Velocity: 127,
-		ClientID: "Yasiin Bey",
+	yasiinSend := msg.MIDIMsg{
+		State:  msg.NOTE_ON,
+		Number: 60,
 	}
+	yasiinEnv := msg.Envelope{
+		UserID: userIDA,
+		Typ:    msg.MIDI,
+	}
+	yasiinEnv.SetPayload(yasiinSend)
+
 	err = wsConnA.WriteJSON(yasiinSend)
-	require.NoErrorf(t, err, "Client A, %q, could not write MIDI note to connection", yasiinSend.ClientID)
+	require.NoErrorf(t, err, "Client A, %q, could not write MIDI note to connection", yasiinEnv.UserID)
 
 	// **** Client B receives the MIDI message **** //
 	// Talib should be able to hear MIDI note
-	var talibRecv midiMsg
-	err = wsConnB.ReadJSON(&talibRecv)
+	var talibRecv msg.MIDIMsg
+	err = wsConnB.ReadJSON(&envelope)
 	require.NoError(t, err, "Client B could not read MIDI note from connection")
+	require.Equal(t, msg.MIDI, envelope.Typ, "should be a MIDI message")
+	err = envelope.Unwrap(&talibRecv)
+	require.NoError(t, err, "could not unwrap client B's message")
 	require.Equal(t, yasiinSend, talibRecv, "Talib received MIDI message does not match what Yasiin sent")
 }
 
