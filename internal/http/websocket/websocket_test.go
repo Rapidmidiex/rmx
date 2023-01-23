@@ -41,7 +41,11 @@ func testServerPartA() http.Handler {
 		}
 
 		wsc := s.NewConn(conn, nil)
-		s.Subscribe(wsc)
+		err = s.Subscribe(wsc)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 	})
 
 	return mux
@@ -59,7 +63,8 @@ func TestSubscriber(t *testing.T) {
 
 	t.Run("create a new client and connect to echo server", func(t *testing.T) {
 		t.Skip("TODO Update")
-		wsPath := stripPrefix(srv.URL + "/ws")
+
+		wsPath := "ws" + strings.TrimPrefix(srv.URL, "http")
 
 		cli1, _, _, err := ws.DefaultDialer.Dial(ctx, wsPath)
 		is.NoErr(err)      // connect cli1 to server
@@ -126,7 +131,11 @@ func testServerPartB() http.Handler {
 		}
 
 		wsc := room.NewConn(conn, nil)
-		room.Subscribe(wsc)
+		err = room.Subscribe(wsc)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 	})
 
 	return mux
@@ -157,10 +166,6 @@ func TestBroker(t *testing.T) {
 		t.Skip()
 		is.NoErr(nil)
 	})
-}
-
-var stripPrefix = func(s string) string {
-	return "ws" + strings.TrimPrefix(s, "http")
 }
 
 func parseUUID(w http.ResponseWriter, r *http.Request) (uuid.UUID, error) {

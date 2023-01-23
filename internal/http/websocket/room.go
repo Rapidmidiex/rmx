@@ -99,11 +99,10 @@ func (r *Room[SI, CI]) Subscribe(c *Conn[CI]) error {
 		return fmt.Errorf("marshall envelope: %w", err)
 	}
 
-	c.write(&wsutil.Message{
+	return c.write(&wsutil.Message{
 		OpCode:  ws.OpText,
 		Payload: payload,
 	})
-	return nil
 }
 
 // Unsubscribe disconnects the given Connection and removes it from the Connections list.

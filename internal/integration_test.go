@@ -139,7 +139,12 @@ func TestJamFlowAcceptance(t *testing.T) {
 	wsConnA, _, err := websocket.DefaultDialer.Dial(jamWSurl, nil)
 	// TODO: Fails. We should be able to join a Jam with the Jam ID. The service should figure out the rest
 	require.NoErrorf(t, err, "client Alpha could not join Jam room: %q (%s)", newJam.Name, newJam.ID)
-	defer wsConnA.WriteMessage(int(ws.OpClose), nil)
+	defer func() {
+		err := wsConnA.WriteMessage(int(ws.OpClose), nil)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}()
 
 	// Get user ID from Connection Message
 	var envelope msg.Envelope
@@ -154,7 +159,12 @@ func TestJamFlowAcceptance(t *testing.T) {
 	// **** Client B joins Jam **** //
 	wsConnB, _, err := websocket.DefaultDialer.Dial(jamWSurl, nil)
 	require.NoErrorf(t, err, "client Bravo could not join Jam room: %q (%s)", newJam.Name, newJam.ID)
-	defer wsConnB.WriteMessage(int(ws.OpClose), nil)
+	defer func() {
+		err := wsConnA.WriteMessage(int(ws.OpClose), nil)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}()
 
 	// Get user ID B from Connection Message
 	var bConMsg msg.ConnectMsg
@@ -192,7 +202,8 @@ func TestJamFlowAcceptance(t *testing.T) {
 		UserID: userIDA,
 		Typ:    msg.MIDI,
 	}
-	yasiinEnv.SetPayload(yasiinSend)
+	err = yasiinEnv.SetPayload(yasiinSend)
+	require.NoError(t, err)
 
 	err = wsConnA.WriteJSON(yasiinEnv)
 	require.NoErrorf(t, err, "Client A, %q, could not write MIDI note to connection", yasiinEnv.UserID)
