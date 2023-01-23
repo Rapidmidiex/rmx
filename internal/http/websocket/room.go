@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 	"github.com/google/uuid"
 	"github.com/hyphengolang/prelude/types/suid"
