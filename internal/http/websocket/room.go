@@ -154,7 +154,8 @@ func (r *Room[SI, CI]) connect(c *Conn[CI]) {
 			// Only broadcast Text messages
 			// Not client closes,ping/pong, etc
 			// Maybe use ws.isData()
-			if op == ws.OpText {
+			if op.IsData() {
+				log.Printf("OpCode: %v\nisData: %v\n\n", OpCodeToString(op), op.IsData())
 				m := &wsutil.Message{OpCode: op, Payload: b}
 
 				r.broadcast(m)
@@ -162,7 +163,7 @@ func (r *Room[SI, CI]) connect(c *Conn[CI]) {
 			}
 
 			// TODO: Handle other op codes
-			log.Printf("unhandled op code: %v\n", OpCodeToString(op))
+			log.Printf("unhandled op code: %v\nisData: %v\n\n", OpCodeToString(op), op.IsData())
 
 		}
 	}()
