@@ -1,7 +1,11 @@
 // Package msg contains the RMX message types for communication between clients.
 package msg
 
-import "github.com/google/uuid"
+import (
+	"encoding/json"
+
+	"github.com/google/uuid"
+)
 
 type (
 	MsgType   int
@@ -11,10 +15,13 @@ type (
 		Typ    MsgType   `json:"type"`
 		UserID uuid.UUID `json:"userId"`
 		// TextMsg | MIDIMsg | ConnectMsg
-		Payload any `json:"payload"`
+		Payload json.RawMessage `json:"payload"`
 	}
 
-	TextMsg string
+	TextMsg struct {
+		Body string `json:"body"`
+	}
+
 	MIDIMsg struct {
 		State  NoteState `json:"state"`
 		Number int       `json:"number"`
