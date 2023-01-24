@@ -21,7 +21,8 @@ type (
 	}
 
 	TextMsg struct {
-		Body string `json:"body"`
+		DisplayName string `json:"displayName"`
+		Body        string `json:"body"`
 	}
 
 	MIDIMsg struct {
