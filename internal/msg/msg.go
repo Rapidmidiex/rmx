@@ -12,6 +12,8 @@ type (
 	NoteState int
 
 	Envelope struct {
+		// Message identifier
+		ID uuid.UUID `json:"id"`
 		// TextMsg | MIDIMsg | ConnectMsg
 		Typ MsgType `json:"type"`
 		// RMX client identifier
