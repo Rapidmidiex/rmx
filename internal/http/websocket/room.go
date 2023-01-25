@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -9,9 +10,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/brianvoe/gofakeit/v6"
+	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 	"github.com/google/uuid"
 	"github.com/hyphengolang/prelude/types/suid"
+	"github.com/rapidmidiex/rmx/internal/msg"
 )
 
 // Room contains the list of the connections
@@ -72,9 +76,33 @@ func (r *Room[RoomType, ConnType]) NewConn(rwc io.ReadWriteCloser, info *ConnTyp
 }
 
 // Subscribe sets up a read loop on the Connection and broadcasts all messages to the other Connections in the Room.
-func (r *Room[SI, CI]) Subscribe(c *Conn[CI]) {
+func (r *Room[SI, CI]) Subscribe(c *Conn[CI]) error {
 	r.connect(c)
 	r.add(c)
+
+	// TODO Get user from DB or gen anon user
+	conMsg := msg.ConnectMsg{
+		UserID:   c.sid.UUID,
+		UserName: gofakeit.Username(),
+	}
+	envelope := msg.Envelope{
+		Typ:    msg.CONNECT,
+		UserID: conMsg.UserID,
+	}
+	err := envelope.SetPayload(conMsg)
+	if err != nil {
+		return fmt.Errorf("marshall payload: %w", err)
+	}
+	// Write connect message back to client
+	payload, err := json.Marshal(&envelope)
+	if err != nil {
+		return fmt.Errorf("marshall envelope: %w", err)
+	}
+
+	return c.write(&wsutil.Message{
+		OpCode:  ws.OpText,
+		Payload: payload,
+	})
 }
 
 // Unsubscribe disconnects the given Connection and removes it from the Connections list.

@@ -180,7 +180,14 @@ func (s *jamService) handleP2PComms() http.HandlerFunc {
 		u := jam.NewUser("")
 
 		conn := room.NewConn(rwc, u)
-		room.Subscribe(conn)
+		err = room.Subscribe(conn)
+		if err != nil {
+			s.mux.Logf("subscribe: %v\n", err)
+			if err := rwc.Close(); err != nil {
+				s.mux.Logf("close: %v\n", err)
+				s.mux.Respond(w, r, err, http.StatusInternalServerError)
+			}
+		}
 	}
 }
 
