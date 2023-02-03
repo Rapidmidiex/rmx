@@ -48,8 +48,8 @@ const (
 )
 
 const (
-	NOTE_ON NoteState = iota
-	NOTE_OFF
+	NOTE_OFF NoteState = iota
+	NOTE_ON
 )
 
 func (e *Envelope) SetPayload(payload any) error {
