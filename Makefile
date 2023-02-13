@@ -60,7 +60,7 @@ tls:
 .PHONY: postgres
 postgres:
 	docker rm -f postgres-rmx &> /dev/null || true
-	docker run --name $(PG_CONTAINER_NAME) -e PG_PASSWORD=$(PG_PASSWORD) -p $(PG_PORT):5432 -e PG_USER=$(PG_USER) -d postgres:14.6-alpine
+	docker run --name $(PG_CONTAINER_NAME) -e POSTGRES_PASSWORD=$(PG_PASSWORD) -p $(PG_PORT):5432 -e POSTGRES_USER=$(PG_USER) -d postgres:14.6-alpine
 
 .PHONY: createdb
 createdb:
