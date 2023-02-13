@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -11,9 +12,12 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/gobwas/ws"
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 	"github.com/rapidmidiex/rmx/internal/jam"
 	service "github.com/rapidmidiex/rmx/internal/jam/http/v2"
+	"github.com/rapidmidiex/rmx/internal/msg"
 	"github.com/stretchr/testify/require"
 )
 
@@ -37,7 +41,6 @@ func TestService(t *testing.T) {
 			"capacity": 2,
 			"bpm": 120
 		}`
-		log.Println(srv.URL + "/")
 		resp, err := srv.Client().Post(srv.URL+"/api/v1/jam", applicationJSON, strings.NewReader(payload))
 		require.NoError(t, err, "should not error")
 		require.Equal(t, http.StatusCreated, resp.StatusCode, "should return 201")
@@ -71,8 +74,78 @@ func TestService(t *testing.T) {
 		require.Equal(t, roomID, jam.ID, "should have the same ID")
 	})
 
-	t.Run("GET /ws/v1/jam/{uuid}", func(t *testing.T) {
+	t.Run("connect to websocket pool", func(t *testing.T) {
 		// create a new websocket connection
+		// **** Use the Jam selection to join the Jam room **** //
+		wsBase := "ws" + strings.TrimPrefix(srv.URL, "http") + "/ws"
+		jamWSurl := fmt.Sprintf("%s/jam/%s", wsBase, roomID)
+
+		// **** Client A joins Jam **** //
+		wsConnA, _, err := websocket.DefaultDialer.Dial(jamWSurl, nil)
+		require.NoErrorf(t, err, "client Alpha could not join Jam room")
+		defer func() {
+			err := wsConnA.WriteMessage(int(ws.OpClose), nil)
+			if err != nil {
+				fmt.Println(err)
+			}
+		}()
+
+		// Get user ID from Connection Message
+		var envelope msg.Envelope
+		// var aConMsg msg.ConnectMsg
+		// err = wsConnA.ReadJSON(&envelope)
+		// require.NoError(t, err)
+
+		// err = json.Unmarshal(envelope.Payload, &aConMsg)
+		// require.NoError(t, err)
+		// userIDA := aConMsg.UserID
+
+		// **** Client B joins Jam **** //
+		wsConnB, _, err := websocket.DefaultDialer.Dial(jamWSurl, nil)
+		require.NoErrorf(t, err, "client Bravo could not join Jam room")
+		defer func() {
+			err := wsConnA.WriteMessage(int(ws.OpClose), nil)
+			if err != nil {
+				fmt.Println(err)
+			}
+		}()
+
+		// Get user ID B from Connection Message
+		// var bConMsg msg.ConnectMsg
+		// err = wsConnB.ReadJSON(&envelope)
+		// require.NoError(t, err)
+		// require.Equal(t, msg.CONNECT, envelope.Typ, "should be a Connect message")
+		// err = json.Unmarshal(envelope.Payload, &bConMsg)
+		// require.NoError(t, err)
+		// userIDB := bConMsg.UserID
+		// require.NotEmpty(t, userIDB, "User B should have received a connect message containing their user ID")
+
+		// Alpha sends a MIDI message
+		// **** Client A broadcasts a MIDI message **** //
+		yasiinSend := msg.MIDIMsg{
+			State:  msg.NOTE_ON,
+			Number: 60,
+		}
+		yasiinEnv := msg.Envelope{
+			// UserID: userIDA,
+			Typ: msg.MIDI,
+		}
+		err = yasiinEnv.SetPayload(yasiinSend)
+		require.NoError(t, err)
+
+		err = wsConnA.WriteJSON(yasiinEnv)
+		require.NoErrorf(t, err, "Client A, %q, could not write MIDI note to connection", yasiinEnv.UserID)
+
+		// **** Client B receives the MIDI message **** //
+		// Talib should be able to hear MIDI note
+		var talibRecv msg.MIDIMsg
+		err = wsConnB.ReadJSON(&envelope)
+		require.NoError(t, err, "Client B could not read MIDI note from connection")
+		require.Equal(t, msg.MIDI, envelope.Typ, "should be a MIDI message")
+		err = envelope.Unwrap(&talibRecv)
+		require.NoError(t, err, "could not unwrap client B's message")
+		require.Equal(t, yasiinSend, talibRecv, "Talib received MIDI message does not match what Yasiin sent")
+
 	})
 }
 

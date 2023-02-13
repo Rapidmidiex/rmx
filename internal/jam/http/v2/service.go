@@ -20,13 +20,16 @@ type store interface {
 type Service struct {
 	m service.Service
 
-	r store
+	r  store
+	br jam.Broker
 }
 
+// NOTE broker should be a dependency
 func New(ctx context.Context, store store) *Service {
 	s := &Service{
-		m: service.New(),
-		r: store,
+		m:  service.New(),
+		r:  store,
+		br: jam.NewBroker(),
 	}
 	s.routes()
 	return s
@@ -41,7 +44,7 @@ func (s *Service) routes() {
 	// s.m.Get("/api/v1/jam", http.NotFound)
 	s.m.Get("/api/v1/jam/{uuid}", s.handleGetJam())
 
-	s.m.Get("/ws/jam/{uuid}", http.NotFound)
+	s.m.Get("/ws/jam/{uuid}", s.handleP2PConn())
 }
 
 func (s *Service) handleCreateJam() http.HandlerFunc {
@@ -78,6 +81,8 @@ func (s *Service) handleCreateJam() http.HandlerFunc {
 			return
 		}
 
+		s.br.Store(created.ID.String(), &created)
+
 		s.m.Respond(w, r, created, http.StatusCreated)
 	}
 }
@@ -103,7 +108,22 @@ func (s *Service) handleGetJam() http.HandlerFunc {
 
 func (s *Service) handleP2PConn() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// NOTE move to middleware
+		uid, err := parseUUID(r)
+		if err != nil {
+			s.m.Respond(w, r, uid, http.StatusBadRequest)
+			return
+		}
 
+		jam, err := s.r.GetJamByID(r.Context(), uid)
+		if err != nil {
+			s.m.Respond(w, r, err, http.StatusNotFound)
+			return
+		}
+
+		// get from websocket client
+		loaded, _ := s.br.LoadOrStore(jam.ID.String(), &jam)
+		loaded.Client().ServeHTTP(w, r)
 	}
 }
 
