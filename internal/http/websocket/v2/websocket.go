@@ -27,12 +27,17 @@ func read(conn *connHander, cli *Client) {
 
 	conn.setReadDeadLine(pongWait)
 
+	log.Printf("read: %v\n", conn)
+
 	for {
 		msg, err := conn.read()
 		if err != nil {
 			// handle error
+			log.Printf("read err: %v\n", err)
 			break
 		}
+
+		log.Printf("read msg: %v\n", msg)
 
 		cli.bc <- msg
 	}
@@ -44,6 +49,8 @@ func write(conn *connHander) {
 		ticker.Stop()
 		conn.rwc.Close()
 	}()
+
+	log.Printf("write: %v\n", conn)
 
 	for {
 		select {
@@ -76,7 +83,7 @@ type Client struct {
 
 	// Capacity of the send channel.
 	// If capacity is 0, the send channel is unbuffered.
-	Capacity uint8
+	Capacity uint
 }
 
 // TODO -- should be able to close all connections via their own channels
@@ -92,13 +99,14 @@ func (cli *Client) Close() error {
 	return nil
 }
 
-func NewClient() *Client {
+func NewClient(cap uint) *Client {
 	cli := &Client{
 		r:  make(chan *connHander),
 		d:  make(chan *connHander),
 		bc: make(chan *wsutil.Message),
 		cs: make(map[*connHander]bool),
 		u:  &ws.HTTPUpgrader{},
+		// Capacity: cap,
 	}
 
 	go cli.listen()
@@ -144,8 +152,8 @@ func (cli *Client) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	cli.r <- conn
 
-	go write(conn)
 	go read(conn, cli)
+	go write(conn)
 }
 
 type connHander struct {
