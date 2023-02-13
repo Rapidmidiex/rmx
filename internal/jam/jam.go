@@ -8,56 +8,13 @@ import (
 	"github.com/brianvoe/gofakeit/v6"
 	"github.com/google/uuid"
 	"github.com/hyphengolang/prelude/types/suid"
+	"github.com/rapidmidiex/rmx/internal/http/websocket/v2"
 )
 
 const (
 	defaultCapacity = 5
 	defaultBPM      = 120
 )
-
-type Capacity uint
-
-// Implements the UnmarshalJSON interface to set default values
-func (c *Capacity) UnmarshalJSON(data []byte) error {
-	type Alias Capacity
-	aux := &struct {
-		*Alias
-	}{
-		Alias: (*Alias)(c),
-	}
-
-	if err := json.Unmarshal(data, &aux); err != nil {
-		return err
-	}
-
-	if aux.Alias == nil {
-		*c = Capacity(defaultCapacity)
-	}
-
-	return nil
-}
-
-type BPM uint
-
-// Implements the UnmarshalJSON interface to set default values
-func (b *BPM) UnmarshalJSON(data []byte) error {
-	type Alias BPM
-	aux := &struct {
-		*Alias
-	}{
-		Alias: (*Alias)(b),
-	}
-
-	if err := json.Unmarshal(data, &aux); err != nil {
-		return err
-	}
-
-	if aux.Alias == nil {
-		*b = BPM(defaultBPM)
-	}
-
-	return nil
-}
 
 type User struct {
 	ID       suid.UUID
@@ -83,6 +40,32 @@ type Jam struct {
 	Name     string    `json:"name,omitempty"`
 	Capacity uint      `json:"capacity,omitempty"`
 	BPM      uint      `json:"bpm,omitempty"`
+
+	cli *websocket.Client
+}
+
+// NOTE this should not be empty but panic if it is
+func (j *Jam) Client() *websocket.Client {
+	if j.cli == nil {
+		j.cli = websocket.NewClient(j.Capacity)
+	}
+
+	return j.cli
+}
+
+func (j *Jam) Close() error {
+	return j.cli.Close()
+}
+
+// NOTE -- should init on creation as this is just spinning up excessive goroutines
+func (j *Jam) SetClient(cli *websocket.Client) {
+	if j.cli == nil {
+		j.cli = cli
+	}
+}
+
+func (j *Jam) String() string {
+	return "jam no: " + j.ID.String()
 }
 
 func (j *Jam) UnmarshalJSON(data []byte) error {

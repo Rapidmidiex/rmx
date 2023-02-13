@@ -3,88 +3,43 @@ package jam
 import (
 	"sync"
 
-	"github.com/google/uuid"
 	rmx "github.com/rapidmidiex/rmx/internal"
-	"github.com/rapidmidiex/rmx/internal/http/websocket/v2"
 )
 
-type Thread struct {
-	ID       uuid.UUID  `json:"id"`
-	Messages []*Message `json:"messages"`
+type Broker rmx.Broker[string, *Jam]
 
-	cli *websocket.Client
-}
-
-// NOTE this should not be empty but panic if it is
-func (thr *Thread) Client() *websocket.Client {
-	if thr.cli == nil {
-		thr.cli = websocket.NewClient()
-	}
-
-	return thr.cli
-}
-
-func (thr *Thread) Close() error {
-	return thr.cli.Close()
-}
-
-// NOTE -- should init on creation as this is just spinning up excessive goroutines
-func (thr *Thread) SetClient(cli *websocket.Client) {
-	if thr.cli == nil {
-		thr.cli = cli
-	}
-}
-
-func NewThread() *Thread {
-	thread := Thread{ID: uuid.New()}
-
-	return &thread
-}
-
-func (c *Thread) String() string {
-	return "chat no: " + c.ID.String()
-}
-
-type Message struct {
-	ID      int     `json:"id,omitempty"`
-	Content string  `json:"content"`
-	Thread  *Thread `json:"-"`
-}
-
-type Broker rmx.Broker[string, *Thread]
-
-type threadBroker struct {
+type jamBroker struct {
 	m sync.Map
 }
 
 func NewBroker() Broker {
-	b := &threadBroker{}
+	b := &jamBroker{}
 	return b
 }
 
-func (b *threadBroker) Delete(id string) {
+func (b *jamBroker) Delete(id string) {
 	b.m.Delete(id)
 }
 
-func (b *threadBroker) LoadAndDelete(id string) (value *Thread, loaded bool) {
+func (b *jamBroker) LoadAndDelete(id string) (value *Jam, loaded bool) {
 	actual, loaded := b.m.LoadAndDelete(id)
-	return actual.(*Thread), loaded
+	return actual.(*Jam), loaded
 }
 
-func (b *threadBroker) Load(id string) (value *Thread, ok bool) {
+func (b *jamBroker) Load(id string) (value *Jam, ok bool) {
 	v, ok := b.m.Load(id)
-	return v.(*Thread), ok
+	return v.(*Jam), ok
 }
 
-func (b *threadBroker) Store(id string, thread *Thread) {
-	b.m.Store(id, thread)
+func (b *jamBroker) Store(id string, jam *Jam) {
+	b.m.Store(id, jam)
 }
 
-func (b *threadBroker) LoadOrStore(id string, chat *Thread) (*Thread, bool) {
-	actual, loaded := b.m.LoadOrStore(id, chat)
+func (b *jamBroker) LoadOrStore(id string, j *Jam) (*Jam, bool) {
+	actual, loaded := b.m.LoadOrStore(id, j)
 	if !loaded {
-		actual = chat
+		actual = j
 	}
 
-	return actual.(*Thread), loaded
+	return actual.(*Jam), loaded
 }
