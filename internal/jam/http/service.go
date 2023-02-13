@@ -201,7 +201,6 @@ func (s *jamService) routes() {
 	s.mux.Route("/ws/jam", func(r chi.Router) {
 		r.Get("/{uuid}", s.handleP2PComms())
 	})
-
 }
 
 func (s *jamService) parseUUID(r *http.Request) (uuid.UUID, error) {
