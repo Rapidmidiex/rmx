@@ -10,6 +10,55 @@ import (
 	"github.com/hyphengolang/prelude/types/suid"
 )
 
+const (
+	defaultCapacity = 5
+	defaultBPM      = 120
+)
+
+type Capacity uint
+
+// Implements the UnmarshalJSON interface to set default values
+func (c *Capacity) UnmarshalJSON(data []byte) error {
+	type Alias Capacity
+	aux := &struct {
+		*Alias
+	}{
+		Alias: (*Alias)(c),
+	}
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	if aux.Alias == nil {
+		*c = Capacity(defaultCapacity)
+	}
+
+	return nil
+}
+
+type BPM uint
+
+// Implements the UnmarshalJSON interface to set default values
+func (b *BPM) UnmarshalJSON(data []byte) error {
+	type Alias BPM
+	aux := &struct {
+		*Alias
+	}{
+		Alias: (*Alias)(b),
+	}
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	if aux.Alias == nil {
+		*b = BPM(defaultBPM)
+	}
+
+	return nil
+}
+
 type User struct {
 	ID       suid.UUID
 	Username string `json:"username"`
@@ -49,16 +98,17 @@ func (j *Jam) UnmarshalJSON(data []byte) error {
 	}
 
 	if aux.Capacity == 0 {
-		j.Capacity = 10
+		j.Capacity = defaultCapacity
 	}
 
 	if aux.BPM == 0 {
-		j.BPM = 120
+		j.BPM = defaultBPM
 	}
 
 	return nil
 }
 
+// FIXME deprecated, PLEASE DELETE
 // SetDefaults set default values for BPM, Name, and Capacity.
 func (j *Jam) SetDefaults() {
 	// We probably want to declare these defaults somewhere else
