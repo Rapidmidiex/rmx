@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	service "github.com/rapidmidiex/rmx/internal/http"
-	"github.com/rapidmidiex/rmx/internal/http/websocket"
+	"github.com/rapidmidiex/rmx/internal/http/websocket/v1"
 	"github.com/rapidmidiex/rmx/internal/jam"
 
 	"github.com/go-chi/chi/v5"

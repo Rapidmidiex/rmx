@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/rapidmidiex/rmx/internal/http/websocket"
+	"github.com/rapidmidiex/rmx/internal/http/websocket/v1"
 
 	"github.com/go-chi/chi"
 	"github.com/gobwas/ws"
