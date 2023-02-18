@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	v2 "github.com/rapidmidiex/rmx/internal/http/websocket"
+	"github.com/rapidmidiex/rmx/pkg/websocket"
 
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
@@ -17,7 +17,7 @@ import (
 func testServerPartA() http.Handler {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/ws", v2.NewClient(2).ServeHTTP)
+	mux.HandleFunc("/ws", websocket.NewClient(2).ServeHTTP)
 
 	return mux
 }
