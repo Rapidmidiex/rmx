@@ -135,6 +135,8 @@ func (cli *Client) listen() {
 }
 
 func (cli *Client) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// TODO check capacity
+
 	rwc, _, _, err := cli.u.Upgrade(r, w)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
