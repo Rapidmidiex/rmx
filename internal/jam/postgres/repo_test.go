@@ -1,11 +1,11 @@
-package db_test
+package postgres_test
 
 import (
 	"context"
 	"testing"
 
 	"github.com/brianvoe/gofakeit/v6"
-	db "github.com/rapidmidiex/rmx/internal/db/sqlc"
+	db "github.com/rapidmidiex/rmx/internal/jam/postgres/sqlc"
 	"github.com/stretchr/testify/require"
 )
 
