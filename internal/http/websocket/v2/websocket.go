@@ -21,10 +21,12 @@ const (
 
 func read(conn *connHander, cli *Client) {
 	defer func() {
-		cli.d <- conn
+		cli.unregister <- conn
 		conn.rwc.Close()
 	}()
 
+	// FIXME this returns an error
+	// handle and break from function
 	conn.setReadDeadLine(pongWait)
 
 	log.Printf("read: %v\n", conn)
@@ -76,10 +78,10 @@ func write(conn *connHander) {
 }
 
 type Client struct {
-	r, d chan *connHander
-	bc   chan *wsutil.Message
-	cs   map[*connHander]bool
-	u    *ws.HTTPUpgrader
+	register, unregister chan *connHander
+	bc                   chan *wsutil.Message
+	cs                   map[*connHander]bool
+	u                    *ws.HTTPUpgrader
 
 	// Capacity of the send channel.
 	// If capacity is 0, the send channel is unbuffered.
@@ -98,8 +100,8 @@ func (cli *Client) Len() int {
 func (cli *Client) Close() error {
 	defer func() {
 		// close channels
-		close(cli.r)
-		close(cli.d)
+		close(cli.register)
+		close(cli.unregister)
 		close(cli.bc)
 	}()
 
@@ -109,11 +111,11 @@ func (cli *Client) Close() error {
 
 func NewClient(cap uint) *Client {
 	cli := &Client{
-		r:  make(chan *connHander),
-		d:  make(chan *connHander),
-		bc: make(chan *wsutil.Message),
-		cs: make(map[*connHander]bool),
-		u:  &ws.HTTPUpgrader{
+		register:   make(chan *connHander),
+		unregister: make(chan *connHander),
+		bc:         make(chan *wsutil.Message),
+		cs:         make(map[*connHander]bool),
+		u:          &ws.HTTPUpgrader{
 			// TODO may be fields here that worth setting
 		},
 		Capacity: cap,
@@ -126,9 +128,9 @@ func NewClient(cap uint) *Client {
 func (cli *Client) listen() {
 	for {
 		select {
-		case conn := <-cli.r:
+		case conn := <-cli.register:
 			cli.cs[conn] = true
-		case conn := <-cli.d:
+		case conn := <-cli.unregister:
 			delete(cli.cs, conn)
 			close(conn.send)
 		case msg := <-cli.bc:
@@ -165,7 +167,7 @@ func (cli *Client) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		logf: log.Printf,
 	}
 
-	cli.r <- conn
+	cli.register <- conn
 
 	go read(conn, cli)
 	go write(conn)
