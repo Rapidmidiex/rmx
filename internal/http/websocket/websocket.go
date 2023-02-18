@@ -20,7 +20,7 @@ const (
 	pingPeriod = (pongWait * 9) / 10
 )
 
-func read(conn *connHander, cli *Client) {
+func read(conn *connHandler, cli *Client) {
 	defer func() {
 		cli.unregister <- conn
 		conn.rwc.Close()
@@ -46,7 +46,7 @@ func read(conn *connHander, cli *Client) {
 	}
 }
 
-func write(conn *connHander) {
+func write(conn *connHandler) {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
@@ -77,9 +77,9 @@ func write(conn *connHander) {
 }
 
 type Client struct {
-	register, unregister chan *connHander
+	register, unregister chan *connHandler
 	bc                   chan *wsutil.Message
-	cs                   map[*connHander]bool
+	cs                   map[*connHandler]bool
 	u                    *ws.HTTPUpgrader
 
 	// Capacity of the send channel.
@@ -108,12 +108,17 @@ func (cli *Client) Close() error {
 	return nil
 }
 
+/*
+NewClient instantiates a new websocket client.
+
+NOTE: these may be useful to set: Capacity, ReadBufferSize, ReadTimeout, WriteTimeout
+*/
 func NewClient(cap uint) *Client {
 	cli := &Client{
-		register:   make(chan *connHander),
-		unregister: make(chan *connHander),
+		register:   make(chan *connHandler),
+		unregister: make(chan *connHandler),
 		bc:         make(chan *wsutil.Message),
-		cs:         make(map[*connHander]bool),
+		cs:         make(map[*connHandler]bool),
 		u:          &ws.HTTPUpgrader{
 			// TODO may be fields here that worth setting
 		},
@@ -128,6 +133,7 @@ func (cli *Client) listen() {
 	for {
 		select {
 		case conn := <-cli.register:
+			// cli.connectHandler
 			cli.cs[conn] = true
 		case conn := <-cli.unregister:
 			delete(cli.cs, conn)
@@ -159,7 +165,7 @@ func (cli *Client) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conn := &connHander{
+	conn := &connHandler{
 		rwc:  rwc,
 		send: make(chan *wsutil.Message),
 		log:  log.Println,
@@ -172,7 +178,17 @@ func (cli *Client) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	go write(conn)
 }
 
-type connHander struct {
+func (cli *Client) OnConnect(v any) {
+	// cli.register = make(chan *connHandler)
+	// go func() {
+	// 	for {
+	// 		conn := <-cli.register
+	// 		h(conn)
+	// 	}
+	// }()
+}
+
+type connHandler struct {
 	rwc net.Conn
 
 	send chan *wsutil.Message
@@ -181,15 +197,15 @@ type connHander struct {
 	log  func(v ...any)
 }
 
-func (c *connHander) setWriteDeadLine(d time.Duration) error {
+func (c *connHandler) setWriteDeadLine(d time.Duration) error {
 	return c.rwc.SetWriteDeadline(time.Now().Add(d))
 }
 
-func (c *connHander) setReadDeadLine(d time.Duration) error {
+func (c *connHandler) setReadDeadLine(d time.Duration) error {
 	return c.rwc.SetReadDeadline(time.Now().Add(d))
 }
 
-func (c *connHander) read() (*wsutil.Message, error) {
+func (c *connHandler) read() (*wsutil.Message, error) {
 	r := wsutil.NewReader(c.rwc, ws.StateServerSide)
 
 	for {
@@ -205,6 +221,22 @@ func (c *connHander) read() (*wsutil.Message, error) {
 			continue
 		}
 
+		/*
+			// TODO check if this worth doing
+			if !h.OpCode.IsData() {
+				if h.OpCode.IsControl() {
+					if err := c.controlHandler(h, r); err != nil {
+						return nil, fmt.Errorf("control handler: %w", err)
+					}
+					continue
+				}
+			 	if err := r.Discard(); err != nil {
+			 		return nil, fmt.Errorf("discard: %w", err)
+			 	}
+			 	continue
+			}
+		*/
+
 		// where want = ws.OpText|ws.OpBinary
 		// NOTE -- eq: h.OpCode != 0 && h.OpCode != want
 		if want := (ws.OpText | ws.OpBinary); h.OpCode&want == 0 {
@@ -214,6 +246,8 @@ func (c *connHander) read() (*wsutil.Message, error) {
 			continue
 		}
 
+		// TODO the custom handler to parse payload could be done here (?)
+
 		p, err := io.ReadAll(r)
 		if err != nil {
 			return nil, fmt.Errorf("read all: %w", err)
@@ -222,13 +256,12 @@ func (c *connHander) read() (*wsutil.Message, error) {
 	}
 }
 
-func (c *connHander) write(msg *wsutil.Message) error {
-	// NOTE This is server-side
+func (c *connHandler) write(msg *wsutil.Message) error {
 	frame := ws.NewFrame(msg.OpCode, true, msg.Payload)
 	return ws.WriteFrame(c.rwc, frame)
 }
 
-func (c *connHander) controlHandler(h ws.Header, r io.Reader) error {
+func (c *connHandler) controlHandler(h ws.Header, r io.Reader) error {
 	switch op := h.OpCode; op {
 	case ws.OpPing:
 		return c.handlePing(h)
@@ -241,11 +274,14 @@ func (c *connHander) controlHandler(h ws.Header, r io.Reader) error {
 	return wsutil.ErrNotControlFrame
 }
 
-func (c *connHander) handlePing(h ws.Header) error { c.log("ping"); return nil }
+func (c *connHandler) handlePing(h ws.Header) error { c.log("ping"); return nil }
 
-func (c *connHander) handlePong(h ws.Header) error { c.log("pong"); return c.setReadDeadLine(pongWait) }
+func (c *connHandler) handlePong(h ws.Header) error {
+	c.log("pong")
+	return c.setReadDeadLine(pongWait)
+}
 
-func (c *connHander) handleClose(h ws.Header) error { c.log("close"); return nil }
+func (c *connHandler) handleClose(h ws.Header) error { c.log("close"); return nil }
 
 type Broker[K, V any] interface {
 	Load(key K) (value V, ok bool)
