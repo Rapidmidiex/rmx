@@ -57,13 +57,6 @@ func (j *Jam) Close() error {
 	return j.cli.Close()
 }
 
-// NOTE -- should init on creation as this is just spinning up excessive goroutines
-func (j *Jam) SetClient(cli *websocket.Client) {
-	if j.cli == nil {
-		j.cli = cli
-	}
-}
-
 func (j *Jam) String() string {
 	return "jam no: " + j.ID.String()
 }
