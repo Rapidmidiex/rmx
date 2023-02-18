@@ -8,12 +8,14 @@ import (
 	"strings"
 )
 
-func CheckOrigin(origins string) func(http.Handler) http.Handler {
+func CheckOrigin(origins ...string) func(http.Handler) http.Handler {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if err := checkOrigin(r, origins); err != nil {
-				http.Error(w, err.Error(), http.StatusForbidden)
-				return
+			for _, origin := range origins {
+				if err := checkOrigin(r, origin); err != nil {
+					http.Error(w, err.Error(), http.StatusForbidden)
+					return
+				}
 			}
 
 			h.ServeHTTP(w, r)
