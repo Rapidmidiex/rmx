@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -146,7 +147,7 @@ func (cli *Client) listen() {
 func (cli *Client) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// TODO check capacity
 	if cli.Capacity > 0 && len(cli.cs) >= int(cli.Capacity) {
-		http.Error(w, "too many connections", http.StatusTooManyRequests)
+		http.Error(w, "too many connections", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -198,7 +199,7 @@ func (c *connHander) read() (*wsutil.Message, error) {
 
 		if h.OpCode.IsControl() {
 			if err := c.controlHandler(h, r); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("control handler: %w", err)
 			}
 			continue
 		}
@@ -207,14 +208,14 @@ func (c *connHander) read() (*wsutil.Message, error) {
 		// NOTE -- eq: h.OpCode != 0 && h.OpCode != want
 		if want := (ws.OpText | ws.OpBinary); h.OpCode&want == 0 {
 			if err := r.Discard(); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("discard: %w", err)
 			}
 			continue
 		}
 
 		p, err := io.ReadAll(r)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("read all: %w", err)
 		}
 		return &wsutil.Message{OpCode: h.OpCode, Payload: p}, nil
 	}
