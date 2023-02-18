@@ -7,10 +7,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/rapidmidiex/rmx/internal/fp"
 	service "github.com/rapidmidiex/rmx/internal/http"
 	"github.com/rapidmidiex/rmx/internal/jam"
 	repo "github.com/rapidmidiex/rmx/internal/jam/postgres"
+	"github.com/rapidmidiex/rmx/pkg/fp"
 )
 
 type Service struct {
