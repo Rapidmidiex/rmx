@@ -86,6 +86,14 @@ type Client struct {
 	Capacity uint
 }
 
+// Get the number of connections
+func (cli *Client) Len() int {
+	// NOTE a mutex may or may not be required
+	// cli.lock.Lock()
+	// defer cli.lock.Unlock()
+	return len(cli.cs)
+}
+
 // TODO -- should be able to close all connections via their own channels
 func (cli *Client) Close() error {
 	defer func() {
@@ -105,8 +113,10 @@ func NewClient(cap uint) *Client {
 		d:  make(chan *connHander),
 		bc: make(chan *wsutil.Message),
 		cs: make(map[*connHander]bool),
-		u:  &ws.HTTPUpgrader{},
-		// Capacity: cap,
+		u:  &ws.HTTPUpgrader{
+			// TODO may be fields here that worth setting
+		},
+		Capacity: cap,
 	}
 
 	go cli.listen()
@@ -136,20 +146,23 @@ func (cli *Client) listen() {
 
 func (cli *Client) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// TODO check capacity
+	if cli.Capacity > 0 && len(cli.cs) >= int(cli.Capacity) {
+		http.Error(w, "too many connections", http.StatusTooManyRequests)
+		return
+	}
 
 	rwc, _, _, err := cli.u.Upgrade(r, w)
 	if err != nil {
+		// TODO log that there was an error
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	l := log.Default()
-
 	conn := &connHander{
 		rwc:  rwc,
 		send: make(chan *wsutil.Message),
-		log:  l.Println,
-		logf: l.Printf,
+		log:  log.Println,
+		logf: log.Printf,
 	}
 
 	cli.r <- conn
@@ -209,7 +222,7 @@ func (c *connHander) read() (*wsutil.Message, error) {
 }
 
 func (c *connHander) write(msg *wsutil.Message) error {
-	// This is server-side
+	// NOTE This is server-side
 	frame := ws.NewFrame(msg.OpCode, true, msg.Payload)
 	return ws.WriteFrame(c.rwc, frame)
 }
@@ -227,17 +240,16 @@ func (c *connHander) controlHandler(h ws.Header, r io.Reader) error {
 	return wsutil.ErrNotControlFrame
 }
 
-func (c *connHander) handlePing(h ws.Header) error {
-	c.log("ping")
-	return nil
-}
+func (c *connHander) handlePing(h ws.Header) error { c.log("ping"); return nil }
 
-func (c *connHander) handlePong(h ws.Header) error {
-	c.log("pong")
-	return c.setReadDeadLine(pongWait)
-}
+func (c *connHander) handlePong(h ws.Header) error { c.log("pong"); return c.setReadDeadLine(pongWait) }
 
-func (c *connHander) handleClose(h ws.Header) error {
-	c.log("close")
-	return nil
+func (c *connHander) handleClose(h ws.Header) error { c.log("close"); return nil }
+
+type Broker[K, V any] interface {
+	Load(key K) (value V, ok bool)
+	LoadOrStore(key K, value V) (actual V, loaded bool)
+	Store(key K, value V)
+	Delete(key K)
+	LoadAndDelete(key K) (value V, loaded bool)
 }
