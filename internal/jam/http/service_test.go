@@ -34,7 +34,8 @@ func TestService(t *testing.T) {
 
 	var roomID uuid.UUID
 
-	t.Run("POST /api/v1/jam", func(t *testing.T) {
+	/* "POST /api/v1/jam" */
+	{
 		payload := `
 		{
 			"name": "room-1",
@@ -55,10 +56,10 @@ func TestService(t *testing.T) {
 		require.NotEmpty(t, jam.ID, "should have an ID")
 
 		roomID = jam.ID
-	})
+	}
 
-	t.Run("GET /api/v1/jam/{uuid}", func(t *testing.T) {
-
+	/* GET /api/v1/jam/{uuid} */
+	{
 		log.Println(srv.URL + "/api/v1/jam/" + roomID.String())
 
 		resp, err := srv.Client().Get(srv.URL + "/api/v1/jam/" + roomID.String())
@@ -72,9 +73,10 @@ func TestService(t *testing.T) {
 		require.NoError(t, err, "should not error")
 
 		require.Equal(t, roomID, jam.ID, "should have the same ID")
-	})
+	}
 
-	t.Run("connect to websocket pool", func(t *testing.T) {
+	/* "connect to websocket pool" */
+	{
 		// create a new websocket connection
 		// **** Use the Jam selection to join the Jam room **** //
 		wsBase := "ws" + strings.TrimPrefix(srv.URL, "http") + "/ws"
@@ -90,17 +92,22 @@ func TestService(t *testing.T) {
 			}
 		}()
 
-		// Get user ID from Connection Message
-		var envelope msg.Envelope
-		// var aConMsg msg.ConnectMsg
-		// err = wsConnA.ReadJSON(&envelope)
-		// require.NoError(t, err)
+		/* TODO: this needs to pass before this PR can even be allowed
+		need to resolve this by sending message on connection */
+		{
+			// Get user ID from Connection Message
+			// var envelope msg.Envelope
+			// var aConMsg msg.ConnectMsg
+			// err = wsConnA.ReadJSON(&envelope)
+			// require.NoError(t, err)
 
-		// err = json.Unmarshal(envelope.Payload, &aConMsg)
-		// require.NoError(t, err)
-		// userIDA := aConMsg.UserID
+			// err = json.Unmarshal(envelope.Payload, &aConMsg)
+			// require.NoError(t, err)
+			// userIDA := aConMsg.UserID
+		}
 
 		// **** Client B joins Jam **** //
+		var envelope msg.Envelope
 		wsConnB, _, err := websocket.DefaultDialer.Dial(jamWSurl, nil)
 		require.NoErrorf(t, err, "client Bravo could not join Jam room")
 		defer func() {
@@ -110,15 +117,19 @@ func TestService(t *testing.T) {
 			}
 		}()
 
-		// Get user ID B from Connection Message
-		// var bConMsg msg.ConnectMsg
-		// err = wsConnB.ReadJSON(&envelope)
-		// require.NoError(t, err)
-		// require.Equal(t, msg.CONNECT, envelope.Typ, "should be a Connect message")
-		// err = json.Unmarshal(envelope.Payload, &bConMsg)
-		// require.NoError(t, err)
-		// userIDB := bConMsg.UserID
-		// require.NotEmpty(t, userIDB, "User B should have received a connect message containing their user ID")
+		/* TODO: this needs to pass before this PR can even be allowed
+		need to resolve this by sending message on connection */
+		{
+			// Get user ID B from Connection Message
+			// var bConMsg msg.ConnectMsg
+			// err = wsConnB.ReadJSON(&envelope)
+			// require.NoError(t, err)
+			// require.Equal(t, msg.CONNECT, envelope.Typ, "should be a Connect message")
+			// err = json.Unmarshal(envelope.Payload, &bConMsg)
+			// require.NoError(t, err)
+			// userIDB := bConMsg.UserID
+			// require.NotEmpty(t, userIDB, "User B should have received a connect message containing their user ID")
+		}
 
 		// Alpha sends a MIDI message
 		// **** Client A broadcasts a MIDI message **** //
@@ -146,7 +157,7 @@ func TestService(t *testing.T) {
 		require.NoError(t, err, "could not unwrap client B's message")
 		require.Equal(t, yasiinSend, talibRecv, "Talib received MIDI message does not match what Yasiin sent")
 
-	})
+	}
 }
 
 type testStore struct {
