@@ -12,9 +12,9 @@ import (
 
 	"github.com/gobwas/ws"
 	"github.com/gorilla/websocket"
-	"github.com/rapidmidiex/rmx/internal/db"
 	jam "github.com/rapidmidiex/rmx/internal/jam"
-	jamHTTP "github.com/rapidmidiex/rmx/internal/jam/http"
+	jamHTTP "github.com/rapidmidiex/rmx/internal/jam/http/v1"
+	jamRepo "github.com/rapidmidiex/rmx/internal/jam/postgres"
 	"github.com/rapidmidiex/rmx/internal/msg"
 	"github.com/stretchr/testify/require"
 )
@@ -30,7 +30,10 @@ func TestRESTAcceptance(t *testing.T) {
 		err := cleanDB(pgDB)
 		require.NoError(t, err)
 
-		store := db.Store{Q: testQueries}
+		// FIXME I do not like this
+		// store := db.Store{Q: testQueries}
+		store := jamRepo.New(pgDB)
+
 		rmxSrv := jamHTTP.NewService(context.Background(), store)
 		// wsBase := rmxSrv.URL + "/ws"
 
@@ -70,7 +73,10 @@ func TestRESTAcceptance(t *testing.T) {
 		err := cleanDB(pgDB)
 		require.NoError(t, err)
 
-		store := db.Store{Q: testQueries}
+		// FIXME I do not like this
+		// store := db.Store{Q: testQueries}
+		store := jamRepo.New(pgDB)
+
 		rmxSrv := jamHTTP.NewService(context.Background(), store)
 
 		newJamResp := httptest.NewRecorder()
@@ -93,7 +99,10 @@ func TestJamFlowAcceptance(t *testing.T) {
 	err := cleanDB(pgDB)
 	require.NoError(t, err)
 
-	store := db.Store{Q: testQueries}
+	// FIXME I do not like this
+	// store := db.Store{Q: testQueries}
+	store := jamRepo.New(pgDB)
+
 	jamSvc := jamHTTP.NewService(
 		context.Background(),
 		store,

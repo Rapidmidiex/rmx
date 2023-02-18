@@ -14,11 +14,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/manifoldco/promptui"
 	"github.com/rapidmidiex/rmx/internal/cmd/internal/config"
-	db "github.com/rapidmidiex/rmx/internal/db"
-	jam "github.com/rapidmidiex/rmx/internal/jam/http/v2"
+	jamHTTP "github.com/rapidmidiex/rmx/internal/jam/http/v2"
+	jamRepo "github.com/rapidmidiex/rmx/internal/jam/postgres"
 
 	"github.com/rs/cors"
 	"github.com/urfave/cli/v2"
@@ -283,9 +284,14 @@ func serve(cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
-	store := db.NewStore(conn)
-	h := jam.NewService(sCtx, store)
+	store := jamRepo.New(conn)
+
 	/* START SERVICES BLOCK */
+	h := chi.NewMux()
+
+	// NOTE would like to handle the prefix here as opposed to
+	// in the jamHTTP package
+	h.Mount("/", jamHTTP.New(sCtx, store))
 
 	srv := http.Server{
 		Addr:    ":" + cfg.ServerPort,
