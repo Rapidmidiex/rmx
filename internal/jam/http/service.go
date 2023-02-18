@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	service "github.com/rapidmidiex/rmx/internal/http"
 	"github.com/rapidmidiex/rmx/internal/jam"
-	repo "github.com/rapidmidiex/rmx/internal/jam/postgres"
+	jamDB "github.com/rapidmidiex/rmx/internal/jam/postgres"
 	"github.com/rapidmidiex/rmx/pkg/fp"
 )
 
@@ -17,11 +17,11 @@ type Service struct {
 	mux service.Service
 
 	wsb  jam.Broker
-	repo repo.Repo
+	repo jamDB.Repo
 }
 
 // NOTE broker should be a dependency
-func New(ctx context.Context, r repo.Repo) *Service {
+func New(ctx context.Context, r jamDB.Repo) *Service {
 	s := Service{
 		mux:  service.New(),
 		repo: r,
@@ -116,20 +116,22 @@ func (s *Service) handleListJams() http.HandlerFunc {
 func (s *Service) handleP2PConn() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// NOTE move to middleware
-		uid, err := parseUUID(r)
+		jamID, err := parseUUID(r)
 		if err != nil {
-			s.mux.Respond(w, r, uid, http.StatusBadRequest)
+			s.mux.Respond(w, r, jamID, http.StatusBadRequest)
 			return
 		}
 
-		jam, err := s.repo.GetJamByID(r.Context(), uid)
+		// userID, err := parseQueryParams(r)
+
+		jam, err := s.repo.GetJamByID(r.Context(), jamID)
 		if err != nil {
 			s.mux.Respond(w, r, err, http.StatusNotFound)
 			return
 		}
 
 		// get from websocket client
-		loaded, _ := s.wsb.LoadOrStore(jam.ID.String(), &jam)
+		loaded, _ := s.wsb.LoadOrStore(jam.ID, &jam)
 		loaded.Client().ServeHTTP(w, r)
 	}
 }

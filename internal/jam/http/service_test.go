@@ -16,7 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/rapidmidiex/rmx/internal/jam"
-	service "github.com/rapidmidiex/rmx/internal/jam/http/v2"
+	service "github.com/rapidmidiex/rmx/internal/jam/http"
 	"github.com/rapidmidiex/rmx/internal/msg"
 	"github.com/stretchr/testify/require"
 )
