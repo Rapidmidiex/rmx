@@ -18,8 +18,8 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/manifoldco/promptui"
 	"github.com/rapidmidiex/rmx/internal/cmd/internal/config"
-	jamHTTP "github.com/rapidmidiex/rmx/internal/jam/http/v2"
-	jamRepo "github.com/rapidmidiex/rmx/internal/jam/postgres"
+	jamHTTP "github.com/rapidmidiex/rmx/internal/jam/http"
+	jamDB "github.com/rapidmidiex/rmx/internal/jam/postgres"
 
 	"github.com/rs/cors"
 	"github.com/urfave/cli/v2"
@@ -284,7 +284,7 @@ func serve(cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
-	store := jamRepo.New(conn)
+	store := jamDB.New(conn)
 
 	/* START SERVICES BLOCK */
 	h := chi.NewMux()
