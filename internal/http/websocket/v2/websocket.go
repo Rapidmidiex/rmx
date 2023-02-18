@@ -25,14 +25,10 @@ func read(conn *connHander, cli *Client) {
 		conn.rwc.Close()
 	}()
 
-	// FIXME this returns an error
-	// handle and break from function
 	if err := conn.setReadDeadLine(pongWait); err != nil {
 		conn.logf("read err: %v\n", err)
 		return
 	}
-
-	conn.log("read\n")
 
 	for {
 		msg, err := conn.read()
@@ -54,8 +50,6 @@ func write(conn *connHander) {
 		ticker.Stop()
 		conn.rwc.Close()
 	}()
-
-	log.Printf("write: %v\n", conn)
 
 	for {
 		select {
