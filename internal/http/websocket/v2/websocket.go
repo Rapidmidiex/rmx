@@ -39,6 +39,7 @@ func read(conn *connHander, cli *Client) {
 			break
 		}
 
+		// TODO: add a way use custom read validation here unsure how yet
 		log.Printf("read msg: %v\n", msg)
 
 		cli.bc <- msg
@@ -194,7 +195,7 @@ func (c *connHander) read() (*wsutil.Message, error) {
 	for {
 		h, err := r.NextFrame()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("next frame: %w", err)
 		}
 
 		if h.OpCode.IsControl() {
