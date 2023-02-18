@@ -1,19 +1,19 @@
 package jam
 
 import (
-	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
+	"sync"
 
-	"github.com/brianvoe/gofakeit/v6"
+	fake "github.com/brianvoe/gofakeit/v6"
 	"github.com/google/uuid"
 	"github.com/hyphengolang/prelude/types/suid"
 	"github.com/rapidmidiex/rmx/internal/http/websocket/v2"
 )
 
 const (
-	defaultBPM = 120
+	defaultBPM      = 120
+	defaultCapacity = 10
 )
 
 type User struct {
@@ -23,7 +23,7 @@ type User struct {
 
 func NewUser(username string) *User {
 	if strings.TrimSpace(username) == "" {
-		username = gofakeit.Username()
+		username = fake.Username()
 	}
 
 	u := &User{
@@ -68,92 +68,55 @@ func (j *Jam) String() string {
 	return "jam no: " + j.ID.String()
 }
 
-func (j *Jam) UnmarshalJSON(data []byte) error {
-	type Alias Jam
-	aux := &struct {
-		*Alias
-	}{
-		Alias: (*Alias)(j),
-	}
-
-	if err := json.Unmarshal(data, &aux); err != nil {
-		return err
-	}
-
-	if aux.Capacity == 0 {
-		j.Capacity = defaultCapacity
-	}
-
-	if aux.BPM == 0 {
-		j.BPM = defaultBPM
-	}
-
-	return nil
-}
-
-// FIXME deprecated, PLEASE DELETE
 // SetDefaults set default values for BPM, Name, and Capacity.
 func (j *Jam) SetDefaults() {
-	// We probably want to declare these defaults somewhere else
 	if j.BPM == 0 {
-		j.BPM = 120
+		j.BPM = defaultBPM
 	}
 	if j.Name == "" {
-		j.Name = fmt.Sprintf("%s %s", gofakeit.AdjectiveDescriptive(), gofakeit.NounAbstract())
+		j.Name = fmt.Sprintf("%s %s", fake.AdjectiveDescriptive(), fake.NounAbstract())
 	}
 	if j.Capacity == 0 {
-		j.Capacity = 5
+		j.Capacity = defaultCapacity
 	}
 }
 
-const defaultCapacity = 10
+// Broker is responsible of delegating the creation of a new Jam and the
+// management of the Jam's websocket clients.
+type Broker websocket.Broker[string, *Jam]
 
-// default capacity is 10
-// minimum capacity is 2
-type Capacity uint
-
-func NewCapacity(n uint) Capacity {
-	if n == 0 {
-		n = defaultCapacity
-	}
-
-	if err := validateCapacity(n); err != nil {
-		panic(err)
-	}
-
-	return Capacity(n)
+type jamBroker struct {
+	m sync.Map
 }
 
-// custom un-marshalling for Capacity
-func (c *Capacity) UnmarshalJSON(data []byte) error {
-	var i uint
-	if err := json.Unmarshal(data, &i); err != nil {
-		return err
-	}
-
-	if i == 0 {
-		i = defaultCapacity
-	}
-
-	if err := validateCapacity(i); err != nil {
-		log.Println("unmarshalled capacity: ", i)
-		return err
-	}
-
-	*c = Capacity(i)
-
-	return nil
+func NewBroker() Broker {
+	b := &jamBroker{}
+	return b
 }
 
-// custom marshalling for Capacity
-func (c Capacity) MarshalJSON() ([]byte, error) {
-	return json.Marshal(uint(c))
+func (b *jamBroker) Delete(id string) {
+	b.m.Delete(id)
 }
 
-func validateCapacity(n uint) error {
-	if n < 2 {
-		return fmt.Errorf("capacity must be greater than 2")
+func (b *jamBroker) LoadAndDelete(id string) (value *Jam, loaded bool) {
+	actual, loaded := b.m.LoadAndDelete(id)
+	return actual.(*Jam), loaded
+}
+
+func (b *jamBroker) Load(id string) (value *Jam, ok bool) {
+	v, ok := b.m.Load(id)
+	return v.(*Jam), ok
+}
+
+func (b *jamBroker) Store(id string, jam *Jam) {
+	b.m.Store(id, jam)
+}
+
+func (b *jamBroker) LoadOrStore(id string, j *Jam) (*Jam, bool) {
+	actual, loaded := b.m.LoadOrStore(id, j)
+	if !loaded {
+		actual = j
 	}
 
-	return nil
+	return actual.(*Jam), loaded
 }
