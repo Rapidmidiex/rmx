@@ -18,7 +18,7 @@ import (
 	"github.com/manifoldco/promptui"
 	"github.com/rapidmidiex/rmx/internal/cmd/internal/config"
 	db "github.com/rapidmidiex/rmx/internal/db"
-	jam "github.com/rapidmidiex/rmx/internal/jam/http"
+	jam "github.com/rapidmidiex/rmx/internal/jam/http/v2"
 
 	"github.com/rs/cors"
 	"github.com/urfave/cli/v2"
