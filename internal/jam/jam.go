@@ -83,7 +83,7 @@ func (j *Jam) SetDefaults() {
 
 // Broker is responsible of delegating the creation of a new Jam and the
 // management of the Jam's websocket clients.
-type Broker websocket.Broker[string, *Jam]
+type Broker websocket.Broker[uuid.UUID, *Jam]
 
 type jamBroker struct {
 	m sync.Map
@@ -94,25 +94,25 @@ func NewBroker() Broker {
 	return b
 }
 
-func (b *jamBroker) Delete(id string) {
+func (b *jamBroker) Delete(id uuid.UUID) {
 	b.m.Delete(id)
 }
 
-func (b *jamBroker) LoadAndDelete(id string) (value *Jam, loaded bool) {
+func (b *jamBroker) LoadAndDelete(id uuid.UUID) (value *Jam, loaded bool) {
 	actual, loaded := b.m.LoadAndDelete(id)
 	return actual.(*Jam), loaded
 }
 
-func (b *jamBroker) Load(id string) (value *Jam, ok bool) {
+func (b *jamBroker) Load(id uuid.UUID) (value *Jam, ok bool) {
 	v, ok := b.m.Load(id)
 	return v.(*Jam), ok
 }
 
-func (b *jamBroker) Store(id string, jam *Jam) {
+func (b *jamBroker) Store(id uuid.UUID, jam *Jam) {
 	b.m.Store(id, jam)
 }
 
-func (b *jamBroker) LoadOrStore(id string, j *Jam) (*Jam, bool) {
+func (b *jamBroker) LoadOrStore(id uuid.UUID, j *Jam) (*Jam, bool) {
 	actual, loaded := b.m.LoadOrStore(id, j)
 	if !loaded {
 		actual = j
