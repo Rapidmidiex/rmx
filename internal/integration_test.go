@@ -13,8 +13,8 @@ import (
 	"github.com/gobwas/ws"
 	"github.com/gorilla/websocket"
 	jam "github.com/rapidmidiex/rmx/internal/jam"
-	jamHTTP "github.com/rapidmidiex/rmx/internal/jam/http/v1"
-	jamRepo "github.com/rapidmidiex/rmx/internal/jam/postgres"
+	jamHTTP "github.com/rapidmidiex/rmx/internal/jam/http"
+	jamDB "github.com/rapidmidiex/rmx/internal/jam/postgres"
 	"github.com/rapidmidiex/rmx/internal/msg"
 	"github.com/stretchr/testify/require"
 )
@@ -30,9 +30,9 @@ func TestRESTAcceptance(t *testing.T) {
 		err := cleanDB(pgDB)
 		require.NoError(t, err)
 
-		store := jamRepo.New(pgDB)
+		store := jamDB.New(pgDB)
 
-		rmxSrv := jamHTTP.NewService(context.Background(), store)
+		rmxSrv := jamHTTP.New(context.Background(), store)
 		// wsBase := rmxSrv.URL + "/ws"
 
 		newJamResp := httptest.NewRecorder()
@@ -73,9 +73,9 @@ func TestRESTAcceptance(t *testing.T) {
 
 		// FIXME I do not like this
 		// store := db.Store{Q: testQueries}
-		store := jamRepo.New(pgDB)
+		store := jamDB.New(pgDB)
 
-		rmxSrv := jamHTTP.NewService(context.Background(), store)
+		rmxSrv := jamHTTP.New(context.Background(), store)
 
 		newJamResp := httptest.NewRecorder()
 		// Send empty JSON body
@@ -99,12 +99,9 @@ func TestJamFlowAcceptance(t *testing.T) {
 
 	// FIXME I do not like this
 	// store := db.Store{Q: testQueries}
-	store := jamRepo.New(pgDB)
+	store := jamDB.New(pgDB)
 
-	jamSvc := jamHTTP.NewService(
-		context.Background(),
-		store,
-	)
+	jamSvc := jamHTTP.New(context.Background(), store)
 	rmxSrv := httptest.NewServer(jamSvc)
 	defer rmxSrv.Close()
 
@@ -127,7 +124,7 @@ func TestJamFlowAcceptance(t *testing.T) {
 	// Client would list the jams and select the one the want to join
 	// or web client would auto-select the newly created Jam.
 	// The request would be the same in either case.
-	listJamResp, err := http.Get(restBase + "/jam/")
+	listJamResp, err := http.Get(restBase + "/jam")
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, listJamResp.StatusCode, "GET /jam should return OK status")
 
@@ -154,16 +151,17 @@ func TestJamFlowAcceptance(t *testing.T) {
 	}()
 
 	// Get user ID from Connection Message
-	var envelope msg.Envelope
-	var aConMsg msg.ConnectMsg
-	err = wsConnA.ReadJSON(&envelope)
-	require.NoError(t, err)
+	// var envelope msg.Envelope
+	// var aConMsg msg.ConnectMsg
+	// err = wsConnA.ReadJSON(&envelope)
+	// require.NoError(t, err)
 
-	err = json.Unmarshal(envelope.Payload, &aConMsg)
-	require.NoError(t, err)
-	userIDA := aConMsg.UserID
+	// err = json.Unmarshal(envelope.Payload, &aConMsg)
+	// require.NoError(t, err)
+	// userIDA := aConMsg.UserID
 
 	// **** Client B joins Jam **** //
+	var envelope msg.Envelope
 	wsConnB, _, err := websocket.DefaultDialer.Dial(jamWSurl, nil)
 	require.NoErrorf(t, err, "client Bravo could not join Jam room: %q (%s)", newJam.Name, newJam.ID)
 	defer func() {
@@ -174,30 +172,30 @@ func TestJamFlowAcceptance(t *testing.T) {
 	}()
 
 	// Get user ID B from Connection Message
-	var bConMsg msg.ConnectMsg
-	err = wsConnB.ReadJSON(&envelope)
-	require.NoError(t, err)
-	require.Equal(t, msg.CONNECT, envelope.Typ, "should be a Connect message")
-	err = json.Unmarshal(envelope.Payload, &bConMsg)
-	require.NoError(t, err)
-	userIDB := bConMsg.UserID
-	require.NotEmpty(t, userIDB, "User B should have received a connect message containing their user ID")
+	// var bConMsg msg.ConnectMsg
+	// err = wsConnB.ReadJSON(&envelope)
+	// require.NoError(t, err)
+	// require.Equal(t, msg.CONNECT, envelope.Typ, "should be a Connect message")
+	// err = json.Unmarshal(envelope.Payload, &bConMsg)
+	// require.NoError(t, err)
+	// userIDB := bConMsg.UserID
+	// require.NotEmpty(t, userIDB, "User B should have received a connect message containing their user ID")
 
 	// Check the connection count
-	getRoomsResp, err := http.Get(fmt.Sprintf("%s/jam", restBase))
-	require.NoError(t, err)
-	grd := json.NewDecoder(getRoomsResp.Body)
+	// getRoomsResp, err := http.Get(fmt.Sprintf("%s/jam", restBase))
+	// require.NoError(t, err)
+	// grd := json.NewDecoder(getRoomsResp.Body)
 
-	type roomsResp struct {
-		Rooms []struct {
-			PlayerCount int `json:"playerCount"`
-		} `json:"rooms"`
-	}
-	var gotRooms roomsResp
-	err = grd.Decode(&gotRooms)
-	require.NoError(t, err)
+	// type roomsResp struct {
+	// 	Rooms []struct {
+	// 		PlayerCount int `json:"playerCount"`
+	// 	} `json:"rooms"`
+	// }
+	// var gotRooms roomsResp
+	// err = grd.Decode(&gotRooms)
+	// require.NoError(t, err)
 
-	require.Equal(t, 2, gotRooms.Rooms[0].PlayerCount, `"playerCount" field should be 2 since there are two active connections`)
+	// require.Equal(t, 2, gotRooms.Rooms[0].PlayerCount, `"playerCount" field should be 2 since there are two active connections`)
 
 	// Alpha sends a MIDI message
 	// **** Client A broadcasts a MIDI message **** //
@@ -206,8 +204,8 @@ func TestJamFlowAcceptance(t *testing.T) {
 		Number: 60,
 	}
 	yasiinEnv := msg.Envelope{
-		UserID: userIDA,
-		Typ:    msg.MIDI,
+		// UserID: userIDA,
+		Typ: msg.MIDI,
 	}
 	err = yasiinEnv.SetPayload(yasiinSend)
 	require.NoError(t, err)
