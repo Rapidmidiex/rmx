@@ -7,30 +7,25 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/rapidmidiex/rmx/internal/fp"
 	service "github.com/rapidmidiex/rmx/internal/http"
 	"github.com/rapidmidiex/rmx/internal/jam"
+	repo "github.com/rapidmidiex/rmx/internal/jam/postgres"
 )
-
-// TODO this needs to be moved into the repository pacakge
-type store interface {
-	CreateJam(context.Context, jam.Jam) (jam.Jam, error)
-	GetJams(context.Context) ([]jam.Jam, error)
-	GetJamByID(ctx context.Context, id uuid.UUID) (jam.Jam, error)
-}
 
 type Service struct {
 	mux service.Service
 
-	store store
-	wsb   jam.Broker
+	wsb  jam.Broker
+	repo repo.Repo
 }
 
 // NOTE broker should be a dependency
-func NewService(ctx context.Context, store store) *Service {
+func New(ctx context.Context, r repo.Repo) *Service {
 	s := Service{
-		mux:   service.New(),
-		store: store,
-		wsb:   jam.NewBroker(),
+		mux:  service.New(),
+		repo: r,
+		wsb:  jam.NewBroker(),
 	}
 	s.routes()
 	return &s
@@ -44,6 +39,7 @@ func (s *Service) routes() {
 	s.mux.Post("/api/v1/jam", s.handleCreateJam())
 	s.mux.Get("/api/v1/jam", s.handleListJams())
 	s.mux.Get("/api/v1/jam/{uuid}", s.handleGetJam())
+
 	s.mux.Get("/ws/jam/{uuid}", s.handleP2PConn())
 }
 
@@ -58,14 +54,13 @@ func (s *Service) handleCreateJam() http.HandlerFunc {
 
 		j.SetDefaults()
 
-		created, err := s.store.CreateJam(r.Context(), j)
+		created, err := s.repo.CreateJam(r.Context(), j)
 		if err != nil {
 			s.mux.Logf("createJam: %v\n", err)
 			s.mux.Respond(w, r, err, http.StatusInternalServerError)
 			return
 		}
 
-		// s.br.Store(created.ID.String(), &created)
 		s.mux.Respond(w, r, created, http.StatusCreated)
 	}
 }
@@ -80,7 +75,7 @@ func (s *Service) handleGetJam() http.HandlerFunc {
 			return
 		}
 
-		jam, err := s.store.GetJamByID(r.Context(), jamID)
+		jam, err := s.repo.GetJamByID(r.Context(), jamID)
 		if err != nil {
 			s.mux.Logf("getJamByID: %v\n", err)
 			s.mux.Respond(w, r, err, http.StatusNotFound)
@@ -92,28 +87,26 @@ func (s *Service) handleGetJam() http.HandlerFunc {
 }
 
 func (s *Service) handleListJams() http.HandlerFunc {
-	type roomResp struct {
+	type room struct {
 		jam.Jam
 		PlayerCount int `json:"playerCount"`
 	}
+
 	type response struct {
-		Rooms []roomResp `json:"rooms"`
+		Rooms []room `json:"rooms"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
-		jams, err := s.store.GetJams(r.Context())
+		jams, err := s.repo.GetJams(r.Context())
 		if err != nil {
 			s.mux.Logf("getJams: %v", err)
 			s.mux.Respond(w, r, err, http.StatusInternalServerError)
 			return
 		}
 
-		var resp response
-		resp.Rooms = make([]roomResp, 0)
-		for _, j := range jams {
-			resp.Rooms = append(resp.Rooms, roomResp{
-				Jam:         j,
-				PlayerCount: -1, // TODO fix this later
-			})
+		resp := response{
+			Rooms: fp.FMap(jams, func(j jam.Jam) room {
+				return room{j, j.Client().Len()}
+			}),
 		}
 
 		s.mux.Respond(w, r, resp, http.StatusOK)
@@ -129,7 +122,7 @@ func (s *Service) handleP2PConn() http.HandlerFunc {
 			return
 		}
 
-		jam, err := s.store.GetJamByID(r.Context(), uid)
+		jam, err := s.repo.GetJamByID(r.Context(), uid)
 		if err != nil {
 			s.mux.Respond(w, r, err, http.StatusNotFound)
 			return
