@@ -30,8 +30,6 @@ func TestRESTAcceptance(t *testing.T) {
 		err := cleanDB(pgDB)
 		require.NoError(t, err)
 
-		// FIXME I do not like this
-		// store := db.Store{Q: testQueries}
 		store := jamRepo.New(pgDB)
 
 		rmxSrv := jamHTTP.NewService(context.Background(), store)
