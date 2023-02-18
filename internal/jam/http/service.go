@@ -112,7 +112,6 @@ func (s *jamService) handleListJams() http.HandlerFunc {
 	type response struct {
 		Rooms []roomResp `json:"rooms"`
 	}
-
 	return func(w http.ResponseWriter, r *http.Request) {
 		jams, err := s.store.GetJams(r.Context())
 		if err != nil {

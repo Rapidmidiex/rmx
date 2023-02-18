@@ -26,7 +26,7 @@ var applicationJSON = "application/json"
 func TestService(t *testing.T) {
 	ctx := context.Background()
 
-	h := service.New(ctx, newTestStore())
+	h := service.NewService(ctx, newTestStore())
 
 	srv := httptest.NewServer(h)
 

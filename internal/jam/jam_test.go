@@ -2,6 +2,7 @@ package jam_test
 
 import (
 	"encoding/json"
+	"log"
 	"strings"
 	"testing"
 
@@ -42,4 +43,64 @@ func TestUnmarshalJam(t *testing.T) {
 	})
 }
 
-func TestMarshalJam(t *testing.T) {}
+func TestCapacity(t *testing.T) {
+	is := is.New(t)
+
+	t.Run("capacity from json payload", func(t *testing.T) {
+		type testcase struct {
+			name     string
+			input    string
+			expected uint
+			err      error
+		}
+
+		tt := []testcase{
+			{
+				name:     "capacity is 5",
+				input:    `{ "capacity": 5 }`,
+				expected: 5,
+			},
+			{
+				name:     "capacity is 10",
+				input:    `{ "capacity": 10 }`,
+				expected: 10,
+			},
+			{
+				name:     "default capacity",
+				input:    `{ "capacity": 0 }`,
+				expected: 10,
+			},
+			{
+				name:     "implicit default capacity",
+				input:    `{  }`,
+				expected: 10,
+			},
+			{
+				name:  "invalid capacity",
+				input: `{ "capacity": 1 }`,
+				// expected: 10, // should error
+			},
+		}
+
+		for _, tc := range tt {
+			t.Run(tc.name, func(t *testing.T) {
+				type payload struct {
+					Capacity jam.Capacity `json:"capacity"`
+				}
+
+				var p payload
+				err := json.NewDecoder(strings.NewReader(tc.input)).Decode(&p)
+
+				log.Println(p)
+
+				if err != nil {
+					is.Equal(err, tc.err) // decoding payload
+					return
+				}
+
+				is.Equal(jam.Capacity(tc.expected), p.Capacity) // capacity
+			})
+		}
+
+	})
+}

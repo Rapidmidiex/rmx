@@ -3,6 +3,7 @@ package jam
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/brianvoe/gofakeit/v6"
@@ -12,8 +13,7 @@ import (
 )
 
 const (
-	defaultCapacity = 5
-	defaultBPM      = 120
+	defaultBPM = 120
 )
 
 type User struct {
@@ -104,4 +104,56 @@ func (j *Jam) SetDefaults() {
 	if j.Capacity == 0 {
 		j.Capacity = 5
 	}
+}
+
+const defaultCapacity = 10
+
+// default capacity is 10
+// minimum capacity is 2
+type Capacity uint
+
+func NewCapacity(n uint) Capacity {
+	if n == 0 {
+		n = defaultCapacity
+	}
+
+	if err := validateCapacity(n); err != nil {
+		panic(err)
+	}
+
+	return Capacity(n)
+}
+
+// custom un-marshalling for Capacity
+func (c *Capacity) UnmarshalJSON(data []byte) error {
+	var i uint
+	if err := json.Unmarshal(data, &i); err != nil {
+		return err
+	}
+
+	if i == 0 {
+		i = defaultCapacity
+	}
+
+	if err := validateCapacity(i); err != nil {
+		log.Println("unmarshalled capacity: ", i)
+		return err
+	}
+
+	*c = Capacity(i)
+
+	return nil
+}
+
+// custom marshalling for Capacity
+func (c Capacity) MarshalJSON() ([]byte, error) {
+	return json.Marshal(uint(c))
+}
+
+func validateCapacity(n uint) error {
+	if n < 2 {
+		return fmt.Errorf("capacity must be greater than 2")
+	}
+
+	return nil
 }

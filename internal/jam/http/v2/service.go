@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"io"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -18,91 +19,104 @@ type store interface {
 }
 
 type Service struct {
-	m service.Service
+	mux service.Service
 
-	r  store
-	br jam.Broker
+	store store
+	wsb   jam.Broker
 }
 
 // NOTE broker should be a dependency
-func New(ctx context.Context, store store) *Service {
-	s := &Service{
-		m:  service.New(),
-		r:  store,
-		br: jam.NewBroker(),
+func NewService(ctx context.Context, store store) *Service {
+	s := Service{
+		mux:   service.New(),
+		store: store,
+		wsb:   jam.NewBroker(),
 	}
 	s.routes()
-	return s
+	return &s
 }
 
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.m.ServeHTTP(w, r)
+	s.mux.ServeHTTP(w, r)
 }
 
 func (s *Service) routes() {
-	s.m.Post("/api/v1/jam", s.handleCreateJam())
-	// s.m.Get("/api/v1/jam", http.NotFound)
-	s.m.Get("/api/v1/jam/{uuid}", s.handleGetJam())
-
-	s.m.Get("/ws/jam/{uuid}", s.handleP2PConn())
+	s.mux.Post("/api/v1/jam", s.handleCreateJam())
+	s.mux.Get("/api/v1/jam", s.handleListJams())
+	s.mux.Get("/api/v1/jam/{uuid}", s.handleGetJam())
+	s.mux.Get("/ws/jam/{uuid}", s.handleP2PConn())
 }
 
 func (s *Service) handleCreateJam() http.HandlerFunc {
-	type Q struct {
-		Name     string `json:"name"`
-		Capacity uint   `json:"capacity"`
-		BPM      uint   `json:"bpm"`
-	}
-
-	newJam := func(w http.ResponseWriter, r *http.Request) (jam.Jam, error) {
-		var q Q
-		if err := s.m.Decode(w, r, &q); err != nil {
-			return jam.Jam{}, err
-		}
-
-		j := jam.Jam{
-			Name:     q.Name,
-			Capacity: q.Capacity,
-			BPM:      q.BPM,
-		}
-		return j, nil
-	}
-
 	return func(w http.ResponseWriter, r *http.Request) {
-		j, err := newJam(w, r)
-		if err != nil {
-			s.m.Respond(w, r, err, http.StatusBadRequest)
+		var j jam.Jam
+		if err := s.mux.Decode(w, r, &j); err != nil && err != io.EOF {
+			s.mux.Logf("decode: %v\n", err)
+			s.mux.Respond(w, r, err, http.StatusBadRequest)
 			return
 		}
 
-		created, err := s.r.CreateJam(r.Context(), j)
+		j.SetDefaults()
+
+		created, err := s.store.CreateJam(r.Context(), j)
 		if err != nil {
-			s.m.Respond(w, r, err, http.StatusInternalServerError)
+			s.mux.Logf("createJam: %v\n", err)
+			s.mux.Respond(w, r, err, http.StatusInternalServerError)
 			return
 		}
 
-		s.br.Store(created.ID.String(), &created)
-
-		s.m.Respond(w, r, created, http.StatusCreated)
+		// s.br.Store(created.ID.String(), &created)
+		s.mux.Respond(w, r, created, http.StatusCreated)
 	}
 }
 
 func (s *Service) handleGetJam() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// NOTE move to middleware
-		uid, err := parseUUID(r)
+		jamID, err := parseUUID(r)
 		if err != nil {
-			s.m.Respond(w, r, uid, http.StatusBadRequest)
+			s.mux.Logf("parseUUID: %v\n", err)
+			s.mux.Respond(w, r, jamID, http.StatusBadRequest)
 			return
 		}
 
-		jam, err := s.r.GetJamByID(r.Context(), uid)
+		jam, err := s.store.GetJamByID(r.Context(), jamID)
 		if err != nil {
-			s.m.Respond(w, r, err, http.StatusNotFound)
+			s.mux.Logf("getJamByID: %v\n", err)
+			s.mux.Respond(w, r, err, http.StatusNotFound)
 			return
 		}
 
-		s.m.Respond(w, r, jam, http.StatusOK)
+		s.mux.Respond(w, r, jam, http.StatusOK)
+	}
+}
+
+func (s *Service) handleListJams() http.HandlerFunc {
+	type roomResp struct {
+		jam.Jam
+		PlayerCount int `json:"playerCount"`
+	}
+	type response struct {
+		Rooms []roomResp `json:"rooms"`
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		jams, err := s.store.GetJams(r.Context())
+		if err != nil {
+			s.mux.Logf("getJams: %v", err)
+			s.mux.Respond(w, r, err, http.StatusInternalServerError)
+			return
+		}
+
+		var resp response
+		resp.Rooms = make([]roomResp, 0)
+		for _, j := range jams {
+			resp.Rooms = append(resp.Rooms, roomResp{
+				Jam:         j,
+				PlayerCount: -1, // TODO fix this later
+			})
+		}
+
+		s.mux.Respond(w, r, resp, http.StatusOK)
 	}
 }
 
@@ -111,18 +125,18 @@ func (s *Service) handleP2PConn() http.HandlerFunc {
 		// NOTE move to middleware
 		uid, err := parseUUID(r)
 		if err != nil {
-			s.m.Respond(w, r, uid, http.StatusBadRequest)
+			s.mux.Respond(w, r, uid, http.StatusBadRequest)
 			return
 		}
 
-		jam, err := s.r.GetJamByID(r.Context(), uid)
+		jam, err := s.store.GetJamByID(r.Context(), uid)
 		if err != nil {
-			s.m.Respond(w, r, err, http.StatusNotFound)
+			s.mux.Respond(w, r, err, http.StatusNotFound)
 			return
 		}
 
 		// get from websocket client
-		loaded, _ := s.br.LoadOrStore(jam.ID.String(), &jam)
+		loaded, _ := s.wsb.LoadOrStore(jam.ID.String(), &jam)
 		loaded.Client().ServeHTTP(w, r)
 	}
 }
@@ -130,4 +144,12 @@ func (s *Service) handleP2PConn() http.HandlerFunc {
 func parseUUID(r *http.Request) (uuid.UUID, error) {
 	p := chi.URLParam(r, "uuid")
 	return uuid.Parse(p)
+}
+
+type Option func(*Service)
+
+func WithBroker(ctx context.Context, cap uint) Option {
+	return func(s *Service) {
+		s.wsb = jam.NewBroker()
+	}
 }
