@@ -8,7 +8,7 @@ import (
 	fake "github.com/brianvoe/gofakeit/v6"
 	"github.com/google/uuid"
 	"github.com/hyphengolang/prelude/types/suid"
-	"github.com/rapidmidiex/rmx/internal/http/websocket"
+	"github.com/rapidmidiex/rmx/pkg/websocket"
 )
 
 const (
