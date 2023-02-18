@@ -27,9 +27,12 @@ func read(conn *connHander, cli *Client) {
 
 	// FIXME this returns an error
 	// handle and break from function
-	conn.setReadDeadLine(pongWait)
+	if err := conn.setReadDeadLine(pongWait); err != nil {
+		conn.logf("read err: %v\n", err)
+		return
+	}
 
-	log.Printf("read: %v\n", conn)
+	conn.log("read\n")
 
 	for {
 		msg, err := conn.read()
