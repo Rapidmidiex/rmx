@@ -21,7 +21,12 @@ import (
 
 type (
 	listJamsResponse struct {
-		Rooms []jam.Jam `json:"rooms"`
+		Rooms []room `json:"rooms"`
+	}
+
+	room struct {
+		jam.Jam
+		PlayerCount int `json:"playerCount"`
 	}
 )
 
@@ -171,6 +176,17 @@ func TestJamFlowAcceptance(t *testing.T) {
 		}
 	}()
 
+	// Check the player count
+	playerCountResp, err := http.Get(restBase + "/jam")
+	require.NoError(t, err)
+
+	d := json.NewDecoder(playerCountResp.Body)
+	var playerCounts listJamsResponse
+	err = d.Decode(&playerCounts)
+	require.NoError(t, err)
+
+	require.Equal(t, 2, playerCounts.Rooms[0].PlayerCount, "'playerCount' field should list 2 players")
+
 	// Get user ID B from Connection Message
 	// var bConMsg msg.ConnectMsg
 	// err = wsConnB.ReadJSON(&envelope)
@@ -226,6 +242,7 @@ func TestJamFlowAcceptance(t *testing.T) {
 
 // newPostJamReq creates a POST /jam request to REST API to create a new Jam.
 func newPostJamReq(t *testing.T, jamBody io.Reader) *http.Request {
+	t.Helper()
 	req, err := http.NewRequest(http.MethodPost, "/api/v1/jam", jamBody)
 	require.NoError(t, err)
 	return req
@@ -233,6 +250,7 @@ func newPostJamReq(t *testing.T, jamBody io.Reader) *http.Request {
 
 // newGetJamsReq creates a GET /jam request to REST API to list available Jams.
 func newGetJamsReq(t *testing.T) *http.Request {
+	t.Helper()
 	req, err := http.NewRequest(http.MethodGet, "/api/v1/jam", nil)
 	require.NoError(t, err)
 	return req

@@ -42,7 +42,7 @@ func read(conn *connHandler, cli *Client) {
 		// TODO: add a way use custom read validation here unsure how yet
 		log.Printf("read msg: %v\n", msg)
 
-		cli.bc <- msg
+		cli.broadcast <- msg
 	}
 }
 
@@ -78,9 +78,9 @@ func write(conn *connHandler) {
 
 type Client struct {
 	register, unregister chan *connHandler
-	bc                   chan *wsutil.Message
-	cs                   map[*connHandler]bool
-	u                    *ws.HTTPUpgrader
+	broadcast            chan *wsutil.Message
+	connections          map[*connHandler]bool
+	upgrader             *ws.HTTPUpgrader
 
 	// Capacity of the send channel.
 	// If capacity is 0, the send channel is unbuffered.
@@ -92,7 +92,7 @@ func (cli *Client) Len() int {
 	// NOTE a mutex may or may not be required
 	// cli.lock.Lock()
 	// defer cli.lock.Unlock()
-	return len(cli.cs)
+	return len(cli.connections)
 }
 
 // TODO -- should be able to close all connections via their own channels
@@ -101,10 +101,10 @@ func (cli *Client) Close() error {
 		// close channels
 		close(cli.register)
 		close(cli.unregister)
-		close(cli.bc)
+		close(cli.broadcast)
 	}()
 
-	cli.bc <- &wsutil.Message{OpCode: ws.OpClose, Payload: []byte{}} // broadcast close
+	cli.broadcast <- &wsutil.Message{OpCode: ws.OpClose, Payload: []byte{}} // broadcast close
 	return nil
 }
 
@@ -115,11 +115,11 @@ NOTE: these may be useful to set: Capacity, ReadBufferSize, ReadTimeout, WriteTi
 */
 func NewClient(cap uint) *Client {
 	cli := &Client{
-		register:   make(chan *connHandler),
-		unregister: make(chan *connHandler),
-		bc:         make(chan *wsutil.Message),
-		cs:         make(map[*connHandler]bool),
-		u:          &ws.HTTPUpgrader{
+		register:    make(chan *connHandler),
+		unregister:  make(chan *connHandler),
+		broadcast:   make(chan *wsutil.Message),
+		connections: make(map[*connHandler]bool),
+		upgrader:    &ws.HTTPUpgrader{
 			// TODO may be fields here that worth setting
 		},
 		Capacity: cap,
@@ -134,17 +134,17 @@ func (cli *Client) listen() {
 		select {
 		case conn := <-cli.register:
 			// cli.connectHandler
-			cli.cs[conn] = true
+			cli.connections[conn] = true
 		case conn := <-cli.unregister:
-			delete(cli.cs, conn)
+			delete(cli.connections, conn)
 			close(conn.send)
-		case msg := <-cli.bc:
-			for conn := range cli.cs {
+		case msg := <-cli.broadcast:
+			for conn := range cli.connections {
 				select {
 				case conn.send <- msg:
 				default:
 					close(conn.send)
-					delete(cli.cs, conn)
+					delete(cli.connections, conn)
 				}
 			}
 		}
@@ -153,12 +153,12 @@ func (cli *Client) listen() {
 
 func (cli *Client) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// TODO check capacity
-	if cli.Capacity > 0 && len(cli.cs) >= int(cli.Capacity) {
+	if cli.Capacity > 0 && len(cli.connections) >= int(cli.Capacity) {
 		http.Error(w, "too many connections", http.StatusServiceUnavailable)
 		return
 	}
 
-	rwc, _, _, err := cli.u.Upgrade(r, w)
+	rwc, _, _, err := cli.upgrader.Upgrade(r, w)
 	if err != nil {
 		// TODO log that there was an error
 		http.Error(w, err.Error(), http.StatusBadRequest)

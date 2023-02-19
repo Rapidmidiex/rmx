@@ -105,7 +105,11 @@ func (s *Service) handleListJams() http.HandlerFunc {
 
 		resp := response{
 			Rooms: fp.FMap(jams, func(j jam.Jam) room {
-				return room{j, j.Client().Len()}
+				loaded, _ := s.wsb.LoadOrStore(j.ID, &j)
+				return room{
+					*loaded,
+					loaded.Client().Len(),
+				}
 			}),
 		}
 
