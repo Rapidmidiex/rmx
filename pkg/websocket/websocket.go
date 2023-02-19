@@ -56,9 +56,9 @@ func write(conn *connHandler) {
 	for {
 		select {
 		case msg, ok := <-conn.send:
-			conn.setWriteDeadLine(writeWait)
+			_ = conn.setWriteDeadLine(writeWait)
 			if !ok {
-				conn.write(&wsutil.Message{OpCode: ws.OpClose, Payload: []byte{}})
+				_ = conn.write(&wsutil.Message{OpCode: ws.OpClose, Payload: []byte{}})
 				return
 			}
 
@@ -67,7 +67,7 @@ func write(conn *connHandler) {
 				return
 			}
 		case <-ticker.C:
-			conn.setWriteDeadLine(writeWait)
+			_ = conn.setWriteDeadLine(writeWait)
 			if err := conn.write(&wsutil.Message{OpCode: ws.OpPing, Payload: nil}); err != nil {
 				conn.logf("ticker err: %v\n", err)
 				return
