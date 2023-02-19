@@ -16,14 +16,14 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
-	db "github.com/rapidmidiex/rmx/internal/jam/postgres/sqlc"
+	"github.com/rapidmidiex/rmx/internal/jam/postgres/sqlc"
 )
 
 //go:embed jam/postgres/migration/*.sql
 var migrations embed.FS
 
 var pgDB *sql.DB
-var testQueries *db.Queries
+var testQueries *sqlc.Queries
 var dbName = "rmx-test"
 var pgUser = "rmx-test"
 var pgPass = "password123dev"
@@ -38,7 +38,7 @@ func TestMain(m *testing.M) {
 			log.Fatalf("cannot connect to db: %s\nconnection string: %s", err, databaseURL)
 		}
 
-		testQueries = db.New(pgDB)
+		testQueries = sqlc.New(pgDB)
 		// Run tests
 		code := m.Run()
 		os.Exit(code)
@@ -97,7 +97,7 @@ func TestMain(m *testing.M) {
 		log.Fatalf("Could not connect to docker: %s", err)
 	}
 	// Instantiate testQueries
-	testQueries = db.New(pgDB)
+	testQueries = sqlc.New(pgDB)
 
 	err = migrateUp()
 	if err != nil {
@@ -127,10 +127,12 @@ func migrateUp() error {
 	if err != nil {
 		return fmt.Errorf("NewWithSourceInstance: %w", err)
 	}
+
 	err = mg.Up()
 	if err != nil {
 		return fmt.Errorf("up: %w", err)
 	}
+
 	return nil
 }
 
@@ -145,6 +147,7 @@ func cleanDB(conn *sql.DB) error {
 	if err != nil {
 		return fmt.Errorf("NewWithSourceInstance: %w", err)
 	}
+
 	if err = mg.Down(); err != nil {
 		return fmt.Errorf("drop: %w", err)
 	}

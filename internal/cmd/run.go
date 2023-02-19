@@ -14,7 +14,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/manifoldco/promptui"
 	"github.com/rapidmidiex/rmx/internal/cmd/internal/config"
@@ -284,18 +283,12 @@ func serve(cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
-	store := jamDB.New(conn)
+	jamHTTP := newJamService(sCtx, conn)
 
 	/* START SERVICES BLOCK */
-	h := chi.NewMux()
-
-	// NOTE would like to handle the prefix here as opposed to
-	// in the jamHTTP package
-	h.Mount("/", jamHTTP.New(sCtx, store))
-
 	srv := http.Server{
 		Addr:    ":" + cfg.ServerPort,
-		Handler: cors.New(c).Handler(h),
+		Handler: cors.New(c).Handler(jamHTTP),
 		// max time to read request from the client
 		ReadTimeout: 10 * time.Second,
 		// max time to write response to the client
@@ -305,8 +298,6 @@ func serve(cfg *config.Config) error {
 		BaseContext: func(_ net.Listener) context.Context { return sCtx },
 		ErrorLog:    log.Default(),
 	}
-
-	// srv.TLSConfig.
 
 	g, gCtx := errgroup.WithContext(sCtx)
 
@@ -331,4 +322,10 @@ func serve(cfg *config.Config) error {
 // StartServer starts the RMX application.
 func StartServer(cfg *config.Config) error {
 	return serve(cfg)
+}
+
+func newJamService(ctx context.Context, conn *sql.DB) *jamHTTP.Service {
+	jamDB := jamDB.New(conn)
+	jamHTTP := jamHTTP.New(ctx, jamDB)
+	return jamHTTP
 }
