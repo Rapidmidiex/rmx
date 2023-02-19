@@ -165,7 +165,7 @@ func TestJamFlowAcceptance(t *testing.T) {
 	wsConnB, _, err := websocket.DefaultDialer.Dial(jamWSurl, nil)
 	require.NoErrorf(t, err, "client Bravo could not join Jam room: %q (%s)", newJam.Name, newJam.ID)
 	defer func() {
-		err := wsConnA.WriteMessage(int(ws.OpClose), nil)
+		err := wsConnB.WriteMessage(int(ws.OpClose), nil)
 		if err != nil {
 			fmt.Println(err)
 		}
