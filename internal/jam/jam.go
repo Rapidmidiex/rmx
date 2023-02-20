@@ -87,6 +87,7 @@ func NewBroker() Broker {
 	return b
 }
 
+// Delete deletes a jam from the broker.
 func (b *jamBroker) Delete(id uuid.UUID) {
 	b.m.Delete(id)
 }
@@ -96,15 +97,20 @@ func (b *jamBroker) LoadAndDelete(id uuid.UUID) (value *Jam, loaded bool) {
 	return actual.(*Jam), loaded
 }
 
+// Load loads an existing jam from the broker.
 func (b *jamBroker) Load(id uuid.UUID) (value *Jam, ok bool) {
 	v, ok := b.m.Load(id)
 	return v.(*Jam), ok
 }
 
+// Store stores the jam in the broker.
 func (b *jamBroker) Store(id uuid.UUID, jam *Jam) {
 	b.m.Store(id, jam)
 }
 
+// LoadOrStore returns the existing jam for the id if present.
+// Otherwise, it stores and returns the given jam.
+// The loaded result is true if the value was loaded, false if stored.
 func (b *jamBroker) LoadOrStore(id uuid.UUID, j *Jam) (*Jam, bool) {
 	actual, loaded := b.m.LoadOrStore(id, j)
 	if !loaded {

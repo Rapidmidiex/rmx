@@ -40,7 +40,7 @@ func read(conn *connHandler, cli *Client) {
 	for {
 		wsMsg, err := conn.read()
 		if err != nil {
-			// handle error
+			// TODO: handle error
 			conn.logf("read err: %v\n", err)
 			break
 		}
@@ -100,9 +100,8 @@ type Client struct {
 	Capacity uint
 }
 
-// Get the number of connections
+// Len returns the number of connections.
 func (cli *Client) Len() int {
-	// NOTE a mutex may or may not be required
 	cli.lock.Lock()
 	defer cli.lock.Unlock()
 	return len(cli.connections)
@@ -134,7 +133,7 @@ func NewClient(cap uint) *Client {
 		lock:        &sync.Mutex{},
 		connections: make(map[*connHandler]bool),
 		upgrader:    &ws.HTTPUpgrader{
-			// TODO may be fields here that worth setting
+			// TODO: may be fields here that worth setting
 		},
 		Capacity: cap,
 	}
@@ -191,16 +190,6 @@ func (cli *Client) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	go read(conn, cli)
 	go write(conn)
-}
-
-func (cli *Client) OnConnect(v any) {
-	// cli.register = make(chan *connHandler)
-	// go func() {
-	// 	for {
-	// 		conn := <-cli.register
-	// 		h(conn)
-	// 	}
-	// }()
 }
 
 type connHandler struct {
