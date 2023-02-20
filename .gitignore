@@ -26,3 +26,6 @@ certs
 rmx.config.json
 rmx-dev.config.json
 .secrets
+
+# hide staging
+fly.*.toml
