@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
+	"github.com/rapidmidiex/rmx/internal/msg"
 )
 
 const (
@@ -23,26 +25,35 @@ const (
 func read(conn *connHandler, cli *Client) {
 	defer func() {
 		cli.unregister <- conn
-		conn.rwc.Close()
+		err := conn.rwc.Close()
+		if err != nil {
+			conn.logf("conn close: %v", err)
+		}
 	}()
 
 	if err := conn.setReadDeadLine(pongWait); err != nil {
-		conn.logf("read err: %v\n", err)
+		conn.logf("setReadDeadLine: %v\n", err)
 		return
 	}
 
 	for {
-		msg, err := conn.read()
+		wsMsg, err := conn.read()
 		if err != nil {
 			// handle error
-			log.Printf("read err: %v\n", err)
+			conn.logf("read err: %v\n", err)
 			break
 		}
 
 		// TODO: add a way use custom read validation here unsure how yet
-		log.Printf("read msg: %v\n", msg)
+		var envelope msg.Envelope
+		if err := json.Unmarshal(wsMsg.Payload, &envelope); err != nil {
+			log.Printf("wsMsg unmarshal: %v", err)
+			log.Printf("read msg: OpCode: %v\n\n", wsMsg.OpCode)
+		} else {
+			log.Printf("read msg:\nType: %d\nID: %s\nUserID: %s\n\n", envelope.Typ, envelope.ID, envelope.UserID)
+		}
 
-		cli.broadcast <- msg
+		cli.broadcast <- wsMsg
 	}
 }
 
