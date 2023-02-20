@@ -181,11 +181,11 @@ func TestJamFlowAcceptance(t *testing.T) {
 	require.NoError(t, err)
 
 	d := json.NewDecoder(playerCountResp.Body)
-	var playerCounts listJamsResponse
-	err = d.Decode(&playerCounts)
+	var gotRooms listJamsResponse
+	err = d.Decode(&gotRooms)
 	require.NoError(t, err)
 
-	require.Equal(t, 2, playerCounts.Rooms[0].PlayerCount, "'playerCount' field should list 2 players")
+	require.Equal(t, 2, gotRooms.Rooms[0].PlayerCount, `"playerCount" field should be 2 since there are two active connections`)
 
 	// Get user ID B from Connection Message
 	// var bConMsg msg.ConnectMsg
@@ -196,22 +196,6 @@ func TestJamFlowAcceptance(t *testing.T) {
 	// require.NoError(t, err)
 	// userIDB := bConMsg.UserID
 	// require.NotEmpty(t, userIDB, "User B should have received a connect message containing their user ID")
-
-	// Check the connection count
-	// getRoomsResp, err := http.Get(fmt.Sprintf("%s/jam", restBase))
-	// require.NoError(t, err)
-	// grd := json.NewDecoder(getRoomsResp.Body)
-
-	// type roomsResp struct {
-	// 	Rooms []struct {
-	// 		PlayerCount int `json:"playerCount"`
-	// 	} `json:"rooms"`
-	// }
-	// var gotRooms roomsResp
-	// err = grd.Decode(&gotRooms)
-	// require.NoError(t, err)
-
-	// require.Equal(t, 2, gotRooms.Rooms[0].PlayerCount, `"playerCount" field should be 2 since there are two active connections`)
 
 	// Alpha sends a MIDI message
 	// **** Client A broadcasts a MIDI message **** //
