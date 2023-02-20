@@ -50,9 +50,9 @@ func read(conn *connHandler, cli *Client) {
 
 		// TODO: add a way use custom read validation here unsure how yet
 		var envelope msg.Envelope
+		log.Printf("read msg: OpCode: %v\n\n", wsMsg.OpCode)
 		if err := json.Unmarshal(wsMsg.Payload, &envelope); err != nil {
 			log.Printf("wsMsg unmarshal: %v", err)
-			log.Printf("read msg: OpCode: %v\n\n", wsMsg.OpCode)
 		} else {
 			log.Printf("read msg:\nType: %d\nID: %s\nUserID: %s\n\n", envelope.Typ, envelope.ID, envelope.UserID)
 		}
@@ -166,7 +166,11 @@ func (cli *Client) listen() {
 				select {
 				case conn.send <- msg:
 				default:
-					conn.debug("broadcast channel handler: default case")
+					// From Gorilla WS
+					// https://github.com/gorilla/websocket/tree/master/examples/chat#hub
+					// If the client’s send buffer is full, then the hub assumes that the client is dead or stuck. In this case, the hub unregisters the client and closes the websocket
+					conn.debug("conn.send channel buffer possible full\n")
+					conn.debugF("broadcast channel handler: default case:\nopCode: %d\npayload: %+v\n", msg.OpCode, msg.Payload)
 					close(conn.send)
 					delete(cli.connections, conn)
 				}
@@ -193,7 +197,7 @@ func (cli *Client) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	conn := &connHandler{
 		rwc:  rwc,
-		send: make(chan *wsutil.Message),
+		send: make(chan *wsutil.Message, 256),
 		log:  log.Println,
 		logF: log.Printf,
 		debug: func(v ...any) {
