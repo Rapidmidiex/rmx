@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gobwas/ws"
@@ -90,6 +91,7 @@ func write(conn *connHandler) {
 type Client struct {
 	register, unregister chan *connHandler
 	broadcast            chan *wsutil.Message
+	lock                 *sync.Mutex
 	connections          map[*connHandler]bool
 	upgrader             *ws.HTTPUpgrader
 
@@ -101,8 +103,8 @@ type Client struct {
 // Get the number of connections
 func (cli *Client) Len() int {
 	// NOTE a mutex may or may not be required
-	// cli.lock.Lock()
-	// defer cli.lock.Unlock()
+	cli.lock.Lock()
+	defer cli.lock.Unlock()
 	return len(cli.connections)
 }
 
@@ -129,6 +131,7 @@ func NewClient(cap uint) *Client {
 		register:    make(chan *connHandler),
 		unregister:  make(chan *connHandler),
 		broadcast:   make(chan *wsutil.Message),
+		lock:        &sync.Mutex{},
 		connections: make(map[*connHandler]bool),
 		upgrader:    &ws.HTTPUpgrader{
 			// TODO may be fields here that worth setting
@@ -144,8 +147,9 @@ func (cli *Client) listen() {
 	for {
 		select {
 		case conn := <-cli.register:
-			// cli.connectHandler
+			cli.lock.Lock()
 			cli.connections[conn] = true
+			cli.lock.Unlock()
 		case conn := <-cli.unregister:
 			delete(cli.connections, conn)
 			close(conn.send)
@@ -164,7 +168,7 @@ func (cli *Client) listen() {
 
 func (cli *Client) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// TODO check capacity
-	if cli.Capacity > 0 && len(cli.connections) >= int(cli.Capacity) {
+	if cli.Capacity > 0 && cli.Len() >= int(cli.Capacity) {
 		http.Error(w, "too many connections", http.StatusServiceUnavailable)
 		return
 	}
