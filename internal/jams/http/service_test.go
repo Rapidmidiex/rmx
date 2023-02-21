@@ -15,8 +15,8 @@ import (
 	"github.com/gobwas/ws"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/rapidmidiex/rmx/internal/jam"
-	service "github.com/rapidmidiex/rmx/internal/jam/http"
+	"github.com/rapidmidiex/rmx/internal/jams"
+	jamsHTTP "github.com/rapidmidiex/rmx/internal/jams/http"
 	"github.com/rapidmidiex/rmx/internal/msg"
 	"github.com/stretchr/testify/require"
 )
@@ -24,8 +24,8 @@ import (
 var applicationJSON = "application/json"
 
 func TestService(t *testing.T) {
-	opt := service.WithRepo(newTestStore())
-	h := service.New(opt)
+	opt := jamsHTTP.WithRepo(newTestStore())
+	h := jamsHTTP.New(opt)
 
 	srv := httptest.NewServer(h)
 
@@ -48,7 +48,7 @@ func TestService(t *testing.T) {
 		// get uuid from body
 		defer resp.Body.Close()
 
-		var jam jam.Jam
+		var jam jams.Jam
 		err = json.NewDecoder(resp.Body).Decode(&jam)
 		require.NoError(t, err, "should not error")
 
@@ -67,7 +67,7 @@ func TestService(t *testing.T) {
 
 		defer resp.Body.Close()
 
-		var jam jam.Jam
+		var jam jams.Jam
 		err = json.NewDecoder(resp.Body).Decode(&jam)
 		require.NoError(t, err, "should not error")
 
@@ -162,21 +162,21 @@ func TestService(t *testing.T) {
 
 type testStore struct {
 	mu sync.Mutex
-	m  map[uuid.UUID]jam.Jam
+	m  map[uuid.UUID]jams.Jam
 }
 
 func newTestStore() *testStore {
 	s := &testStore{
-		m: make(map[uuid.UUID]jam.Jam),
+		m: make(map[uuid.UUID]jams.Jam),
 	}
 	return s
 }
 
-func (s *testStore) CreateJam(ctx context.Context, j jam.Jam) (jam.Jam, error) {
+func (s *testStore) CreateJam(ctx context.Context, j jams.Jam) (jams.Jam, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	created := jam.Jam{
+	created := jams.Jam{
 		ID:       uuid.New(),
 		Name:     j.Name,
 		Capacity: j.Capacity,
@@ -187,16 +187,16 @@ func (s *testStore) CreateJam(ctx context.Context, j jam.Jam) (jam.Jam, error) {
 	return created, nil
 }
 
-func (s *testStore) GetJams(context.Context) ([]jam.Jam, error) {
+func (s *testStore) GetJams(context.Context) ([]jams.Jam, error) {
 	panic("implement me")
 }
 
-func (s *testStore) GetJamByID(ctx context.Context, id uuid.UUID) (jam.Jam, error) {
+func (s *testStore) GetJamByID(ctx context.Context, id uuid.UUID) (jams.Jam, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	j, ok := s.m[id]
 	if !ok {
-		return jam.Jam{}, errors.New("jam not found")
+		return jams.Jam{}, errors.New("jam not found")
 	}
 
 	return j, nil

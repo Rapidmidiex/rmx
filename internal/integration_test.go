@@ -11,9 +11,9 @@ import (
 
 	"github.com/gobwas/ws"
 	"github.com/gorilla/websocket"
-	jam "github.com/rapidmidiex/rmx/internal/jam"
-	jamHTTP "github.com/rapidmidiex/rmx/internal/jam/http"
-	jamDB "github.com/rapidmidiex/rmx/internal/jam/postgres"
+	jam "github.com/rapidmidiex/rmx/internal/jams"
+	jamHTTP "github.com/rapidmidiex/rmx/internal/jams/http"
+	jamDB "github.com/rapidmidiex/rmx/internal/jams/postgres"
 	"github.com/rapidmidiex/rmx/internal/msg"
 	"github.com/stretchr/testify/require"
 )

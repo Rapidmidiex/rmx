@@ -7,14 +7,14 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	service "github.com/rapidmidiex/rmx/internal/http"
-	"github.com/rapidmidiex/rmx/internal/jam"
-	jamDB "github.com/rapidmidiex/rmx/internal/jam/postgres"
+	"github.com/rapidmidiex/rmx/internal/jams"
+	jamsDB "github.com/rapidmidiex/rmx/internal/jams/postgres"
 	"github.com/rapidmidiex/rmx/pkg/fp"
 )
 
 type Option func(*Service)
 
-func WithRepo(r jamDB.Repo) Option {
+func WithRepo(r jamsDB.Repo) Option {
 	return func(s *Service) {
 		s.repo = r
 	}
@@ -22,8 +22,8 @@ func WithRepo(r jamDB.Repo) Option {
 
 type Service struct {
 	mux  service.Service
-	repo jamDB.Repo
-	wsb  jam.Broker
+	repo jamsDB.Repo
+	wsb  jams.Broker
 }
 
 // NOTE broker should be a dependency
@@ -31,7 +31,7 @@ type Service struct {
 func New(opts ...Option) *Service {
 	s := Service{
 		mux: service.New(),
-		wsb: jam.NewBroker(),
+		wsb: jams.NewBroker(),
 	}
 
 	for _, opt := range opts {
@@ -62,7 +62,7 @@ func (s *Service) routes() {
 
 func (s *Service) handleCreateJam() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var j jam.Jam
+		var j jams.Jam
 		if err := s.mux.Decode(w, r, &j); err != nil && err != io.EOF {
 			s.mux.Logf("decode: %v\n", err)
 			s.mux.Respond(w, r, err, http.StatusBadRequest)
@@ -105,7 +105,7 @@ func (s *Service) handleGetJam() http.HandlerFunc {
 
 func (s *Service) handleListJams() http.HandlerFunc {
 	type room struct {
-		jam.Jam
+		jams.Jam
 		PlayerCount int `json:"playerCount"`
 	}
 
@@ -113,7 +113,7 @@ func (s *Service) handleListJams() http.HandlerFunc {
 		Rooms []room `json:"rooms"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
-		jams, err := s.repo.GetJams(r.Context())
+		found, err := s.repo.GetJams(r.Context())
 		if err != nil {
 			s.mux.Logf("getJams: %v", err)
 			s.mux.Respond(w, r, err, http.StatusInternalServerError)
@@ -121,7 +121,7 @@ func (s *Service) handleListJams() http.HandlerFunc {
 		}
 
 		resp := response{
-			Rooms: fp.FMap(jams, func(j jam.Jam) room {
+			Rooms: fp.FMap(found, func(j jams.Jam) room {
 				loaded, _ := s.wsb.LoadOrStore(j.ID, &j)
 				return room{*loaded, loaded.Client().Len()}
 			}),

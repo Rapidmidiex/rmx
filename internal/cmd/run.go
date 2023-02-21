@@ -18,8 +18,8 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/manifoldco/promptui"
 	"github.com/rapidmidiex/rmx/internal/cmd/internal/config"
-	jamHTTP "github.com/rapidmidiex/rmx/internal/jam/http"
-	jamDB "github.com/rapidmidiex/rmx/internal/jam/postgres"
+	jamsHTTP "github.com/rapidmidiex/rmx/internal/jams/http"
+	jamsDB "github.com/rapidmidiex/rmx/internal/jams/postgres"
 	usersHTTP "github.com/rapidmidiex/rmx/internal/users/http"
 
 	"github.com/rs/cors"
@@ -292,8 +292,8 @@ func serve(cfg *config.Config) error {
 
 	// This file I would like to break up
 	// some of the logic to make it more readable
-	handler.Mount("/users", newUsersService())
-	handler.Mount("/jams", newJamService(sCtx, conn))
+	handler.Mount("/v0/users", newUsersService())
+	handler.Mount("/v0/jams", newJamService(sCtx, conn))
 
 	srv := http.Server{
 		Addr:    ":" + cfg.ServerPort,
@@ -333,10 +333,10 @@ func StartServer(cfg *config.Config) error {
 	return serve(cfg)
 }
 
-func newJamService(ctx context.Context, conn *sql.DB) *jamHTTP.Service {
+func newJamService(ctx context.Context, conn *sql.DB) *jamsHTTP.Service {
 	// NOTE -- this replaces jamHTTP := jamHTTP.New(ctx, jamDB)
-	dbOpt := jamHTTP.WithRepo(jamDB.New(conn))
-	jamHTTP := jamHTTP.New(dbOpt)
+	dbOpt := jamsHTTP.WithRepo(jamsDB.New(conn))
+	jamHTTP := jamsHTTP.New(dbOpt)
 	return jamHTTP
 }
 
