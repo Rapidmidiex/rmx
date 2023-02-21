@@ -14,11 +14,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/manifoldco/promptui"
 	"github.com/rapidmidiex/rmx/internal/cmd/internal/config"
 	jamHTTP "github.com/rapidmidiex/rmx/internal/jam/http"
 	jamDB "github.com/rapidmidiex/rmx/internal/jam/postgres"
+	usersHTTP "github.com/rapidmidiex/rmx/internal/users/http"
 
 	"github.com/rs/cors"
 	"github.com/urfave/cli/v2"
@@ -283,12 +285,19 @@ func serve(cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
-	jamHTTP := newJamService(sCtx, conn)
 
 	/* START SERVICES BLOCK */
+	handler := chi.NewRouter()
+	handler.Use(cors.New(c).Handler)
+
+	// This file I would like to break up
+	// some of the logic to make it more readable
+	handler.Mount("/users", newUsersService())
+	handler.Mount("/jams", newJamService(sCtx, conn))
+
 	srv := http.Server{
 		Addr:    ":" + cfg.ServerPort,
-		Handler: cors.New(c).Handler(jamHTTP),
+		Handler: handler,
 		// max time to read request from the client
 		ReadTimeout: 10 * time.Second,
 		// max time to write response to the client
@@ -325,7 +334,13 @@ func StartServer(cfg *config.Config) error {
 }
 
 func newJamService(ctx context.Context, conn *sql.DB) *jamHTTP.Service {
-	jamDB := jamDB.New(conn)
-	jamHTTP := jamHTTP.New(ctx, jamDB)
+	// NOTE -- this replaces jamHTTP := jamHTTP.New(ctx, jamDB)
+	dbOpt := jamHTTP.WithRepo(jamDB.New(conn))
+	jamHTTP := jamHTTP.New(dbOpt)
 	return jamHTTP
+}
+
+func newUsersService() *usersHTTP.Service {
+	usersHTTP := usersHTTP.New()
+	return usersHTTP
 }

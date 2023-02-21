@@ -1,7 +1,6 @@
 package service
 
 import (
-	"context"
 	"io"
 	"net/http"
 
@@ -13,20 +12,36 @@ import (
 	"github.com/rapidmidiex/rmx/pkg/fp"
 )
 
-type Service struct {
-	mux service.Service
+type Option func(*Service)
 
-	wsb  jam.Broker
+func WithRepo(r jamDB.Repo) Option {
+	return func(s *Service) {
+		s.repo = r
+	}
+}
+
+type Service struct {
+	mux  service.Service
 	repo jamDB.Repo
+	wsb  jam.Broker
 }
 
 // NOTE broker should be a dependency
-func New(ctx context.Context, r jamDB.Repo) *Service {
+// func New(ctx context.Context, r jamDB.Repo) *Service {
+func New(opts ...Option) *Service {
 	s := Service{
-		mux:  service.New(),
-		repo: r,
-		wsb:  jam.NewBroker(),
+		mux: service.New(),
+		wsb: jam.NewBroker(),
 	}
+
+	for _, opt := range opts {
+		opt(&s)
+	}
+
+	if s.repo == nil {
+		panic("repo is nil")
+	}
+
 	s.routes()
 	return &s
 }
@@ -36,11 +51,13 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) routes() {
-	s.mux.Post("/api/v1/jam", s.handleCreateJam())
-	s.mux.Get("/api/v1/jam", s.handleListJams())
-	s.mux.Get("/api/v1/jam/{uuid}", s.handleGetJam())
+	s.mux.Post("/", s.handleCreateJam())
+	s.mux.Get("/", s.handleListJams())
 
-	s.mux.Get("/ws/jam/{uuid}", s.handleP2PConn())
+	s.mux.Get("/{uuid}", s.handleGetJam())
+	// I think this would make more sense as the ws
+	// is a sub-resource of the main jam resource
+	s.mux.Get("/{uuid}/ws", s.handleP2PConn())
 }
 
 func (s *Service) handleCreateJam() http.HandlerFunc {
@@ -140,12 +157,4 @@ func (s *Service) handleP2PConn() http.HandlerFunc {
 func parseUUID(r *http.Request) (uuid.UUID, error) {
 	p := chi.URLParam(r, "uuid")
 	return uuid.Parse(p)
-}
-
-type Option func(*Service)
-
-func WithBroker(ctx context.Context, cap uint) Option {
-	return func(s *Service) {
-		s.wsb = jam.NewBroker()
-	}
 }
