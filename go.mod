@@ -15,7 +15,7 @@ require (
 	github.com/rs/cors v1.8.3
 	github.com/stretchr/testify v1.8.2
 	github.com/urfave/cli/v2 v2.24.4
-	golang.org/x/sync v0.0.0-20220923202941-7f9b1623fab7
+	golang.org/x/sync v0.1.0
 )
 
 require (
