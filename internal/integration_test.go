@@ -69,7 +69,7 @@ func TestRESTAcceptance(t *testing.T) {
 		require.NotEmpty(t, listJamsRespBody.Rooms)
 		require.NotEmpty(t, listJamsRespBody.Rooms[0])
 		require.Equal(t, listJamsRespBody.Rooms[0].Name, jamName)
-		require.NotEmpty(t, listJamsRespBody.Rooms[0].ID, "GET /jam Jams should have IDs")
+		require.NotEmpty(t, listJamsRespBody.Rooms[0].ID, "GET /jams Jams should have IDs")
 	})
 
 	t.Run("Service will set default 'name' and 'bpm'", func(t *testing.T) {
@@ -110,28 +110,28 @@ func TestJamFlowAcceptance(t *testing.T) {
 	rmxSrv := httptest.NewServer(jamSvc)
 	defer rmxSrv.Close()
 
-	restBase := rmxSrv.URL + "/api/v1"
-	wsBase := "ws" + strings.TrimPrefix(rmxSrv.URL, "http") + "/ws"
+	restBase := rmxSrv.URL + "/v0"
+	wsBase := strings.Replace(restBase, "http", "ws", 1)
 
 	// **** Create new Jam **** //
 	jamName := "Jam On It!"
 	newJamBody := fmt.Sprintf(`{"name":%q}`, jamName)
-	newJamResp, err := http.Post(restBase+"/jam", "application/json", strings.NewReader(newJamBody))
+	newJamResp, err := http.Post(restBase+"/jams", "application/json", strings.NewReader(newJamBody))
 	require.NoError(t, err)
 	require.Equal(t, http.StatusCreated, newJamResp.StatusCode)
 
 	var newJam jam.Jam
 	jD := json.NewDecoder(newJamResp.Body)
 	err = jD.Decode(&newJam)
-	require.NoErrorf(t, err, "POST /jam should return the newly created Jam resource")
+	require.NoErrorf(t, err, "POST /jams should return the newly created Jam resource")
 
 	// **** List Jams for selection **** //
 	// Client would list the jams and select the one the want to join
 	// or web client would auto-select the newly created Jam.
 	// The request would be the same in either case.
-	listJamResp, err := http.Get(restBase + "/jam")
+	listJamResp, err := http.Get(restBase + "/jams")
 	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, listJamResp.StatusCode, "GET /jam should return OK status")
+	require.Equal(t, http.StatusOK, listJamResp.StatusCode, "GET /jams should return OK status")
 
 	lD := json.NewDecoder(listJamResp.Body)
 	var jamsList listJamsResponse
@@ -143,7 +143,7 @@ func TestJamFlowAcceptance(t *testing.T) {
 	// **** Use the Jam selection to join the Jam room **** //
 	// **** Client A joins Jam **** //
 	roomID := jamsList.Rooms[0].ID
-	jamWSurl := fmt.Sprintf("%s/jam/%s", wsBase, roomID)
+	jamWSurl := fmt.Sprintf("%s/jams/%s/ws", wsBase, roomID)
 	// Intentionally external ws client (not rmx) because this client represent a client external to this system. (JS Frontend, TUI frontend)
 	wsConnA, _, err := websocket.DefaultDialer.Dial(jamWSurl, nil)
 	// TODO: Fails. We should be able to join a Jam with the Jam ID. The service should figure out the rest
@@ -177,7 +177,7 @@ func TestJamFlowAcceptance(t *testing.T) {
 	}()
 
 	// Check the player count
-	playerCountResp, err := http.Get(restBase + "/jam")
+	playerCountResp, err := http.Get(restBase + "/jams")
 	require.NoError(t, err)
 
 	d := json.NewDecoder(playerCountResp.Body)
@@ -224,18 +224,18 @@ func TestJamFlowAcceptance(t *testing.T) {
 	require.Equal(t, yasiinSend, talibRecv, "Talib received MIDI message does not match what Yasiin sent")
 }
 
-// newPostJamReq creates a POST /jam request to REST API to create a new Jam.
+// newPostJamReq creates a POST /jams request to REST API to create a new Jam.
 func newPostJamReq(t *testing.T, jamBody io.Reader) *http.Request {
 	t.Helper()
-	req, err := http.NewRequest(http.MethodPost, "/api/v1/jam", jamBody)
+	req, err := http.NewRequest(http.MethodPost, "/v0/jams", jamBody)
 	require.NoError(t, err)
 	return req
 }
 
-// newGetJamsReq creates a GET /jam request to REST API to list available Jams.
+// newGetJamsReq creates a GET /jams request to REST API to list available Jams.
 func newGetJamsReq(t *testing.T) *http.Request {
 	t.Helper()
-	req, err := http.NewRequest(http.MethodGet, "/api/v1/jam", nil)
+	req, err := http.NewRequest(http.MethodGet, "/v0/jams", nil)
 	require.NoError(t, err)
 	return req
 }
