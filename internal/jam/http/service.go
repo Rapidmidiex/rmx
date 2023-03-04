@@ -36,25 +36,25 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) routes() {
-	s.mux.Post("/v0/jams", s.handleCreateJam())
-	s.mux.Get("/v0/jams", s.handleListJams())
-	s.mux.Get("/v0/jams/{uuid}", s.handleGetJam())
+	s.mux.Post("/", s.handleCreateJam())
+	s.mux.Get("/", s.handleListJams())
+	s.mux.Get("/{uuid}", s.handleGetJam())
 
-	s.mux.Get("/v0/jams/{uuid}/ws", s.handleP2PConn())
+	s.mux.Get("/{uuid}/ws", s.handleP2PConn())
 }
 
 func (s *Service) handleCreateJam() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var j jam.Jam
-		if err := s.mux.Decode(w, r, &j); err != nil && err != io.EOF {
+		var dto jam.Jam
+		if err := s.mux.Decode(w, r, &dto); err != nil && err != io.EOF {
 			s.mux.Logf("decode: %v\n", err)
 			s.mux.Respond(w, r, err, http.StatusBadRequest)
 			return
 		}
 
-		j.SetDefaults()
+		dto.SetDefaults()
 
-		created, err := s.repo.CreateJam(r.Context(), j)
+		created, err := s.repo.CreateJam(r.Context(), dto)
 		if err != nil {
 			s.mux.Logf("createJam: %v\n", err)
 			s.mux.Respond(w, r, err, http.StatusInternalServerError)
@@ -123,17 +123,15 @@ func (s *Service) handleP2PConn() http.HandlerFunc {
 			return
 		}
 
-		// userID, err := parseQueryParams(r)
-
-		jam, err := s.repo.GetJamByID(r.Context(), jamID)
+		found, err := s.repo.GetJamByID(r.Context(), jamID)
 		if err != nil {
 			s.mux.Respond(w, r, err, http.StatusNotFound)
 			return
 		}
 
 		// get from websocket client
-		loaded, _ := s.wsb.LoadOrStore(jam.ID, &jam)
-		loaded.Client().ServeHTTP(w, r)
+		jam, _ := s.wsb.LoadOrStore(found.ID, &found)
+		jam.Client().ServeHTTP(w, r)
 	}
 }
 
