@@ -33,7 +33,7 @@ func TestService(t *testing.T) {
 
 	var roomID uuid.UUID
 
-	/* "POST /api/v1/jam" */
+	/* "POST /v0/jams" */
 	{
 		payload := `
 		{
@@ -57,7 +57,7 @@ func TestService(t *testing.T) {
 		roomID = jam.ID
 	}
 
-	/* GET /api/v1/jam/{uuid} */
+	/* GET /v0/jams/{uuid} */
 	{
 		log.Println(srv.URL + "/" + roomID.String())
 
@@ -78,7 +78,6 @@ func TestService(t *testing.T) {
 	{
 		// create a new websocket connection
 		// **** Use the Jam selection to join the Jam room **** //
-		// www.example.com/jam/{id}/ws
 		wsBase := "ws" + strings.TrimPrefix(srv.URL, "http")
 		jamWSurl := fmt.Sprintf("%s/%s/ws", wsBase, roomID)
 
