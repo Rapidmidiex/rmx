@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/rapidmidiex/rmx/internal/jam"
-	"github.com/rapidmidiex/rmx/internal/jam/postgres/sqlc"
+	jam "github.com/rapidmidiex/rmx/internal/jams"
+	"github.com/rapidmidiex/rmx/internal/jams/postgres/sqlc"
 )
 
 type Repo interface {

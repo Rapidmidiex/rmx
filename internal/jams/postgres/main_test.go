@@ -16,14 +16,14 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
-	db "github.com/rapidmidiex/rmx/internal/jam/postgres/sqlc"
+	jamsDB "github.com/rapidmidiex/rmx/internal/jams/postgres/sqlc"
 )
 
 //go:embed migration/*.sql
 var migrations embed.FS
 
 var pgdb *sql.DB
-var testQueries *db.Queries
+var testQueries *jamsDB.Queries
 
 func TestMain(m *testing.M) {
 	dbName := "rmx-test"
@@ -81,7 +81,7 @@ func TestMain(m *testing.M) {
 		log.Fatalf("Could not connect to docker: %s", err)
 	}
 	// Instantiate testQueries
-	testQueries = db.New(pgdb)
+	testQueries = jamsDB.New(pgdb)
 
 	// Migrations
 	if err != nil {

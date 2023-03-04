@@ -14,11 +14,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/manifoldco/promptui"
 	"github.com/rapidmidiex/rmx/internal/cmd/internal/config"
-	jamHTTP "github.com/rapidmidiex/rmx/internal/jam/http"
-	jamDB "github.com/rapidmidiex/rmx/internal/jam/postgres"
+	jamsHTTP "github.com/rapidmidiex/rmx/internal/jams/http"
+	jamsDB "github.com/rapidmidiex/rmx/internal/jams/postgres"
+	"github.com/rapidmidiex/rmx/internal/jams/postgres/sqlc"
+	usersHTTP "github.com/rapidmidiex/rmx/internal/users/http"
 
 	"github.com/rs/cors"
 	"github.com/urfave/cli/v2"
@@ -254,50 +257,17 @@ func serve(cfg *config.Config) error {
 	)
 	defer cancel()
 
-	// ? should this defined within the instantiation of a new service
-	c := cors.Options{
-		AllowedOrigins:   []string{"*"}, // ? band-aid, needs to change to a flag
-		AllowCredentials: true,
-		AllowedMethods:   []string{http.MethodGet, http.MethodPost},
-		AllowedHeaders:   []string{"Origin", "Content-Type", "Accept", "Authorization"},
-		ExposedHeaders:   []string{"Location"},
-		Debug:            cfg.Dev,
-	}
-
-	/* FIXME */
-	/* START SERVICES BLOCK */
-	dbURL := fmt.Sprintf(
-		"postgres://%s:%s@%s/%s?sslmode=disable",
-		cfg.DBUser,
-		cfg.DBPassword,
-		cfg.DBHost,
-		cfg.DBName,
-	)
-
-	// Just use connection string if available
-	if cfg.DBURL != "" {
-		dbURL = cfg.DBURL
-	}
-
-	conn, err := sql.Open("postgres", dbURL)
+	conn, err := newConn(cfg)
 	if err != nil {
 		return err
 	}
-	jamHTTP := newJamService(sCtx, conn)
+	defer conn.Close()
 
-	/* START SERVICES BLOCK */
-	srv := http.Server{
-		Addr:    ":" + cfg.ServerPort,
-		Handler: cors.New(c).Handler(jamHTTP),
-		// max time to read request from the client
-		ReadTimeout: 10 * time.Second,
-		// max time to write response to the client
-		WriteTimeout: 10 * time.Second,
-		// max time for connections using TCP Keep-Alive
-		IdleTimeout: 120 * time.Second,
-		BaseContext: func(_ net.Listener) context.Context { return sCtx },
-		ErrorLog:    log.Default(),
-	}
+	mux := newMux(cfg)
+	mux.Mount("/v0/jams", newJamService(sCtx, conn))
+	mux.Mount("/v0/users", newUserService())
+
+	srv := newServer(sCtx, cfg, mux)
 
 	g, gCtx := errgroup.WithContext(sCtx)
 
@@ -312,10 +282,6 @@ func serve(cfg *config.Config) error {
 		return srv.Shutdown(context.Background())
 	})
 
-	// if err := g.Wait(); err != nil {
-	// 	log.Printf("exit reason: %s \n", err)
-	// }
-
 	return g.Wait()
 }
 
@@ -324,8 +290,66 @@ func StartServer(cfg *config.Config) error {
 	return serve(cfg)
 }
 
-func newJamService(ctx context.Context, conn *sql.DB) *jamHTTP.Service {
-	jamDB := jamDB.New(conn)
-	jamHTTP := jamHTTP.New(ctx, jamDB)
-	return jamHTTP
+func newServer(ctx context.Context, cfg *config.Config, mux http.Handler) *http.Server {
+	/* START SERVICES BLOCK */
+	srv := http.Server{
+		Addr:    ":" + cfg.ServerPort,
+		Handler: mux,
+		// max time to read request from the client
+		ReadTimeout: 10 * time.Second,
+		// max time to write response to the client
+		WriteTimeout: 10 * time.Second,
+		// max time for connections using TCP Keep-Alive
+		IdleTimeout: 120 * time.Second,
+		BaseContext: func(_ net.Listener) context.Context { return ctx },
+		ErrorLog:    log.Default(),
+	}
+	return &srv
+}
+
+func newConn(cfg *config.Config) (*sql.DB, error) {
+	var dbURL string
+	if cfg.DBURL != "" {
+		dbURL = cfg.DBURL
+	} else {
+		dbURL = fmt.Sprintf(
+			"postgres://%s:%s@%s/%s?sslmode=disable",
+			cfg.DBUser,
+			cfg.DBPassword,
+			cfg.DBHost,
+			cfg.DBName,
+		)
+	}
+
+	conn, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		return nil, err
+	}
+
+	return conn, conn.Ping()
+}
+
+func newMux(cfg *config.Config) chi.Router {
+	mux := chi.NewRouter()
+	{
+		c := cors.Options{
+			AllowedOrigins:   []string{"*"}, // ? band-aid, needs to change to a flag
+			AllowCredentials: true,
+			AllowedMethods:   []string{http.MethodGet, http.MethodPost},
+			AllowedHeaders:   []string{"Origin", "Content-Type", "Accept", "Authorization"},
+			ExposedHeaders:   []string{"Location"},
+			Debug:            cfg.Dev,
+		}
+		mux.Use(cors.New(c).Handler)
+	}
+	return mux
+}
+
+func newJamService(ctx context.Context, conn sqlc.DBTX) *jamsHTTP.Service {
+	dbOpt := jamsHTTP.WithRepo(jamsDB.New(conn))
+	return jamsHTTP.New(dbOpt)
+}
+
+func newUserService() *usersHTTP.Service {
+	return usersHTTP.New()
 }

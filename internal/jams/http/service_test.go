@@ -15,8 +15,8 @@ import (
 	"github.com/gobwas/ws"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/rapidmidiex/rmx/internal/jam"
-	service "github.com/rapidmidiex/rmx/internal/jam/http"
+	"github.com/rapidmidiex/rmx/internal/jams"
+	jamsHTTP "github.com/rapidmidiex/rmx/internal/jams/http"
 	"github.com/rapidmidiex/rmx/internal/msg"
 	"github.com/stretchr/testify/require"
 )
@@ -24,9 +24,8 @@ import (
 var applicationJSON = "application/json"
 
 func TestService(t *testing.T) {
-	ctx := context.Background()
-
-	h := service.New(ctx, newTestStore())
+	opt := jamsHTTP.WithRepo(newTestStore())
+	h := jamsHTTP.New(opt)
 
 	srv := httptest.NewServer(h)
 
@@ -42,14 +41,14 @@ func TestService(t *testing.T) {
 			"capacity": 2,
 			"bpm": 120
 		}`
-		resp, err := srv.Client().Post(srv.URL+"/v0/jams", applicationJSON, strings.NewReader(payload))
+		resp, err := srv.Client().Post(srv.URL+"/", applicationJSON, strings.NewReader(payload))
 		require.NoError(t, err, "should not error")
 		require.Equal(t, http.StatusCreated, resp.StatusCode, "should return 201")
 
 		// get uuid from body
 		defer resp.Body.Close()
 
-		var jam jam.Jam
+		var jam jams.Jam
 		err = json.NewDecoder(resp.Body).Decode(&jam)
 		require.NoError(t, err, "should not error")
 
@@ -60,15 +59,15 @@ func TestService(t *testing.T) {
 
 	/* GET /v0/jams/{uuid} */
 	{
-		log.Println(srv.URL + "/v0/jams/" + roomID.String())
+		log.Println(srv.URL + "/" + roomID.String())
 
-		resp, err := srv.Client().Get(srv.URL + "/v0/jams/" + roomID.String())
+		resp, err := srv.Client().Get(srv.URL + "/" + roomID.String())
 		require.NoError(t, err, "should not error")
 		require.Equal(t, http.StatusOK, resp.StatusCode, "should return 200")
 
 		defer resp.Body.Close()
 
-		var jam jam.Jam
+		var jam jams.Jam
 		err = json.NewDecoder(resp.Body).Decode(&jam)
 		require.NoError(t, err, "should not error")
 
@@ -79,8 +78,8 @@ func TestService(t *testing.T) {
 	{
 		// create a new websocket connection
 		// **** Use the Jam selection to join the Jam room **** //
-		wsBase := "ws" + strings.TrimPrefix(srv.URL, "http") + "/v0"
-		jamWSurl := fmt.Sprintf("%s/jams/%s/ws", wsBase, roomID)
+		wsBase := "ws" + strings.TrimPrefix(srv.URL, "http")
+		jamWSurl := fmt.Sprintf("%s/%s/ws", wsBase, roomID)
 
 		// **** Client A joins Jam **** //
 		wsConnA, _, err := websocket.DefaultDialer.Dial(jamWSurl, nil)
@@ -162,21 +161,21 @@ func TestService(t *testing.T) {
 
 type testStore struct {
 	mu sync.Mutex
-	m  map[uuid.UUID]jam.Jam
+	m  map[uuid.UUID]jams.Jam
 }
 
 func newTestStore() *testStore {
 	s := &testStore{
-		m: make(map[uuid.UUID]jam.Jam),
+		m: make(map[uuid.UUID]jams.Jam),
 	}
 	return s
 }
 
-func (s *testStore) CreateJam(ctx context.Context, j jam.Jam) (jam.Jam, error) {
+func (s *testStore) CreateJam(ctx context.Context, j jams.Jam) (jams.Jam, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	created := jam.Jam{
+	created := jams.Jam{
 		ID:       uuid.New(),
 		Name:     j.Name,
 		Capacity: j.Capacity,
@@ -187,16 +186,16 @@ func (s *testStore) CreateJam(ctx context.Context, j jam.Jam) (jam.Jam, error) {
 	return created, nil
 }
 
-func (s *testStore) GetJams(context.Context) ([]jam.Jam, error) {
+func (s *testStore) GetJams(context.Context) ([]jams.Jam, error) {
 	panic("implement me")
 }
 
-func (s *testStore) GetJamByID(ctx context.Context, id uuid.UUID) (jam.Jam, error) {
+func (s *testStore) GetJamByID(ctx context.Context, id uuid.UUID) (jams.Jam, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	j, ok := s.m[id]
 	if !ok {
-		return jam.Jam{}, errors.New("jam not found")
+		return jams.Jam{}, errors.New("jam not found")
 	}
 
 	return j, nil

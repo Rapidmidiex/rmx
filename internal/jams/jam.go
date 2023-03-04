@@ -1,4 +1,4 @@
-package jam
+package jams
 
 import (
 	"fmt"

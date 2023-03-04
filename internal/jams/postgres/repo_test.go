@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/brianvoe/gofakeit/v6"
-	db "github.com/rapidmidiex/rmx/internal/jam/postgres/sqlc"
+	db "github.com/rapidmidiex/rmx/internal/jams/postgres/sqlc"
 	"github.com/stretchr/testify/require"
 )
 
