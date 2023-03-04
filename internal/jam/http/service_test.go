@@ -42,7 +42,7 @@ func TestService(t *testing.T) {
 			"capacity": 2,
 			"bpm": 120
 		}`
-		resp, err := srv.Client().Post(srv.URL+"/v0/jams", applicationJSON, strings.NewReader(payload))
+		resp, err := srv.Client().Post(srv.URL+"/", applicationJSON, strings.NewReader(payload))
 		require.NoError(t, err, "should not error")
 		require.Equal(t, http.StatusCreated, resp.StatusCode, "should return 201")
 
@@ -60,9 +60,9 @@ func TestService(t *testing.T) {
 
 	/* GET /v0/jams/{uuid} */
 	{
-		log.Println(srv.URL + "/v0/jams/" + roomID.String())
+		log.Println(srv.URL + "/" + roomID.String())
 
-		resp, err := srv.Client().Get(srv.URL + "/v0/jams/" + roomID.String())
+		resp, err := srv.Client().Get(srv.URL + "/" + roomID.String())
 		require.NoError(t, err, "should not error")
 		require.Equal(t, http.StatusOK, resp.StatusCode, "should return 200")
 
@@ -79,8 +79,8 @@ func TestService(t *testing.T) {
 	{
 		// create a new websocket connection
 		// **** Use the Jam selection to join the Jam room **** //
-		wsBase := "ws" + strings.TrimPrefix(srv.URL, "http") + "/v0"
-		jamWSurl := fmt.Sprintf("%s/jams/%s/ws", wsBase, roomID)
+		wsBase := "ws" + strings.TrimPrefix(srv.URL, "http")
+		jamWSurl := fmt.Sprintf("%s/%s/ws", wsBase, roomID)
 
 		// **** Client A joins Jam **** //
 		wsConnA, _, err := websocket.DefaultDialer.Dial(jamWSurl, nil)

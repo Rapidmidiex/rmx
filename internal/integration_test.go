@@ -19,183 +19,124 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type (
-	listJamsResponse struct {
-		Rooms []room `json:"rooms"`
-	}
+type listJamsResponse struct {
+	Rooms []room `json:"rooms"`
+}
 
-	room struct {
-		jam.Jam
-		PlayerCount int `json:"playerCount"`
-	}
-)
+type room struct {
+	jam.Jam
+	PlayerCount int `json:"playerCount"`
+}
 
 func TestRESTAcceptance(t *testing.T) {
 	t.Run("As RMX client, I can create a Jam Session through the API", func(t *testing.T) {
-		err := cleanDB(pgDB)
-		require.NoError(t, err)
-
-		store := jamDB.New(pgDB)
-
-		rmxSrv := jamHTTP.New(context.Background(), store)
-		// wsBase := rmxSrv.URL + "/ws"
-
-		newJamResp := httptest.NewRecorder()
+		rmxSrv := newTestService(t)
 
 		// Client A creates a new Jam.
 		jamName := "Jam On It!"
-		newJamBody := fmt.Sprintf(`{"name":%q}`, jamName)
-		newJamReq := newPostJamReq(t, strings.NewReader(newJamBody))
-		rmxSrv.ServeHTTP(newJamResp, newJamReq)
+		newJamBody := strings.NewReader(fmt.Sprintf(`
+		{
+			"name":%q
+		}`, jamName))
 
-		require.Equal(t, newJamResp.Result().StatusCode, http.StatusCreated)
+		newJamResp := testHandler(t, rmxSrv, http.MethodPost, "/", newJamBody, http.StatusCreated)
+		defer newJamResp.Body.Close()
+
 		var createdJam jam.Jam
-		d := json.NewDecoder(newJamResp.Body)
-		err = d.Decode(&createdJam)
-		require.NoError(t, err)
+		err := json.NewDecoder(newJamResp.Body).Decode(&createdJam)
 
+		require.NoError(t, err)
 		require.NotEmpty(t, createdJam.ID, "Jam should have an ID from the database")
+
 		// Client should see the newly created Jam
-		listJamsResp := httptest.NewRecorder()
+		listJamsResp := testHandler(t, rmxSrv, http.MethodGet, "/", nil, http.StatusOK)
+		defer listJamsResp.Body.Close()
 
-		rmxSrv.ServeHTTP(listJamsResp, newGetJamsReq(t))
-		require.Equal(t, listJamsResp.Result().StatusCode, http.StatusOK)
-
-		listD := json.NewDecoder(listJamsResp.Body)
 		var listJamsRespBody listJamsResponse
-		err = listD.Decode(&listJamsRespBody)
+		err = json.NewDecoder(listJamsResp.Body).Decode(&listJamsRespBody)
 		require.NoError(t, err)
 
-		require.NotEmpty(t, listJamsRespBody.Rooms)
-		require.NotEmpty(t, listJamsRespBody.Rooms[0])
-		require.Equal(t, listJamsRespBody.Rooms[0].Name, jamName)
-		require.NotEmpty(t, listJamsRespBody.Rooms[0].ID, "GET /jams Jams should have IDs")
+		rooms := listJamsRespBody.Rooms
+		require.NotEmpty(t, rooms)
+		require.NotEmpty(t, rooms[0])
+		require.Equal(t, rooms[0].Name, jamName)
+		require.NotEmpty(t, rooms[0].ID, "GET /jams Jams should have IDs")
 	})
 
 	t.Run("Service will set default 'name' and 'bpm'", func(t *testing.T) {
-		err := cleanDB(pgDB)
+		srv := newTestService(t)
+
+		resp := testHandler(t, srv, http.MethodPost, "/", strings.NewReader(`{}`), http.StatusCreated)
+		defer resp.Body.Close()
+
+		var created jam.Jam
+		err := json.NewDecoder(resp.Body).Decode(&created)
 		require.NoError(t, err)
 
-		// FIXME I do not like this
-		// store := db.Store{Q: testQueries}
-		store := jamDB.New(pgDB)
-
-		rmxSrv := jamHTTP.New(context.Background(), store)
-
-		newJamResp := httptest.NewRecorder()
-		// Send empty JSON body
-		newJamReq := newPostJamReq(t, strings.NewReader(`{}`))
-		rmxSrv.ServeHTTP(newJamResp, newJamReq)
-
-		require.Equal(t, newJamResp.Result().StatusCode, http.StatusCreated)
-		var createdJam jam.Jam
-		d := json.NewDecoder(newJamResp.Body)
-		err = d.Decode(&createdJam)
-		require.NoError(t, err)
-
-		require.NotEmpty(t, createdJam.BPM)
-		require.NotEmpty(t, createdJam.Name)
+		require.NotEmpty(t, created.BPM)
+		require.NotEmpty(t, created.Name)
 	})
 }
 
 func TestJamFlowAcceptance(t *testing.T) {
-	err := cleanDB(pgDB)
-	require.NoError(t, err)
-
-	// FIXME I do not like this
-	// store := db.Store{Q: testQueries}
-	store := jamDB.New(pgDB)
-
-	jamSvc := jamHTTP.New(context.Background(), store)
-	rmxSrv := httptest.NewServer(jamSvc)
-	defer rmxSrv.Close()
-
-	restBase := rmxSrv.URL + "/v0"
-	wsBase := strings.Replace(restBase, "http", "ws", 1)
+	srv := newTestServer(t)
+	defer srv.Close()
 
 	// **** Create new Jam **** //
 	jamName := "Jam On It!"
-	newJamBody := fmt.Sprintf(`{"name":%q}`, jamName)
-	newJamResp, err := http.Post(restBase+"/jams", "application/json", strings.NewReader(newJamBody))
+	newJamBody := strings.NewReader(fmt.Sprintf(`
+	{
+		"name":%q
+	}`, jamName))
+
+	newJamResp, err := srv.Client().Post(srv.URL+"/", "application/json", newJamBody)
 	require.NoError(t, err)
+
 	require.Equal(t, http.StatusCreated, newJamResp.StatusCode)
 
+	defer newJamResp.Body.Close()
+
 	var newJam jam.Jam
-	jD := json.NewDecoder(newJamResp.Body)
-	err = jD.Decode(&newJam)
+	err = json.NewDecoder(newJamResp.Body).Decode(&newJam)
 	require.NoErrorf(t, err, "POST /jams should return the newly created Jam resource")
 
 	// **** List Jams for selection **** //
 	// Client would list the jams and select the one the want to join
 	// or web client would auto-select the newly created Jam.
 	// The request would be the same in either case.
-	listJamResp, err := http.Get(restBase + "/jams")
+	listJamResp, err := srv.Client().Get(srv.URL + "/")
 	require.NoError(t, err)
+
 	require.Equal(t, http.StatusOK, listJamResp.StatusCode, "GET /jams should return OK status")
 
-	lD := json.NewDecoder(listJamResp.Body)
 	var jamsList listJamsResponse
-	err = lD.Decode(&jamsList)
+	err = json.NewDecoder(listJamResp.Body).Decode(&jamsList)
 	require.NoError(t, err)
 
 	require.Len(t, jamsList.Rooms, 1, "should have one brand new Jam")
 
 	// **** Use the Jam selection to join the Jam room **** //
+	wsURL := fmt.Sprintf("%s/%s/ws", srv.URL, jamsList.Rooms[0].ID)
+
 	// **** Client A joins Jam **** //
-	roomID := jamsList.Rooms[0].ID
-	jamWSurl := fmt.Sprintf("%s/jams/%s/ws", wsBase, roomID)
 	// Intentionally external ws client (not rmx) because this client represent a client external to this system. (JS Frontend, TUI frontend)
-	wsConnA, _, err := websocket.DefaultDialer.Dial(jamWSurl, nil)
-	// TODO: Fails. We should be able to join a Jam with the Jam ID. The service should figure out the rest
-	require.NoErrorf(t, err, "client Alpha could not join Jam room: %q (%s)", newJam.Name, newJam.ID)
-	defer func() {
-		err := wsConnA.WriteMessage(int(ws.OpClose), nil)
-		if err != nil {
-			fmt.Println(err)
-		}
-	}()
-
-	// Get user ID from Connection Message
-	// var envelope msg.Envelope
-	// var aConMsg msg.ConnectMsg
-	// err = wsConnA.ReadJSON(&envelope)
-	// require.NoError(t, err)
-
-	// err = json.Unmarshal(envelope.Payload, &aConMsg)
-	// require.NoError(t, err)
-	// userIDA := aConMsg.UserID
+	wsConnA, closeConnA := newConn(t, wsURL)
+	defer closeConnA()
 
 	// **** Client B joins Jam **** //
 	var envelope msg.Envelope
-	wsConnB, _, err := websocket.DefaultDialer.Dial(jamWSurl, nil)
-	require.NoErrorf(t, err, "client Bravo could not join Jam room: %q (%s)", newJam.Name, newJam.ID)
-	defer func() {
-		err := wsConnB.WriteMessage(int(ws.OpClose), nil)
-		if err != nil {
-			fmt.Println(err)
-		}
-	}()
+	wsConnB, closeConnB := newConn(t, wsURL)
+	defer closeConnB()
 
 	// Check the player count
-	playerCountResp, err := http.Get(restBase + "/jams")
+	playerCountResp, err := srv.Client().Get(srv.URL + "/")
 	require.NoError(t, err)
 
-	d := json.NewDecoder(playerCountResp.Body)
 	var gotRooms listJamsResponse
-	err = d.Decode(&gotRooms)
+	err = json.NewDecoder(playerCountResp.Body).Decode(&gotRooms)
 	require.NoError(t, err)
 
 	require.Equal(t, 2, gotRooms.Rooms[0].PlayerCount, `"playerCount" field should be 2 since there are two active connections`)
-
-	// Get user ID B from Connection Message
-	// var bConMsg msg.ConnectMsg
-	// err = wsConnB.ReadJSON(&envelope)
-	// require.NoError(t, err)
-	// require.Equal(t, msg.CONNECT, envelope.Typ, "should be a Connect message")
-	// err = json.Unmarshal(envelope.Payload, &bConMsg)
-	// require.NoError(t, err)
-	// userIDB := bConMsg.UserID
-	// require.NotEmpty(t, userIDB, "User B should have received a connect message containing their user ID")
 
 	// Alpha sends a MIDI message
 	// **** Client A broadcasts a MIDI message **** //
@@ -203,10 +144,12 @@ func TestJamFlowAcceptance(t *testing.T) {
 		State:  msg.NOTE_ON,
 		Number: 60,
 	}
+
 	yasiinEnv := msg.Envelope{
 		// UserID: userIDA,
 		Typ: msg.MIDI,
 	}
+
 	err = yasiinEnv.SetPayload(yasiinSend)
 	require.NoError(t, err)
 
@@ -218,24 +161,67 @@ func TestJamFlowAcceptance(t *testing.T) {
 	var talibRecv msg.MIDIMsg
 	err = wsConnB.ReadJSON(&envelope)
 	require.NoError(t, err, "Client B could not read MIDI note from connection")
+
 	require.Equal(t, msg.MIDI, envelope.Typ, "should be a MIDI message")
+
 	err = envelope.Unwrap(&talibRecv)
 	require.NoError(t, err, "could not unwrap client B's message")
+
 	require.Equal(t, yasiinSend, talibRecv, "Talib received MIDI message does not match what Yasiin sent")
 }
 
-// newPostJamReq creates a POST /jams request to REST API to create a new Jam.
-func newPostJamReq(t *testing.T, jamBody io.Reader) *http.Request {
+func newTestServer(t *testing.T) *httptest.Server {
 	t.Helper()
-	req, err := http.NewRequest(http.MethodPost, "/v0/jams", jamBody)
+
+	ctx := context.Background()
+
+	err := cleanDB(pgDB)
 	require.NoError(t, err)
-	return req
+
+	h := jamHTTP.New(ctx, jamDB.New(pgDB))
+	return httptest.NewServer(h)
 }
 
-// newGetJamsReq creates a GET /jams request to REST API to list available Jams.
-func newGetJamsReq(t *testing.T) *http.Request {
+func newTestService(t *testing.T) http.Handler {
 	t.Helper()
-	req, err := http.NewRequest(http.MethodGet, "/v0/jams", nil)
+
+	ctx := context.Background()
+
+	err := cleanDB(pgDB)
 	require.NoError(t, err)
-	return req
+
+	return jamHTTP.New(ctx, jamDB.New(pgDB))
+}
+
+func newConn(t *testing.T, url string) (conn *websocket.Conn, close func()) {
+	t.Helper()
+
+	var err error
+	url = strings.Replace(url, "http", "ws", 1)
+
+	conn, _, err = websocket.DefaultDialer.Dial(url, nil)
+	require.NoErrorf(t, err, "client could not connect")
+
+	close = func() {
+		err := conn.WriteMessage(int(ws.OpClose), nil)
+		require.NoError(t, err)
+	}
+
+	return conn, close
+}
+
+func testHandler(t *testing.T, h http.Handler, method string, url string, body io.Reader, code int) *http.Response {
+	t.Helper()
+
+	req, err := http.NewRequest(method, url, body)
+	require.NoError(t, err)
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	resp := rec.Result()
+
+	require.Equal(t, resp.StatusCode, code)
+
+	return resp
 }
