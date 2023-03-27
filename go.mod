@@ -14,7 +14,7 @@ require (
 	github.com/ory/dockertest/v3 v3.9.1
 	github.com/rs/cors v1.8.3
 	github.com/stretchr/testify v1.8.2
-	github.com/urfave/cli/v2 v2.25.0
+	github.com/urfave/cli/v2 v2.25.1
 	golang.org/x/sync v0.1.0
 )
 
