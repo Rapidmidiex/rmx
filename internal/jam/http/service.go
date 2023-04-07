@@ -36,11 +36,11 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) routes() {
-	s.mux.Post("/v0/jams", s.handleCreateJam())
-	s.mux.Get("/v0/jams", s.handleListJams())
-	s.mux.Get("/v0/jams/{uuid}", s.handleGetJam())
+	s.mux.Post("/", s.handleCreateJam())
+	s.mux.Get("/", s.handleListJams())
+	s.mux.Get("/{uuid}", s.handleGetJam())
 
-	s.mux.Get("/v0/jams/{uuid}/ws", s.handleP2PConn())
+	s.mux.Get("/{uuid}/ws", s.handleP2PConn())
 }
 
 func (s *Service) handleCreateJam() http.HandlerFunc {

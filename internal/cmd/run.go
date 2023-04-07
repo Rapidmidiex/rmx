@@ -14,8 +14,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/manifoldco/promptui"
+	"github.com/rapidmidiex/rmx/internal/auth"
 	"github.com/rapidmidiex/rmx/internal/cmd/internal/config"
 	jamHTTP "github.com/rapidmidiex/rmx/internal/jam/http"
 	jamDB "github.com/rapidmidiex/rmx/internal/jam/postgres"
@@ -283,12 +285,25 @@ func serve(cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
-	jamHTTP := newJamService(sCtx, conn)
+
+	mux := chi.NewMux().Route("/v0", func(r chi.Router) {
+		r.Handle("/jams", newJamService(sCtx, conn))
+
+		r.Route("/auth", func(r chi.Router) {
+			googleAuthService, err := auth.NewGoogle(r, cfg.GoogleClientID, cfg.GoogleClientSecret)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			r.Handle(googleAuthService.AuthURI, googleAuthService.Handlers.AuthHandler)
+			r.Handle(googleAuthService.CallbackURI, googleAuthService.Handlers.CallbackHandler)
+		})
+	})
 
 	/* START SERVICES BLOCK */
 	srv := http.Server{
 		Addr:    ":" + cfg.ServerPort,
-		Handler: cors.New(c).Handler(jamHTTP),
+		Handler: cors.New(c).Handler(mux),
 		// max time to read request from the client
 		ReadTimeout: 10 * time.Second,
 		// max time to write response to the client

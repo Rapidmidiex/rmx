@@ -8,17 +8,19 @@ import (
 )
 
 type Config struct {
-	ServerPort    string `json:"serverPort"`
-	DBURL         string `json:"dbUrl"`
-	DBHost        string `json:"dbHost"`
-	DBPort        string `json:"dbPort"`
-	DBName        string `json:"dbName"`
-	DBUser        string `json:"dbUser"`
-	DBPassword    string `json:"dbPassword"`
-	RedisHost     string `json:"redisHost"`
-	RedisPort     string `json:"redisPort"`
-	RedisPassword string `json:"redisPassword"`
-	Dev           bool   `json:"dev"`
+	ServerPort         string `json:"serverPort"`
+	DBURL              string `json:"dbUrl"`
+	DBHost             string `json:"dbHost"`
+	DBPort             string `json:"dbPort"`
+	DBName             string `json:"dbName"`
+	DBUser             string `json:"dbUser"`
+	DBPassword         string `json:"dbPassword"`
+	RedisHost          string `json:"redisHost"`
+	RedisPort          string `json:"redisPort"`
+	RedisPassword      string `json:"redisPassword"`
+	GoogleClientID     string `json:"googleClientId"`
+	GoogleClientSecret string `json:"googleClientSecret"`
+	Dev                bool   `json:"dev"`
 }
 
 const (
