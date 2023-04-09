@@ -17,9 +17,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/manifoldco/promptui"
-	"github.com/rapidmidiex/rmx/internal/auth"
 	"github.com/rapidmidiex/rmx/internal/cmd/internal/config"
 	jamHTTP "github.com/rapidmidiex/rmx/internal/jam/http"
+
+	authHTTP "github.com/rapidmidiex/rmx/internal/auth/http"
 	jamDB "github.com/rapidmidiex/rmx/internal/jam/postgres"
 
 	"github.com/rs/cors"
@@ -288,16 +289,7 @@ func serve(cfg *config.Config) error {
 
 	mux := chi.NewMux().Route("/v0", func(r chi.Router) {
 		r.Handle("/jams", newJamService(sCtx, conn))
-
-		r.Route("/auth", func(r chi.Router) {
-			googleAuthService, err := auth.NewGoogle(r, cfg.GoogleClientID, cfg.GoogleClientSecret)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			r.Handle(googleAuthService.AuthURI, googleAuthService.Handlers.AuthHandler)
-			r.Handle(googleAuthService.CallbackURI, googleAuthService.Handlers.CallbackHandler)
-		})
+		r.Handle("/auth", newAuthService(sCtx))
 	})
 
 	/* START SERVICES BLOCK */
@@ -343,4 +335,9 @@ func newJamService(ctx context.Context, conn *sql.DB) *jamHTTP.Service {
 	jamDB := jamDB.New(conn)
 	jamHTTP := jamHTTP.New(ctx, jamDB)
 	return jamHTTP
+}
+
+func newAuthService(ctx context.Context) *authHTTP.Service {
+	authHTTP := authHTTP.New(ctx)
+	return authHTTP
 }

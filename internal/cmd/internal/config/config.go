@@ -20,6 +20,8 @@ type Config struct {
 	RedisPassword      string `json:"redisPassword"`
 	GoogleClientID     string `json:"googleClientId"`
 	GoogleClientSecret string `json:"googleClientSecret"`
+	GithubClientID     string `json:"githubClientId"`
+	GithubClientSecret string `json:"githubClientSecret"`
 	Dev                bool   `json:"dev"`
 }
 
