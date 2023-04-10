@@ -3,8 +3,6 @@ package auth
 import (
 	"fmt"
 	"net/http"
-
-	"github.com/go-chi/chi/v5"
 )
 
 type Provider struct {
@@ -12,11 +10,8 @@ type Provider struct {
 	AuthURI, CallbackURI         string
 }
 
-func (p *Provider) Handle() chi.Router {
-	return chi.NewMux().Route("/", func(r chi.Router) {
-		r.Handle(p.AuthURI, p.AuthHandler)
-		r.Handle(p.CallbackURI, p.CallbackHandler)
-	})
+type ProviderCfg struct {
+	ClientID, ClientSecret string
 }
 
 type AuthError struct {

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/google/go-github/v51/github"
 	"github.com/google/uuid"
 	"github.com/rapidmidiex/rmx/internal/auth"
@@ -25,8 +24,8 @@ var (
 	callbackURI = "/github/callback"
 )
 
-func NewGithub(router chi.Router, clientID, clientSecret string) (*auth.Provider, error) {
-	ah, ch, err := initProvider(clientID, clientSecret)
+func NewGithub(cfg *auth.ProviderCfg) (*auth.Provider, error) {
+	ah, ch, err := initProvider(cfg.ClientID, cfg.ClientSecret)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +42,7 @@ func initProvider(clientID, clientSecret string) (ah http.HandlerFunc, ch http.H
 	rpConfig := &oauth2.Config{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
-		RedirectURL:  fmt.Sprintf("http://localhost:9999/auth%v", callbackURI),
+		RedirectURL:  fmt.Sprintf("http://localhost:9999/v0/auth%v", callbackURI),
 		Scopes:       []string{string(github.ScopeNone)},
 		Endpoint:     ghOAuth.Endpoint,
 	}

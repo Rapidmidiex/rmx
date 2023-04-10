@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/rapidmidiex/rmx/internal/auth"
 	"github.com/zitadel/oidc/v2/pkg/client/rp"
@@ -23,8 +22,8 @@ var (
 	scopes      = []string{"email", "profile", "openid"}
 )
 
-func NewGoogle(router chi.Router, clientID, clientSecret string) (*auth.Provider, error) {
-	ah, ch, err := initProvider(clientID, clientSecret)
+func NewGoogle(cfg *auth.ProviderCfg) (*auth.Provider, error) {
+	ah, ch, err := initProvider(cfg.ClientID, cfg.ClientSecret)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +47,7 @@ func initProvider(
 		rp.WithPKCE(cookieHandler),
 	}
 
-	redirectURI := fmt.Sprintf("http://localhost:9999/auth%v", callbackURI)
+	redirectURI := fmt.Sprintf("http://localhost:9999/v0/auth%v", callbackURI)
 
 	// static port number just for testing
 	provider, err := rp.NewRelyingPartyOIDC(

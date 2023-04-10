@@ -14,11 +14,11 @@ type Service struct {
 	Providers []*auth.Provider
 }
 
-func New(ctx context.Context) *Service {
-	// TODO: initialise OAuth services here
-
+func New(ctx context.Context, providers ...*auth.Provider) *Service {
 	s := Service{
 		mux: service.New(),
+
+		Providers: providers,
 	}
 
 	s.routes()
@@ -31,6 +31,7 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (s *Service) routes() {
 	for _, p := range s.Providers {
-		s.mux.Mount("/", p.Handle())
+		s.mux.Handle(p.AuthURI, p.AuthHandler)
+		s.mux.Handle(p.CallbackURI, p.CallbackHandler)
 	}
 }
