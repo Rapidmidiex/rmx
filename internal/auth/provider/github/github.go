@@ -42,7 +42,7 @@ func initProvider(clientID, clientSecret string) (ah http.HandlerFunc, ch http.H
 	rpConfig := &oauth2.Config{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
-		RedirectURL:  fmt.Sprintf("http://localhost:9999/v0/auth%v", callbackURI),
+		RedirectURL:  fmt.Sprintf("http://localhost:8000/v0/auth%v", callbackURI),
 		Scopes:       []string{string(github.ScopeNone)},
 		Endpoint:     ghOAuth.Endpoint,
 	}
@@ -65,7 +65,7 @@ func initProvider(clientID, clientSecret string) (ah http.HandlerFunc, ch http.H
 		rp rp.RelyingParty,
 		info *oidc.UserInfo,
 	) {
-		data, err := json.Marshal(info)
+		data, err := json.Marshal(tokens)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

@@ -47,7 +47,7 @@ func initProvider(
 		rp.WithPKCE(cookieHandler),
 	}
 
-	redirectURI := fmt.Sprintf("http://localhost:9999/v0/auth%v", callbackURI)
+	redirectURI := fmt.Sprintf("http://localhost:8000/v0/auth%v", callbackURI)
 
 	// static port number just for testing
 	provider, err := rp.NewRelyingPartyOIDC(
@@ -83,7 +83,7 @@ func initProvider(
 		w.Write(data)
 	}
 
-	ah = rp.AuthURLHandler(state, provider, rp.WithPromptURLParam("Welcome back!"))
+	ah = rp.AuthURLHandler(state, provider)
 	ch = rp.CodeExchangeHandler(rp.UserinfoCallback(marshalUserinfo), provider)
 
 	return
