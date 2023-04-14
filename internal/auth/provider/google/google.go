@@ -22,8 +22,8 @@ var (
 	scopes      = []string{"email", "profile", "openid"}
 )
 
-func NewGoogle(cfg *auth.ProviderCfg) (*auth.Provider, error) {
-	ah, ch, err := initProvider(cfg.ClientID, cfg.ClientSecret)
+func NewGoogle(cfg *auth.ProviderCfg, baseURI string) (*auth.Provider, error) {
+	ah, ch, err := initProvider(cfg.ClientID, cfg.ClientSecret, baseURI)
 	if err != nil {
 		return nil, err
 	}
@@ -38,16 +38,16 @@ func NewGoogle(cfg *auth.ProviderCfg) (*auth.Provider, error) {
 
 func initProvider(
 	clientID,
-	clientSecret string,
+	clientSecret,
+	baseURI string,
 ) (ah http.HandlerFunc, ch http.HandlerFunc, err error) {
 	cookieHandler := httphelper.NewCookieHandler(key, key, httphelper.WithUnsecure(), httphelper.WithSameSite(http.SameSiteLaxMode))
 	options := []rp.Option{
 		rp.WithCookieHandler(cookieHandler),
 		rp.WithVerifierOpts(rp.WithIssuedAtOffset(5 * time.Second)),
-		rp.WithPKCE(cookieHandler),
 	}
 
-	redirectURI := fmt.Sprintf("http://localhost:8000/v0/auth%v", callbackURI)
+	redirectURI := fmt.Sprintf("%s%s", baseURI, callbackURI)
 
 	// static port number just for testing
 	provider, err := rp.NewRelyingPartyOIDC(

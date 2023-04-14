@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -22,7 +21,6 @@ import (
 	jamHTTP "github.com/rapidmidiex/rmx/internal/jam/http"
 
 	authHTTP "github.com/rapidmidiex/rmx/internal/auth/http"
-	"github.com/rapidmidiex/rmx/internal/auth/provider/github"
 	"github.com/rapidmidiex/rmx/internal/auth/provider/google"
 	jamDB "github.com/rapidmidiex/rmx/internal/jam/postgres"
 
@@ -116,24 +114,11 @@ func serve(cfg *config.Config) error {
 	githubCfg := &auth.ProviderCfg{ClientID: cfg.GithubClientID, ClientSecret: cfg.GithubClientSecret}
 	googleCfg := &auth.ProviderCfg{ClientID: cfg.GoogleClientID, ClientSecret: cfg.GoogleClientSecret}
 
-	// What should we do with the errors?
-	// is this the right way to handle them?
-	// or maybe newAuthService should handle the errors itself?
-	authService, err := newAuthService(sCtx, githubCfg, googleCfg)
-	if err != nil {
-		return err
-	}
-
 	mux := chi.NewMux()
 	mux.Route("/v0", func(r chi.Router) {
 		r.Mount("/jams", newJamService(sCtx, conn))
-		r.Mount("/auth", authService)
+		r.Mount("/auth", newAuthService(sCtx, githubCfg, googleCfg, fmt.Sprintf("http://localhost:%s/v0/auth", cfg.ServerPort)))
 	})
-
-	for _, r := range mux.Routes() {
-		s, _ := json.MarshalIndent(r, "", "\t")
-		fmt.Println(string(s))
-	}
 
 	/* START SERVICES BLOCK */
 	srv := http.Server{
@@ -181,18 +166,11 @@ func newJamService(ctx context.Context, conn *sql.DB) *jamHTTP.Service {
 }
 
 // TODO: find a better way to pass provider config
-func newAuthService(ctx context.Context, githubCfg, googleCfg *auth.ProviderCfg) (*authHTTP.Service, error) {
-	githubService, err := github.NewGithub(githubCfg)
+func newAuthService(ctx context.Context, githubCfg, googleCfg *auth.ProviderCfg, baseURI string) *authHTTP.Service {
+	googleService, err := google.NewGoogle(googleCfg, baseURI)
 	if err != nil {
-		return nil, err
+		log.Fatalf("newAuthService: %v\n", err)
 	}
 
-	googleService, err := google.NewGoogle(googleCfg)
-	if err != nil {
-		return nil, err
-	}
-
-	authHTTP := authHTTP.New(ctx, githubService, googleService)
-
-	return authHTTP, nil
+	return authHTTP.New(ctx, googleService)
 }
