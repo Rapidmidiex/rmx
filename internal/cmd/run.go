@@ -117,7 +117,15 @@ func serve(cfg *config.Config) error {
 	mux := chi.NewMux()
 	mux.Route("/v0", func(r chi.Router) {
 		r.Mount("/jams", newJamService(sCtx, conn))
-		r.Mount("/auth", newAuthService(sCtx, githubCfg, googleCfg, fmt.Sprintf("http://localhost:%s/v0/auth", cfg.ServerPort)))
+		r.Mount(
+			"/auth",
+			newAuthService(
+				sCtx,
+				githubCfg,
+				googleCfg,
+				fmt.Sprintf("http://localhost:%s/v0/auth", cfg.ServerPort),
+			),
+		)
 	})
 
 	/* START SERVICES BLOCK */
@@ -146,10 +154,6 @@ func serve(cfg *config.Config) error {
 		<-gCtx.Done()
 		return srv.Shutdown(context.Background())
 	})
-
-	// if err := g.Wait(); err != nil {
-	// 	log.Printf("exit reason: %s \n", err)
-	// }
 
 	return g.Wait()
 }

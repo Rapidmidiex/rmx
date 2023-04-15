@@ -40,7 +40,7 @@ func initProvider(
 	clientID,
 	clientSecret,
 	baseURI string,
-) (ah http.HandlerFunc, ch http.HandlerFunc, err error) {
+) (http.HandlerFunc, http.HandlerFunc, error) {
 	cookieHandler := httphelper.NewCookieHandler(key, key, httphelper.WithUnsecure(), httphelper.WithSameSite(http.SameSiteLaxMode))
 	options := []rp.Option{
 		rp.WithCookieHandler(cookieHandler),
@@ -60,7 +60,7 @@ func initProvider(
 	)
 
 	if err != nil {
-		return
+		return nil, nil, err
 	}
 
 	state := func() string {
@@ -83,8 +83,6 @@ func initProvider(
 		w.Write(data)
 	}
 
-	ah = rp.AuthURLHandler(state, provider)
-	ch = rp.CodeExchangeHandler(rp.UserinfoCallback(marshalUserinfo), provider)
-
-	return
+	return rp.AuthURLHandler(state, provider),
+		rp.CodeExchangeHandler(rp.UserinfoCallback(marshalUserinfo), provider), nil
 }
