@@ -9,7 +9,7 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.15.2
 	github.com/gorilla/websocket v1.5.0
 	github.com/hyphengolang/prelude v0.1.3
-	github.com/lib/pq v1.10.7
+	github.com/lib/pq v1.10.8
 	github.com/manifoldco/promptui v0.9.0
 	github.com/ory/dockertest/v3 v3.9.1
 	github.com/rs/cors v1.8.3
