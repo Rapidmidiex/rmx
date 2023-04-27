@@ -1,4 +1,1 @@
 DROP TABLE IF EXISTS "jam";
-
-DROP TABLE IF EXISTS "user";
-

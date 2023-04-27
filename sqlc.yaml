@@ -14,3 +14,18 @@ sql:
         emit_empty_slices: true
         emit_params_struct_pointers: true
         json_tags_case_style: "camel"
+  - engine: "postgresql"
+    queries: "./internal/user/postgres/query"
+    schema: "./internal/user/postgres/migration"
+    gen:
+      go:
+        package: "sqlc"
+        out: "./internal/user/postgres/sqlc"
+        emit_json_tags: true
+        emit_prepared_queries: false
+        emit_interface: false
+        emit_exact_table_names: false
+        emit_empty_slices: true
+        emit_params_struct_pointers: true
+        json_tags_case_style: "camel"
+
