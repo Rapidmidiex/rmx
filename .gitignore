@@ -24,7 +24,7 @@ cmd/server/server
 .DS_Store
 *.env*
 certs
-**/rmx.config.*
+rmx.config.*
 .secrets
 
 # hide staging
