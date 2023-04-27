@@ -94,16 +94,18 @@ func serve(cfg *config.Config) error {
 	/* START SERVICES BLOCK */
 	dbURL := fmt.Sprintf(
 		"postgres://%s:%s@%s/%s?sslmode=disable",
-		cfg.DBUser,
-		cfg.DBPassword,
-		cfg.DBHost,
-		cfg.DBName,
+		cfg.DB.User,
+		cfg.DB.Password,
+		cfg.DB.Host,
+		cfg.DB.Name,
 	)
 
-	// Just use connection string if available
-	if cfg.DBURL != "" {
-		dbURL = cfg.DBURL
-	}
+	/*
+		// Just use connection string if available
+		if cfg.DBURL != "" {
+			dbURL = cfg.DBURL
+		}
+	*/
 
 	conn, err := sql.Open("postgres", dbURL)
 	if err != nil {
@@ -111,8 +113,7 @@ func serve(cfg *config.Config) error {
 	}
 
 	// I don't like this pattern
-	githubCfg := &auth.ProviderCfg{ClientID: cfg.GithubClientID, ClientSecret: cfg.GithubClientSecret}
-	googleCfg := &auth.ProviderCfg{ClientID: cfg.GoogleClientID, ClientSecret: cfg.GoogleClientSecret}
+	googleCfg := &auth.ProviderCfg{ClientID: cfg.Auth.Google.ClientID, ClientSecret: cfg.Auth.Google.ClientSecret}
 
 	mux := chi.NewMux()
 	mux.Route("/v0", func(r chi.Router) {
@@ -121,16 +122,16 @@ func serve(cfg *config.Config) error {
 			"/auth",
 			newAuthService(
 				sCtx,
-				githubCfg,
 				googleCfg,
-				fmt.Sprintf("http://localhost:%s/v0/auth", cfg.ServerPort),
+				cfg.Auth.CookieKey,
+				fmt.Sprintf("http://localhost:%s/v0/auth", cfg.Port),
 			),
 		)
 	})
 
 	/* START SERVICES BLOCK */
 	srv := http.Server{
-		Addr:    ":" + cfg.ServerPort,
+		Addr:    ":" + cfg.Port,
 		Handler: cors.New(c).Handler(mux),
 		// max time to read request from the client
 		ReadTimeout: 10 * time.Second,
@@ -170,8 +171,8 @@ func newJamService(ctx context.Context, conn *sql.DB) *jamHTTP.Service {
 }
 
 // TODO: find a better way to pass provider config
-func newAuthService(ctx context.Context, githubCfg, googleCfg *auth.ProviderCfg, baseURI string) *authHTTP.Service {
-	googleService, err := google.NewGoogle(googleCfg, baseURI)
+func newAuthService(ctx context.Context, googleCfg *auth.ProviderCfg, key, baseURI string) *authHTTP.Service {
+	googleService, err := google.NewGoogle(googleCfg, key, baseURI)
 	if err != nil {
 		log.Fatalf("newAuthService: %v\n", err)
 	}

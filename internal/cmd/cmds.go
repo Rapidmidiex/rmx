@@ -83,21 +83,27 @@ func LoadConfigFromEnv(dev bool) (*config.Config, error) {
 	pgPort := pgParsed.Port()
 	pgName := strings.TrimPrefix(pgParsed.Path, "/")
 
-	redisHost := os.Getenv("REDIS_HOST")
-	redisPort := os.Getenv("REDIS_PORT")
-	redisPassword := os.Getenv("REDIS_PASSWORD")
+	/*
+		redisHost := os.Getenv("REDIS_HOST")
+		redisPort := os.Getenv("REDIS_PORT")
+		redisPassword := os.Getenv("REDIS_PASSWORD")
+	*/
 
 	return &config.Config{
-		ServerPort:    serverPort,
-		DBURL:         pgURL,
-		DBHost:        pgHost,
-		DBPort:        pgPort,
-		DBName:        pgName,
-		DBUser:        pgUser,
-		DBPassword:    pgPassword,
-		RedisHost:     redisHost,
-		RedisPort:     redisPort,
-		RedisPassword: redisPassword,
-		Dev:           dev,
+		Port: serverPort,
+		DB: config.DBConfig{
+			Host:     pgHost,
+			Port:     pgPort,
+			Name:     pgName,
+			User:     pgUser,
+			Password: pgPassword,
+		},
+		Auth: config.AuthConfig{
+			Google: config.GoogleConfig{
+				ClientID:     "",
+				ClientSecret: "",
+			},
+		},
+		Dev: dev,
 	}, nil
 }

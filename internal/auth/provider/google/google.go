@@ -14,16 +14,14 @@ import (
 )
 
 var (
-	key = []byte("test1234test1234")
-
 	issuer      = "https://accounts.google.com"
 	authURI     = "/google"
 	callbackURI = "/google/callback"
 	scopes      = []string{"email", "profile", "openid"}
 )
 
-func NewGoogle(cfg *auth.ProviderCfg, baseURI string) (*auth.Provider, error) {
-	ah, ch, err := initProvider(cfg.ClientID, cfg.ClientSecret, baseURI)
+func NewGoogle(cfg *auth.ProviderCfg, key, baseURI string) (*auth.Provider, error) {
+	ah, ch, err := initProvider(cfg.ClientID, cfg.ClientSecret, baseURI, []byte(key))
 	if err != nil {
 		return nil, err
 	}
@@ -40,8 +38,14 @@ func initProvider(
 	clientID,
 	clientSecret,
 	baseURI string,
+	key []byte,
 ) (http.HandlerFunc, http.HandlerFunc, error) {
-	cookieHandler := httphelper.NewCookieHandler(key, key, httphelper.WithUnsecure(), httphelper.WithSameSite(http.SameSiteLaxMode))
+	cookieHandler := httphelper.NewCookieHandler(
+		key,
+		key,
+		httphelper.WithUnsecure(),
+		httphelper.WithSameSite(http.SameSiteLaxMode),
+	)
 	options := []rp.Option{
 		rp.WithCookieHandler(cookieHandler),
 		rp.WithVerifierOpts(rp.WithIssuedAtOffset(5 * time.Second)),
