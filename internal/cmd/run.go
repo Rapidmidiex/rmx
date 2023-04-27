@@ -138,7 +138,8 @@ func serve(cfg *config.Config) error {
 			newAuthService(
 				sCtx,
 				googleCfg,
-				cfg.Auth.CookieKey,
+				cfg.Auth.CookieHashKey,
+				cfg.Auth.CookieEncryptionKey,
 				fmt.Sprintf("http://localhost:%s/v0/auth", cfg.Port),
 			),
 		)
@@ -186,8 +187,8 @@ func newJamService(ctx context.Context, conn *sql.DB) *jamHTTP.Service {
 }
 
 // TODO: find a better way to pass provider config
-func newAuthService(ctx context.Context, googleCfg *auth.ProviderCfg, key, baseURI string) *authHTTP.Service {
-	googleService, err := google.NewGoogle(googleCfg, key, baseURI)
+func newAuthService(ctx context.Context, googleCfg *auth.ProviderCfg, hashKey, encKey, baseURI string) *authHTTP.Service {
+	googleService, err := google.NewGoogle(googleCfg, hashKey, encKey, baseURI)
 	if err != nil {
 		log.Fatalf("newAuthService: %v\n", err)
 	}

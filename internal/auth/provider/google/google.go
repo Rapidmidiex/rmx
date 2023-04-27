@@ -20,8 +20,8 @@ var (
 	scopes      = []string{"email", "profile", "openid"}
 )
 
-func NewGoogle(cfg *auth.ProviderCfg, key, baseURI string) (*auth.Provider, error) {
-	ah, ch, err := initProvider(cfg.ClientID, cfg.ClientSecret, baseURI, []byte(key))
+func NewGoogle(cfg *auth.ProviderCfg, hashKey, encKey, baseURI string) (*auth.Provider, error) {
+	ah, ch, err := initProvider(cfg.ClientID, cfg.ClientSecret, baseURI, []byte(hashKey), []byte(encKey))
 	if err != nil {
 		return nil, err
 	}
@@ -38,11 +38,12 @@ func initProvider(
 	clientID,
 	clientSecret,
 	baseURI string,
-	key []byte,
+	hashKey []byte,
+	encKey []byte,
 ) (http.HandlerFunc, http.HandlerFunc, error) {
 	cookieHandler := httphelper.NewCookieHandler(
-		key,
-		key,
+		hashKey,
+		encKey,
 		httphelper.WithUnsecure(),
 		httphelper.WithSameSite(http.SameSiteLaxMode),
 	)

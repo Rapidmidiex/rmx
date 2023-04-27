@@ -22,7 +22,8 @@ func TestConfig(t *testing.T) {
 				ClientID:     "client_id",
 				ClientSecret: "client_secret",
 			},
-			CookieKey: "cookie_key",
+			CookieHashKey:       "cookie_key",
+			CookieEncryptionKey: "cookie_key",
 		},
 		Dev: true,
 	}

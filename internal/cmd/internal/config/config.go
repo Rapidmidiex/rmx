@@ -21,9 +21,10 @@ type GoogleConfig struct {
 }
 
 type AuthConfig struct {
-	Enable    bool         `json:"enable"`
-	Google    GoogleConfig `json:"google"`
-	CookieKey string       `json:"cookieKey"`
+	Enable              bool         `json:"enable"`
+	Google              GoogleConfig `json:"google"`
+	CookieHashKey       string       `json:"cookieHashKey"`
+	CookieEncryptionKey string       `json:"cookieEncryptionKey"`
 }
 
 type Config struct {
