@@ -17,7 +17,6 @@ require (
 	github.com/urfave/cli/v2 v2.25.0
 	github.com/zitadel/oidc/v2 v2.2.6
 	golang.org/x/sync v0.1.0
-	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -75,4 +74,5 @@ require (
 	google.golang.org/protobuf v1.29.1 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

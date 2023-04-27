@@ -8,6 +8,8 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
+	"os"
 	"os/signal"
 	"strings"
 	"syscall"
@@ -31,10 +33,32 @@ import (
 
 func run(dev bool) func(cCtx *cli.Context) error {
 	var f = func(cCtx *cli.Context) error {
+		dbEnv := os.Getenv("DB_URL")
 		// check if a config file exists and use that
 		c, err := config.ScanConfigFile() // set dev mode true/false
 		if err != nil {
 			return errors.New("failed to scan config file")
+		}
+		if dbEnv != "" {
+			dbParsed, err := url.Parse(dbEnv)
+			if err != nil {
+				return fmt.Errorf("invalid DB_URL env var: %q: %w", dbEnv, err)
+			}
+
+			dbHost := dbParsed.Host
+			dbPort := dbParsed.Port()
+			dbName := strings.TrimPrefix(dbParsed.Path, "/")
+
+			dbUser := dbParsed.User.Username()
+			dbPassword, _ := dbParsed.User.Password()
+
+			c.DB = config.DBConfig{
+				Host:     dbHost,
+				Port:     dbPort,
+				Name:     dbName,
+				User:     dbUser,
+				Password: dbPassword,
+			}
 		}
 		if c != nil {
 			configPrompt := promptui.Prompt{
@@ -90,8 +114,6 @@ func serve(cfg *config.Config) error {
 		Debug:            cfg.Dev,
 	}
 
-	/* FIXME */
-	/* START SERVICES BLOCK */
 	dbURL := fmt.Sprintf(
 		"postgres://%s:%s@%s/%s?sslmode=disable",
 		cfg.DB.User,
@@ -99,13 +121,6 @@ func serve(cfg *config.Config) error {
 		cfg.DB.Host,
 		cfg.DB.Name,
 	)
-
-	/*
-		// Just use connection string if available
-		if cfg.DBURL != "" {
-			dbURL = cfg.DBURL
-		}
-	*/
 
 	conn, err := sql.Open("postgres", dbURL)
 	if err != nil {

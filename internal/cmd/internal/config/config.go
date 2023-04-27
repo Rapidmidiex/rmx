@@ -1,47 +1,46 @@
 package config
 
 import (
+	"encoding/json"
 	"errors"
 	"log"
 	"os"
-
-	"gopkg.in/yaml.v3"
 )
 
 type DBConfig struct {
-	Host     string `yaml:"host"`
-	Port     string `yaml:"port"`
-	Name     string `yaml:"name"`
-	User     string `yaml:"user"`
-	Password string `yaml:"password"`
+	Host     string `json:"host"`
+	Port     string `json:"port"`
+	Name     string `json:"name"`
+	User     string `json:"user"`
+	Password string `json:"password"`
 }
 
 type GoogleConfig struct {
-	ClientID     string `yaml:"client_id"`
-	ClientSecret string `yaml:"client_secret"`
+	ClientID     string `json:"clientId"`
+	ClientSecret string `json:"clientSecret"`
 }
 
 type AuthConfig struct {
-	Enable    bool         `yaml:"enable"`
-	Google    GoogleConfig `yaml:"google"`
-	CookieKey string       `yaml:"cookie_key"`
+	Enable    bool         `json:"enable"`
+	Google    GoogleConfig `json:"google"`
+	CookieKey string       `json:"cookieKey"`
 }
 
 type Config struct {
-	Port string     `yaml:"port"`
-	DB   DBConfig   `yaml:"db"`
-	Auth AuthConfig `yaml:"auth"`
-	Dev  bool       `yaml:"dev"`
+	Port string     `json:"port"`
+	DB   DBConfig   `json:"db"`
+	Auth AuthConfig `json:"auth"`
+	Dev  bool       `json:"dev"`
 }
 
 const (
-	configFileName = "rmx.config.yaml"
+	configFileName = "rmx.config.json"
 )
 
 // writes the values of the config to a file
 // NOTE: this will overwrite the previous generated file
 func (c *Config) WriteToFile() error {
-	bs, err := yaml.Marshal(c)
+	bs, err := json.MarshalIndent(c, "", "\t")
 	if err != nil {
 		return err
 	}
@@ -81,7 +80,7 @@ func ScanConfigFile() (*Config, error) {
 		return nil, err
 	}
 
-	if err := yaml.Unmarshal(bs, c); err != nil {
+	if err := json.Unmarshal(bs, c); err != nil {
 		return nil, err
 	}
 
