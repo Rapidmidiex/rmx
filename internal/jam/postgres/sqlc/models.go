@@ -17,11 +17,3 @@ type Jam struct {
 	Capacity  int32     `json:"capacity"`
 	CreatedAt time.Time `json:"createdAt"`
 }
-
-type User struct {
-	ID        uuid.UUID   `json:"id"`
-	Username  string      `json:"username"`
-	Email     interface{} `json:"email"`
-	Password  interface{} `json:"password"`
-	CreatedAt time.Time   `json:"createdAt"`
-}

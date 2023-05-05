@@ -3,6 +3,8 @@ package auth
 import (
 	"fmt"
 	"net/http"
+
+	"github.com/google/uuid"
 )
 
 type Provider struct {
@@ -10,8 +12,10 @@ type Provider struct {
 	AuthURI, CallbackURI         string
 }
 
-type ProviderCfg struct {
-	ClientID, ClientSecret string
+type User struct {
+	ID       uuid.UUID `json:"id"`
+	Username string    `json:"username"`
+	Email    string    `json:"email"`
 }
 
 type AuthError struct {

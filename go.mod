@@ -19,14 +19,15 @@ require (
 	golang.org/x/sync v0.1.0
 )
 
+require github.com/go-sql-driver/mysql v1.7.0 // indirect
+
 require (
 	github.com/chzyer/readline v1.5.1 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/google/uuid v1.3.0
-	github.com/kr/pretty v0.3.0 // indirect
+	github.com/kr/pretty v0.3.1 // indirect
 	github.com/lithammer/shortuuid/v4 v4.0.0 // indirect
-	github.com/rogpeppe/go-internal v1.9.0 // indirect
 )
 
 require (

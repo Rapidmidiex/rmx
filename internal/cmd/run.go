@@ -18,12 +18,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/manifoldco/promptui"
-	"github.com/rapidmidiex/rmx/internal/auth"
 	"github.com/rapidmidiex/rmx/internal/cmd/internal/config"
 	jamHTTP "github.com/rapidmidiex/rmx/internal/jam/http"
 
 	authHTTP "github.com/rapidmidiex/rmx/internal/auth/http"
-	"github.com/rapidmidiex/rmx/internal/auth/provider/google"
+	"github.com/rapidmidiex/rmx/internal/auth/provider"
 	jamDB "github.com/rapidmidiex/rmx/internal/jam/postgres"
 
 	"github.com/rs/cors"
@@ -128,7 +127,7 @@ func serve(cfg *config.Config) error {
 	}
 
 	// I don't like this pattern
-	googleCfg := &auth.ProviderCfg{ClientID: cfg.Auth.Google.ClientID, ClientSecret: cfg.Auth.Google.ClientSecret}
+	googleCfg := &provider.ProviderCfg{ClientID: cfg.Auth.Google.ClientID, ClientSecret: cfg.Auth.Google.ClientSecret}
 
 	mux := chi.NewMux()
 	mux.Route("/v0", func(r chi.Router) {
@@ -187,11 +186,6 @@ func newJamService(ctx context.Context, conn *sql.DB) *jamHTTP.Service {
 }
 
 // TODO: find a better way to pass provider config
-func newAuthService(ctx context.Context, googleCfg *auth.ProviderCfg, hashKey, encKey, baseURI string) *authHTTP.Service {
-	googleService, err := google.NewGoogle(googleCfg, hashKey, encKey, baseURI)
-	if err != nil {
-		log.Fatalf("newAuthService: %v\n", err)
-	}
-
-	return authHTTP.New(ctx, googleService)
+func newAuthService(ctx context.Context, googleCfg *provider.ProviderCfg, hashKey, encKey, baseURI string) *authHTTP.Service {
+	return nil
 }
