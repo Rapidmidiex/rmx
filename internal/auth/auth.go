@@ -2,15 +2,9 @@ package auth
 
 import (
 	"fmt"
-	"net/http"
 
 	"github.com/google/uuid"
 )
-
-type Provider struct {
-	AuthHandler, CallbackHandler http.HandlerFunc
-	AuthURI, CallbackURI         string
-}
 
 type User struct {
 	ID       uuid.UUID `json:"id"`

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/rapidmidiex/rmx/internal/auth"
 	"github.com/rapidmidiex/rmx/internal/auth/provider"
 	"github.com/zitadel/oidc/v2/pkg/client/rp"
 	httphelper "github.com/zitadel/oidc/v2/pkg/http"
@@ -21,13 +20,20 @@ var (
 	iatOffset   = time.Second * 5
 )
 
-func New(
-	cfg *provider.ProviderCfg,
-	callback rp.CodeExchangeUserinfoCallback[*oidc.IDTokenClaims],
-) (*auth.Provider, error) {
+type Provider struct {
+	clientID, clientSecret string
+	hashKey                []byte
+	encKey                 []byte
+}
+
+func New(clientID, clientSecret string, hashKey, encKey []byte) provider.Provider {
+	return &Provider{clientID, clientSecret, hashKey, encKey}
+}
+
+func (p *Provider) Init(baseURI string, callback rp.CodeExchangeUserinfoCallback[*oidc.IDTokenClaims]) (*provider.Handlers, error) {
 	cookieHandler := httphelper.NewCookieHandler(
-		cfg.HashKey,
-		cfg.EncKey,
+		p.hashKey,
+		p.encKey,
 		httphelper.WithUnsecure(),
 		httphelper.WithSameSite(http.SameSiteLaxMode),
 	)
@@ -36,13 +42,13 @@ func New(
 		rp.WithVerifierOpts(rp.WithIssuedAtOffset(iatOffset)),
 	}
 
-	redirectURI := fmt.Sprintf("%s%s", cfg.BaseURI, callbackURI)
+	redirectURI := fmt.Sprintf("%s%s", baseURI, callbackURI)
 
 	// static port number just for testing
-	provider, err := rp.NewRelyingPartyOIDC(
+	orp, err := rp.NewRelyingPartyOIDC(
 		issuer,
-		cfg.ClientID,
-		cfg.ClientSecret,
+		p.clientID,
+		p.clientSecret,
 		redirectURI,
 		scopes,
 		options...,
@@ -51,12 +57,12 @@ func New(
 		return nil, err
 	}
 
-	ah, ch, err := initProvider(provider, callback)
+	ah, ch, err := initHandlers(orp, callback)
 	if err != nil {
 		return nil, err
 	}
 
-	return &auth.Provider{
+	return &provider.Handlers{
 		AuthHandler:     ah,
 		CallbackHandler: ch,
 		AuthURI:         authURI,
@@ -64,7 +70,7 @@ func New(
 	}, nil
 }
 
-func initProvider(
+func initHandlers(
 	provider rp.RelyingParty,
 	callback rp.CodeExchangeUserinfoCallback[*oidc.IDTokenClaims],
 ) (http.HandlerFunc, http.HandlerFunc, error) {

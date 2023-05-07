@@ -7,10 +7,8 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/rapidmidiex/rmx/internal/auth"
 	authDB "github.com/rapidmidiex/rmx/internal/auth/postgres"
 	"github.com/rapidmidiex/rmx/internal/auth/provider"
-	"github.com/rapidmidiex/rmx/internal/auth/provider/google"
 	service "github.com/rapidmidiex/rmx/internal/http"
 	"github.com/zitadel/oidc/v2/pkg/client/rp"
 	"github.com/zitadel/oidc/v2/pkg/oidc"
@@ -20,33 +18,37 @@ type Service struct {
 	mux service.Service
 
 	repo      authDB.Repo
-	providers []*auth.Provider
+	providers []*provider.Handlers
+	BaseURI   string
 }
 
-func New(ctx context.Context, baseURI string, repo authDB.Repo) *Service {
+func New(ctx context.Context, baseURI string, repo authDB.Repo, providers []provider.Provider) *Service {
 	s := Service{
 		mux: service.New(),
 
-		repo: repo,
+		repo:    repo,
+		BaseURI: baseURI,
 	}
 
-	if err := s.initProviders(ctx, baseURI); err != nil {
+	if err := s.initProviders(ctx, baseURI, providers); err != nil {
 		log.Fatal(err)
 	}
 	s.routes()
 	return &s
 }
 
-func (s *Service) initProviders(ctx context.Context, baseURI string) error {
-	googleCfg := &provider.ProviderCfg{
-		BaseURI: baseURI,
-	}
-	google, err := google.New(googleCfg, s.checkUser(ctx))
-	if err != nil {
-		return err
+func (s *Service) initProviders(ctx context.Context, baseURI string, providers []provider.Provider) error {
+	var phs []*provider.Handlers
+	for _, p := range providers {
+		hs, err := p.Init(baseURI, s.checkUser(ctx))
+		if err != nil {
+			return err
+		}
+
+		phs = append(phs, hs)
 	}
 
-	s.providers = append(s.providers, google)
+	s.providers = phs
 	return nil
 }
 

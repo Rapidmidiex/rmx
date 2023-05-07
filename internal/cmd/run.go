@@ -22,7 +22,9 @@ import (
 	jamHTTP "github.com/rapidmidiex/rmx/internal/jam/http"
 
 	authHTTP "github.com/rapidmidiex/rmx/internal/auth/http"
+	authDB "github.com/rapidmidiex/rmx/internal/auth/postgres"
 	"github.com/rapidmidiex/rmx/internal/auth/provider"
+	"github.com/rapidmidiex/rmx/internal/auth/provider/google"
 	jamDB "github.com/rapidmidiex/rmx/internal/jam/postgres"
 
 	"github.com/rs/cors"
@@ -126,8 +128,12 @@ func serve(cfg *config.Config) error {
 		return err
 	}
 
-	// I don't like this pattern
-	googleCfg := &provider.ProviderCfg{ClientID: cfg.Auth.Google.ClientID, ClientSecret: cfg.Auth.Google.ClientSecret}
+	googleCfg := google.New(
+		cfg.Auth.Google.ClientID,
+		cfg.Auth.Google.ClientSecret,
+		[]byte(cfg.Auth.CookieHashKey),
+		[]byte(cfg.Auth.CookieEncryptionKey),
+	)
 
 	mux := chi.NewMux()
 	mux.Route("/v0", func(r chi.Router) {
@@ -136,10 +142,13 @@ func serve(cfg *config.Config) error {
 			"/auth",
 			newAuthService(
 				sCtx,
-				googleCfg,
+				fmt.Sprintf("http://localhost:%s/v0/auth", cfg.Port),
+				conn,
+				[]provider.Provider{
+					googleCfg,
+				},
 				cfg.Auth.CookieHashKey,
 				cfg.Auth.CookieEncryptionKey,
-				fmt.Sprintf("http://localhost:%s/v0/auth", cfg.Port),
 			),
 		)
 	})
@@ -186,6 +195,15 @@ func newJamService(ctx context.Context, conn *sql.DB) *jamHTTP.Service {
 }
 
 // TODO: find a better way to pass provider config
-func newAuthService(ctx context.Context, googleCfg *provider.ProviderCfg, hashKey, encKey, baseURI string) *authHTTP.Service {
-	return nil
+func newAuthService(
+	ctx context.Context,
+	baseURI string,
+	conn *sql.DB,
+	providers []provider.Provider,
+	hashKey,
+	encKey string,
+) *authHTTP.Service {
+	authDB := authDB.New(conn)
+	authHTTP := authHTTP.New(ctx, baseURI, authDB, providers)
+	return authHTTP
 }
