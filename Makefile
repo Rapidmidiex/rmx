@@ -70,6 +70,14 @@ createdb:
 dropdb:
 	docker exec -it $(PG_CONTAINER_NAME) dropdb --username=$(PG_USER) $(PG_DB)
 
+.PHONY: migrateup
+migrateup:
+	migrate -path internal/db/migration -database $(PG_CONN_STRING) -verbose up
+
+.PHONY: migratedown
+migratedown:
+	migrate -path internal/db/migration -database $(PG_CONN_STRING) -verbose down
+
 .PHONY: sqlc
 sqlc:
 	sqlc generate

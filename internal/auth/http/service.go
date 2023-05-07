@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/rapidmidiex/rmx/internal/auth"
 	authDB "github.com/rapidmidiex/rmx/internal/auth/postgres"
 	"github.com/rapidmidiex/rmx/internal/auth/provider"
 	service "github.com/rapidmidiex/rmx/internal/http"
@@ -75,7 +76,13 @@ func (s *Service) checkUser(ctx context.Context) rp.CodeExchangeUserinfoCallback
 		userInfo, err := s.repo.GetUserByEmail(ctx, info.Email)
 		if err != nil {
 			if err == sql.ErrNoRows {
-				s.createUser()
+				created, err := s.createUser(ctx, info)
+				if err != nil {
+					s.mux.Respond(w, r, err, http.StatusInternalServerError)
+					return
+				}
+
+				s.mux.Respond(w, r, created, http.StatusOK)
 				return
 			}
 
@@ -93,6 +100,11 @@ func (s *Service) checkUser(ctx context.Context) rp.CodeExchangeUserinfoCallback
 	}
 }
 
-func (s *Service) createUser() {
-	// not implemented yet
+func (s *Service) createUser(ctx context.Context, info *oidc.UserInfo) (auth.User, error) {
+	user := auth.User{
+		Username: info.GivenName,
+		Email:    info.Email,
+	}
+
+	return s.repo.CreateUser(ctx, user)
 }
