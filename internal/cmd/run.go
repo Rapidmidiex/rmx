@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	_ "github.com/lib/pq"
 	"log"
 	"net"
 	"net/http"
@@ -16,7 +17,9 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/manifoldco/promptui"
 	"github.com/rapidmidiex/rmx/internal/cmd/internal/config"
 	jamHTTP "github.com/rapidmidiex/rmx/internal/jam/http"
@@ -128,6 +131,10 @@ func serve(cfg *config.Config) error {
 		return err
 	}
 
+	if err := runMigrations(conn); err != nil && err != migrate.ErrNoChange {
+		return err
+	}
+
 	googleCfg := google.New(
 		cfg.Auth.Google.ClientID,
 		cfg.Auth.Google.ClientSecret,
@@ -181,6 +188,40 @@ func serve(cfg *config.Config) error {
 	})
 
 	return g.Wait()
+}
+
+func runMigrations(conn *sql.DB) error {
+	driver, err := postgres.WithInstance(conn, &postgres.Config{})
+	if err != nil {
+		return err
+	}
+
+	// run migrations on startup
+	jamM, err := migrate.NewWithDatabaseInstance(
+		"file://internal/jam/postgres/migration",
+		"postgres",
+		driver,
+	)
+	if err != nil {
+		return err
+	}
+	if err := jamM.Up(); err != nil {
+		return err
+	}
+
+	authM, err := migrate.NewWithDatabaseInstance(
+		"file://internal/auth/postgres/migration",
+		"postgres",
+		driver,
+	)
+	if err != nil {
+		return err
+	}
+	if err := authM.Up(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // StartServer starts the RMX application.
