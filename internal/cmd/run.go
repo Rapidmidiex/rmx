@@ -5,19 +5,29 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	_ "github.com/lib/pq"
 	"log"
 	"net"
 	"net/http"
+	"net/url"
+	"os"
 	"os/signal"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	"github.com/go-chi/chi/v5"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/manifoldco/promptui"
 	"github.com/rapidmidiex/rmx/internal/cmd/internal/config"
 	jamHTTP "github.com/rapidmidiex/rmx/internal/jam/http"
+
+	authHTTP "github.com/rapidmidiex/rmx/internal/auth/http"
+	authDB "github.com/rapidmidiex/rmx/internal/auth/postgres"
+	"github.com/rapidmidiex/rmx/internal/auth/provider"
+	"github.com/rapidmidiex/rmx/internal/auth/provider/google"
 	jamDB "github.com/rapidmidiex/rmx/internal/jam/postgres"
 
 	"github.com/rs/cors"
@@ -27,34 +37,32 @@ import (
 
 func run(dev bool) func(cCtx *cli.Context) error {
 	var f = func(cCtx *cli.Context) error {
-		templates := &promptui.PromptTemplates{
-			Prompt:  "{{ . }} ",
-			Valid:   "{{ . | green }} ",
-			Invalid: "{{ . | red }} ",
-			Success: "{{ . | bold }} ",
-		}
-
-		// Server Port
-		validateNumber := func(v string) error {
-			if _, err := strconv.ParseUint(v, 0, 0); err != nil {
-				return errors.New("invalid number")
-			}
-
-			return nil
-		}
-
-		validateString := func(v string) error {
-			if !(len(v) > 0) {
-				return errors.New("invalid string")
-			}
-
-			return nil
-		}
-
+		dbEnv := os.Getenv("DB_URL")
 		// check if a config file exists and use that
 		c, err := config.ScanConfigFile() // set dev mode true/false
 		if err != nil {
 			return errors.New("failed to scan config file")
+		}
+		if dbEnv != "" {
+			dbParsed, err := url.Parse(dbEnv)
+			if err != nil {
+				return fmt.Errorf("invalid DB_URL env var: %q: %w", dbEnv, err)
+			}
+
+			dbHost := dbParsed.Host
+			dbPort := dbParsed.Port()
+			dbName := strings.TrimPrefix(dbParsed.Path, "/")
+
+			dbUser := dbParsed.User.Username()
+			dbPassword, _ := dbParsed.User.Password()
+
+			c.DB = config.DBConfig{
+				Host:     dbHost,
+				Port:     dbPort,
+				Name:     dbName,
+				User:     dbUser,
+				Password: dbPassword,
+			}
 		}
 		if c != nil {
 			configPrompt := promptui.Prompt{
@@ -83,164 +91,10 @@ func run(dev bool) func(cCtx *cli.Context) error {
 			if strings.ToLower(result) == "y" {
 				return serve(c)
 			}
+
 		}
-
-		// Server Port
-		serverPortPrompt := promptui.Prompt{
-			Label:     "Server Port",
-			Validate:  validateNumber,
-			Templates: templates,
-		}
-
-		serverPort, err := serverPortPrompt.Run()
-		if err != nil {
-			return err
-		}
-
-		// DB Host
-		dbHostPrompt := promptui.Prompt{
-			Label:     "Postgres Database host",
-			Validate:  validateString,
-			Templates: templates,
-		}
-
-		dbHost, err := dbHostPrompt.Run()
-		if err != nil {
-			return err
-		}
-
-		// DB Port
-		dbPortPrompt := promptui.Prompt{
-			Label:     "Postgres Database port",
-			Validate:  validateNumber,
-			Templates: templates,
-		}
-
-		dbPort, err := dbPortPrompt.Run()
-		if err != nil {
-			return err
-		}
-
-		// DB Name
-		dbNamePrompt := promptui.Prompt{
-			Label:     "Postgres Database name",
-			Validate:  validateString,
-			Templates: templates,
-		}
-
-		dbName, err := dbNamePrompt.Run()
-		if err != nil {
-			return err
-		}
-
-		// DB User
-		dbUserPrompt := promptui.Prompt{
-			Label:     "Postgres Database user",
-			Validate:  validateString,
-			Templates: templates,
-		}
-
-		dbUser, err := dbUserPrompt.Run()
-		if err != nil {
-			return err
-		}
-
-		// DB Password
-		dbPasswordPrompt := promptui.Prompt{
-			Label:     "Postgres Database password",
-			Validate:  validateString,
-			Templates: templates,
-			Mask:      '*',
-		}
-
-		dbPassword, err := dbPasswordPrompt.Run()
-		if err != nil {
-			return err
-		}
-
-		// Redis Host
-		redisHostPrompt := promptui.Prompt{
-			Label:     "Redis host",
-			Validate:  validateString,
-			Templates: templates,
-		}
-
-		redisHost, err := redisHostPrompt.Run()
-		if err != nil {
-			return err
-		}
-
-		// Redis Port
-		redisPortPrompt := promptui.Prompt{
-			Label:     "Redis port",
-			Validate:  validateNumber,
-			Templates: templates,
-		}
-
-		redisPort, err := redisPortPrompt.Run()
-		if err != nil {
-			return err
-		}
-
-		// Redis Password
-		redisPasswordPrompt := promptui.Prompt{
-			Label:     "Redis password",
-			Validate:  validateString,
-			Templates: templates,
-			Mask:      '*',
-		}
-
-		redisPassword, err := redisPasswordPrompt.Run()
-		if err != nil {
-			return err
-		}
-
-		c = &config.Config{
-			ServerPort:    serverPort,
-			DBHost:        dbHost,
-			DBPort:        dbPort,
-			DBName:        dbName,
-			DBUser:        dbUser,
-			DBPassword:    dbPassword,
-			RedisHost:     redisHost,
-			RedisPort:     redisPort,
-			RedisPassword: redisPassword,
-			Dev:           dev,
-		}
-
-		// prompt to save the config to a file
-		configPrompt := promptui.Prompt{
-			Label:     "Do you want to write the config to a file? (NOTE: this will rewrite the config file)",
-			IsConfirm: true,
-			Default:   "n",
-		}
-
-		validateConfirm := func(s string) error {
-			if len(s) == 1 && strings.Contains("YyNn", s) ||
-				configPrompt.Default != "" && len(s) == 0 {
-				return nil
-			}
-			return errors.New(`invalid input (you can only use "y" or "n")`)
-		}
-
-		configPrompt.Validate = validateConfirm
-
-		result, err := configPrompt.Run()
-		if err != nil {
-			if strings.ToLower(result) != "n" {
-				return err
-			}
-		}
-
-		if strings.ToLower(result) == "y" {
-			if err := c.WriteToFile(); err != nil {
-				return err
-			}
-		}
-
-		return serve(c)
+		return nil
 	}
-
 	return f
 }
 
@@ -264,31 +118,52 @@ func serve(cfg *config.Config) error {
 		Debug:            cfg.Dev,
 	}
 
-	/* FIXME */
-	/* START SERVICES BLOCK */
 	dbURL := fmt.Sprintf(
 		"postgres://%s:%s@%s/%s?sslmode=disable",
-		cfg.DBUser,
-		cfg.DBPassword,
-		cfg.DBHost,
-		cfg.DBName,
+		cfg.DB.User,
+		cfg.DB.Password,
+		cfg.DB.Host,
+		cfg.DB.Name,
 	)
-
-	// Just use connection string if available
-	if cfg.DBURL != "" {
-		dbURL = cfg.DBURL
-	}
 
 	conn, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		return err
 	}
-	jamHTTP := newJamService(sCtx, conn)
+
+	if err := runMigrations(conn); err != nil && err != migrate.ErrNoChange {
+		return err
+	}
+
+	googleCfg := google.New(
+		cfg.Auth.Google.ClientID,
+		cfg.Auth.Google.ClientSecret,
+		[]byte(cfg.Auth.CookieHashKey),
+		[]byte(cfg.Auth.CookieEncryptionKey),
+	)
+
+	mux := chi.NewMux()
+	mux.Route("/v0", func(r chi.Router) {
+		r.Mount("/jams", newJamService(sCtx, conn))
+		r.Mount(
+			"/auth",
+			newAuthService(
+				sCtx,
+				fmt.Sprintf("http://localhost:%s/v0/auth", cfg.Port),
+				conn,
+				[]provider.Provider{
+					googleCfg,
+				},
+				cfg.Auth.CookieHashKey,
+				cfg.Auth.CookieEncryptionKey,
+			),
+		)
+	})
 
 	/* START SERVICES BLOCK */
 	srv := http.Server{
-		Addr:    ":" + cfg.ServerPort,
-		Handler: cors.New(c).Handler(jamHTTP),
+		Addr:    ":" + cfg.Port,
+		Handler: cors.New(c).Handler(mux),
 		// max time to read request from the client
 		ReadTimeout: 10 * time.Second,
 		// max time to write response to the client
@@ -312,11 +187,28 @@ func serve(cfg *config.Config) error {
 		return srv.Shutdown(context.Background())
 	})
 
-	// if err := g.Wait(); err != nil {
-	// 	log.Printf("exit reason: %s \n", err)
-	// }
-
 	return g.Wait()
+}
+
+func runMigrations(conn *sql.DB) error {
+	driver, err := postgres.WithInstance(conn, &postgres.Config{})
+	if err != nil {
+		return err
+	}
+
+	m, err := migrate.NewWithDatabaseInstance(
+		"file://internal/db/migration",
+		"postgres",
+		driver,
+	)
+	if err != nil {
+		return err
+	}
+	if err := m.Up(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // StartServer starts the RMX application.
@@ -328,4 +220,18 @@ func newJamService(ctx context.Context, conn *sql.DB) *jamHTTP.Service {
 	jamDB := jamDB.New(conn)
 	jamHTTP := jamHTTP.New(ctx, jamDB)
 	return jamHTTP
+}
+
+// TODO: find a better way to pass provider config
+func newAuthService(
+	ctx context.Context,
+	baseURI string,
+	conn *sql.DB,
+	providers []provider.Provider,
+	hashKey,
+	encKey string,
+) *authHTTP.Service {
+	authDB := authDB.New(conn)
+	authHTTP := authHTTP.New(ctx, baseURI, authDB, providers)
+	return authHTTP
 }

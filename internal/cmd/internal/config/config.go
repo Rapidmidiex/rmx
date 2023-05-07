@@ -7,18 +7,31 @@ import (
 	"os"
 )
 
+type DBConfig struct {
+	Host     string `json:"host"`
+	Port     string `json:"port"`
+	Name     string `json:"name"`
+	User     string `json:"user"`
+	Password string `json:"password"`
+}
+
+type GoogleConfig struct {
+	ClientID     string `json:"clientId"`
+	ClientSecret string `json:"clientSecret"`
+}
+
+type AuthConfig struct {
+	Enable              bool         `json:"enable"`
+	Google              GoogleConfig `json:"google"`
+	CookieHashKey       string       `json:"cookieHashKey"`
+	CookieEncryptionKey string       `json:"cookieEncryptionKey"`
+}
+
 type Config struct {
-	ServerPort    string `json:"serverPort"`
-	DBURL         string `json:"dbUrl"`
-	DBHost        string `json:"dbHost"`
-	DBPort        string `json:"dbPort"`
-	DBName        string `json:"dbName"`
-	DBUser        string `json:"dbUser"`
-	DBPassword    string `json:"dbPassword"`
-	RedisHost     string `json:"redisHost"`
-	RedisPort     string `json:"redisPort"`
-	RedisPassword string `json:"redisPassword"`
-	Dev           bool   `json:"dev"`
+	Port string     `json:"port"`
+	DB   DBConfig   `json:"db"`
+	Auth AuthConfig `json:"auth"`
+	Dev  bool       `json:"dev"`
 }
 
 const (
@@ -28,7 +41,7 @@ const (
 // writes the values of the config to a file
 // NOTE: this will overwrite the previous generated file
 func (c *Config) WriteToFile() error {
-	bs, err := json.MarshalIndent(c, "", "    ")
+	bs, err := json.MarshalIndent(c, "", "\t")
 	if err != nil {
 		return err
 	}

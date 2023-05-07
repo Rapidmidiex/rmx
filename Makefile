@@ -72,11 +72,11 @@ dropdb:
 
 .PHONY: migrateup
 migrateup:
-	migrate -path internal/jam/postgres/migration -database $(PG_CONN_STRING) -verbose up
+	migrate -path internal/db/migration -database $(PG_CONN_STRING) -verbose up
 
 .PHONY: migratedown
 migratedown:
-	migrate -path internal/jam/postgres/migration -database $(PG_CONN_STRING) -verbose down
+	migrate -path internal/db/migration -database $(PG_CONN_STRING) -verbose down
 
 .PHONY: sqlc
 sqlc:

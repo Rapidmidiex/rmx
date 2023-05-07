@@ -8,16 +8,24 @@ import (
 func TestConfig(t *testing.T) {
 	// Write config to file
 	i := &Config{
-		ServerPort:    "8000",
-		DBHost:        "localhost",
-		DBPort:        "3306",
-		DBName:        "rmx",
-		DBUser:        "rmx",
-		DBPassword:    "password",
-		RedisHost:     "localhost",
-		RedisPort:     "6379",
-		RedisPassword: "password",
-		Dev:           true,
+		Port: "8080",
+		DB: DBConfig{
+			Host:     "localhost",
+			Port:     "3306",
+			Name:     "rmx",
+			User:     "rmx",
+			Password: "password",
+		},
+		Auth: AuthConfig{
+			Enable: true,
+			Google: GoogleConfig{
+				ClientID:     "client_id",
+				ClientSecret: "client_secret",
+			},
+			CookieHashKey:       "cookie_key",
+			CookieEncryptionKey: "cookie_key",
+		},
+		Dev: true,
 	}
 
 	if err := i.WriteToFile(); err != nil {
