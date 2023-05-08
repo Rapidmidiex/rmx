@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	_ "github.com/lib/pq"
 	"log"
 	"net"
 	"net/http"
@@ -15,6 +14,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	_ "github.com/lib/pq"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/golang-migrate/migrate/v4"
@@ -195,27 +196,15 @@ func runMigrations(conn *sql.DB) error {
 		return err
 	}
 
-	authM, err := migrate.NewWithDatabaseInstance(
-		"file://internal/auth/postgres/migration",
+	m, err := migrate.NewWithDatabaseInstance(
+		"file://internal/db/migration",
 		"postgres",
 		driver,
 	)
 	if err != nil {
 		return err
 	}
-	if err := authM.Up(); err != nil {
-		return err
-	}
-
-	jamM, err := migrate.NewWithDatabaseInstance(
-		"file://internal/jam/postgres/migration",
-		"postgres",
-		driver,
-	)
-	if err != nil {
-		return err
-	}
-	if err := jamM.Up(); err != nil {
+	if err := m.Up(); err != nil {
 		return err
 	}
 
