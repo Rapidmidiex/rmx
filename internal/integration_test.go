@@ -129,7 +129,7 @@ func TestJamFlowAcceptance(t *testing.T) {
 	// Client would list the jams and select the one the want to join
 	// or web client would auto-select the newly created Jam.
 	// The request would be the same in either case.
-	listJamResp, err := http.Get(restBase + "/jams")
+	listJamResp, err := http.Get(restBase)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, listJamResp.StatusCode, "GET /jams should return OK status")
 
