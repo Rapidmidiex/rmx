@@ -23,7 +23,7 @@ type Service struct {
 	BaseURI   string
 }
 
-func New(ctx context.Context, baseURI string, repo authDB.Repo, providers []provider.Provider) *Service {
+func New(baseURI string, repo authDB.Repo, providers []provider.Provider) *Service {
 	s := Service{
 		mux: service.New(),
 
@@ -31,17 +31,17 @@ func New(ctx context.Context, baseURI string, repo authDB.Repo, providers []prov
 		BaseURI: baseURI,
 	}
 
-	if err := s.initProviders(ctx, baseURI, providers); err != nil {
+	if err := s.initProviders(baseURI, providers); err != nil {
 		log.Fatal(err)
 	}
 	s.routes()
 	return &s
 }
 
-func (s *Service) initProviders(ctx context.Context, baseURI string, providers []provider.Provider) error {
+func (s *Service) initProviders(baseURI string, providers []provider.Provider) error {
 	var phs []*provider.Handlers
 	for _, p := range providers {
-		hs, err := p.Init(baseURI, s.withCheckUser(ctx))
+		hs, err := p.Init(baseURI, s.withCheckUser())
 		if err != nil {
 			return err
 		}
@@ -64,7 +64,7 @@ func (s *Service) routes() {
 	}
 }
 
-func (s *Service) withCheckUser(ctx context.Context) rp.CodeExchangeUserinfoCallback[*oidc.IDTokenClaims] {
+func (s *Service) withCheckUser() rp.CodeExchangeUserinfoCallback[*oidc.IDTokenClaims] {
 	return func(
 		w http.ResponseWriter,
 		r *http.Request,
@@ -76,7 +76,7 @@ func (s *Service) withCheckUser(ctx context.Context) rp.CodeExchangeUserinfoCall
 		userInfo, err := s.repo.GetUserByEmail(r.Context(), info.Email)
 		if err != nil {
 			if err == sql.ErrNoRows {
-				created, err := s.createUser(ctx, info)
+				created, err := s.createUser(r.Context(), info)
 				if err != nil {
 					s.mux.Respond(w, r, err, http.StatusInternalServerError)
 					return
