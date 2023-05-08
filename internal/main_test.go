@@ -16,10 +16,10 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
-	"github.com/rapidmidiex/rmx/internal/jam/postgres/sqlc"
+	"github.com/rapidmidiex/rmx/internal/jams/postgres/sqlc"
 )
 
-//go:embed jam/postgres/migration/*.sql
+//go:embed jams/postgres/migration/*.sql
 var migrations embed.FS
 
 var pgDB *sql.DB
@@ -118,7 +118,7 @@ func TestMain(m *testing.M) {
 func migrateUp() error {
 	// Migrations
 	// https://pkg.go.dev/github.com/golang-migrate/migrate/v4/source/iofs#example-package
-	d, err := iofs.New(migrations, "jam/postgres/migration")
+	d, err := iofs.New(migrations, "jams/postgres/migration")
 	if err != nil {
 		return fmt.Errorf("iofs: %w", err)
 	}
@@ -138,7 +138,7 @@ func migrateUp() error {
 
 // CleanDB runs the down migrations to drop all tables, then runs up migrations to reset database.
 func cleanDB(conn *sql.DB) error {
-	d, err := iofs.New(migrations, "jam/postgres/migration")
+	d, err := iofs.New(migrations, "jams/postgres/migration")
 	if err != nil {
 		return fmt.Errorf("iofs: %w", err)
 	}
