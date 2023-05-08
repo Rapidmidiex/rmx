@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/brianvoe/gofakeit/v6 v6.20.1
 	github.com/go-chi/chi/v5 v5.0.8
-	github.com/gobwas/ws v1.1.0
+	github.com/gobwas/ws v1.2.0
 	github.com/golang-migrate/migrate/v4 v4.15.2
 	github.com/gorilla/websocket v1.5.0
 	github.com/hyphengolang/prelude v0.1.3
@@ -61,7 +61,7 @@ require (
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
-	golang.org/x/sys v0.0.0-20220811171246-fbc7d0a398ab // indirect
+	golang.org/x/sys v0.6.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
