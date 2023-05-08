@@ -110,13 +110,13 @@ func TestJamFlowAcceptance(t *testing.T) {
 	rmxSrv := httptest.NewServer(jamSvc)
 	defer rmxSrv.Close()
 
-	restBase := rmxSrv.URL + "/v0"
+	restBase := rmxSrv.URL
 	wsBase := strings.Replace(restBase, "http", "ws", 1)
 
 	// **** Create new Jam **** //
 	jamName := "Jam On It!"
 	newJamBody := fmt.Sprintf(`{"name":%q}`, jamName)
-	newJamResp, err := http.Post(restBase+"/jams", "application/json", strings.NewReader(newJamBody))
+	newJamResp, err := http.Post(restBase, "application/json", strings.NewReader(newJamBody))
 	require.NoError(t, err)
 	require.Equal(t, http.StatusCreated, newJamResp.StatusCode)
 
@@ -143,7 +143,7 @@ func TestJamFlowAcceptance(t *testing.T) {
 	// **** Use the Jam selection to join the Jam room **** //
 	// **** Client A joins Jam **** //
 	roomID := jamsList.Rooms[0].ID
-	jamWSurl := fmt.Sprintf("%s/jams/%s/ws", wsBase, roomID)
+	jamWSurl := fmt.Sprintf("%s/%s/ws", wsBase, roomID)
 	// Intentionally external ws client (not rmx) because this client represent a client external to this system. (JS Frontend, TUI frontend)
 	wsConnA, _, err := websocket.DefaultDialer.Dial(jamWSurl, nil)
 	// TODO: Fails. We should be able to join a Jam with the Jam ID. The service should figure out the rest
@@ -177,7 +177,7 @@ func TestJamFlowAcceptance(t *testing.T) {
 	}()
 
 	// Check the player count
-	playerCountResp, err := http.Get(restBase + "/jams")
+	playerCountResp, err := http.Get(restBase)
 	require.NoError(t, err)
 
 	d := json.NewDecoder(playerCountResp.Body)
@@ -227,7 +227,7 @@ func TestJamFlowAcceptance(t *testing.T) {
 // newPostJamReq creates a POST /jams request to REST API to create a new Jam.
 func newPostJamReq(t *testing.T, jamBody io.Reader) *http.Request {
 	t.Helper()
-	req, err := http.NewRequest(http.MethodPost, "/v0/jams", jamBody)
+	req, err := http.NewRequest(http.MethodPost, "/", jamBody)
 	require.NoError(t, err)
 	return req
 }
@@ -235,7 +235,7 @@ func newPostJamReq(t *testing.T, jamBody io.Reader) *http.Request {
 // newGetJamsReq creates a GET /jams request to REST API to list available Jams.
 func newGetJamsReq(t *testing.T) *http.Request {
 	t.Helper()
-	req, err := http.NewRequest(http.MethodGet, "/v0/jams", nil)
+	req, err := http.NewRequest(http.MethodGet, "/", nil)
 	require.NoError(t, err)
 	return req
 }
