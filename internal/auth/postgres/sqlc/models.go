@@ -11,8 +11,8 @@ import (
 )
 
 type User struct {
-	ID        uuid.UUID   `json:"id"`
-	Username  string      `json:"username"`
-	Email     interface{} `json:"email"`
-	CreatedAt time.Time   `json:"createdAt"`
+	ID        uuid.UUID `json:"id"`
+	Username  string    `json:"username"`
+	Email     string    `json:"email"`
+	CreatedAt time.Time `json:"createdAt"`
 }

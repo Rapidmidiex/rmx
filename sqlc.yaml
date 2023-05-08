@@ -2,7 +2,7 @@ version: "2"
 sql:
   - engine: "postgresql"
     queries: "./internal/jam/postgres/query"
-    schema: "./internal/jam/postgres/migration"
+    schema: "./internal/db/migration/000001_init_jam.up.sql"
     gen:
       go:
         package: "sqlc"
@@ -16,7 +16,7 @@ sql:
         json_tags_case_style: "camel"
   - engine: "postgresql"
     queries: "./internal/auth/postgres/query"
-    schema: "./internal/auth/postgres/migration"
+    schema: "./internal/db/migration/000001_init_user.up.sql"
     gen:
       go:
         package: "sqlc"

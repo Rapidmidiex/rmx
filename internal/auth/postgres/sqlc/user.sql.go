@@ -19,8 +19,8 @@ RETURNING
 `
 
 type CreateUserParams struct {
-	Username string      `json:"username"`
-	Email    interface{} `json:"email"`
+	Username string `json:"username"`
+	Email    string `json:"email"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg *CreateUserParams) (User, error) {
@@ -40,7 +40,7 @@ DELETE FROM "user"
 WHERE email = $1
 `
 
-func (q *Queries) DeleteUserByEmail(ctx context.Context, email interface{}) error {
+func (q *Queries) DeleteUserByEmail(ctx context.Context, email string) error {
 	_, err := q.db.ExecContext(ctx, deleteUserByEmail, email)
 	return err
 }
@@ -65,7 +65,7 @@ WHERE
 LIMIT 1
 `
 
-func (q *Queries) GetUserByEmail(ctx context.Context, email interface{}) (User, error) {
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
 	row := q.db.QueryRowContext(ctx, getUserByEmail, email)
 	var i User
 	err := row.Scan(
@@ -154,8 +154,8 @@ RETURNING
 `
 
 type UpdateUserByEmailParams struct {
-	Email    interface{} `json:"email"`
-	Username string      `json:"username"`
+	Email    string `json:"email"`
+	Username string `json:"username"`
 }
 
 func (q *Queries) UpdateUserByEmail(ctx context.Context, arg *UpdateUserByEmailParams) (User, error) {

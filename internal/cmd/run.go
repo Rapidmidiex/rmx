@@ -196,15 +196,27 @@ func runMigrations(conn *sql.DB) error {
 		return err
 	}
 
-	m, err := migrate.NewWithDatabaseInstance(
-		"file://internal/db/migration",
+	authM, err := migrate.NewWithDatabaseInstance(
+		"file://internal/auth/postgres/migration",
 		"postgres",
 		driver,
 	)
 	if err != nil {
 		return err
 	}
-	if err := m.Up(); err != nil {
+	if err := authM.Up(); err != nil {
+		return err
+	}
+
+	jamM, err := migrate.NewWithDatabaseInstance(
+		"file://internal/jam/postgres/migration",
+		"postgres",
+		driver,
+	)
+	if err != nil {
+		return err
+	}
+	if err := jamM.Up(); err != nil {
 		return err
 	}
 

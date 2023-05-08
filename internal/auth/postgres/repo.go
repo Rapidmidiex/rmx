@@ -37,7 +37,7 @@ func (s *store) CreateUser(ctx context.Context, u auth.User) (auth.User, error) 
 	return auth.User{
 		ID:       created.ID,
 		Username: created.Username,
-		Email:    created.Email.(string),
+		Email:    created.Email,
 	}, err
 }
 
@@ -50,7 +50,7 @@ func (s *store) GetUserByID(ctx context.Context, id uuid.UUID) (auth.User, error
 	return auth.User{
 		ID:       found.ID,
 		Username: found.Username,
-		Email:    found.Email.(string),
+		Email:    found.Email,
 	}, nil
 }
 
@@ -63,7 +63,7 @@ func (s *store) GetUserByEmail(ctx context.Context, email string) (auth.User, er
 	return auth.User{
 		ID:       found.ID,
 		Username: found.Username,
-		Email:    found.Email.(string),
+		Email:    found.Email,
 	}, nil
 }
 
@@ -81,7 +81,7 @@ func (s *store) ListUsers(ctx context.Context) ([]auth.User, error) {
 		res = append(res, auth.User{
 			ID:       u.ID,
 			Username: u.Username,
-			Email:    u.Email.(string),
+			Email:    u.Email,
 		})
 	}
 	return res, nil
@@ -99,7 +99,7 @@ func (s *store) UpdateUserByID(ctx context.Context, id uuid.UUID, username strin
 	return auth.User{
 		ID:       updated.ID,
 		Username: updated.Username,
-		Email:    updated.Email.(string),
+		Email:    updated.Email,
 	}, nil
 }
 
@@ -115,7 +115,7 @@ func (s *store) UpdateUserByEmail(ctx context.Context, email string, username st
 	return auth.User{
 		ID:       updated.ID,
 		Username: updated.Username,
-		Email:    updated.Email.(string),
+		Email:    updated.Email,
 	}, nil
 }
 
