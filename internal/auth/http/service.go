@@ -41,7 +41,7 @@ func New(ctx context.Context, baseURI string, repo authDB.Repo, providers []prov
 func (s *Service) initProviders(ctx context.Context, baseURI string, providers []provider.Provider) error {
 	var phs []*provider.Handlers
 	for _, p := range providers {
-		hs, err := p.Init(baseURI, s.checkUser(ctx))
+		hs, err := p.Init(baseURI, s.withCheckUser(ctx))
 		if err != nil {
 			return err
 		}
@@ -64,7 +64,7 @@ func (s *Service) routes() {
 	}
 }
 
-func (s *Service) checkUser(ctx context.Context) rp.CodeExchangeUserinfoCallback[*oidc.IDTokenClaims] {
+func (s *Service) withCheckUser(ctx context.Context) rp.CodeExchangeUserinfoCallback[*oidc.IDTokenClaims] {
 	return func(
 		w http.ResponseWriter,
 		r *http.Request,
@@ -73,7 +73,7 @@ func (s *Service) checkUser(ctx context.Context) rp.CodeExchangeUserinfoCallback
 		provider rp.RelyingParty,
 		info *oidc.UserInfo,
 	) {
-		userInfo, err := s.repo.GetUserByEmail(r.Conext(), info.Email)
+		userInfo, err := s.repo.GetUserByEmail(r.Context(), info.Email)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				created, err := s.createUser(ctx, info)
