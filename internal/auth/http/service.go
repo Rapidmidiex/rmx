@@ -73,7 +73,7 @@ func (s *Service) checkUser(ctx context.Context) rp.CodeExchangeUserinfoCallback
 		provider rp.RelyingParty,
 		info *oidc.UserInfo,
 	) {
-		userInfo, err := s.repo.GetUserByEmail(ctx, info.Email)
+		userInfo, err := s.repo.GetUserByEmail(r.Conext(), info.Email)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				created, err := s.createUser(ctx, info)
