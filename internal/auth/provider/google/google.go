@@ -18,6 +18,13 @@ var (
 	callbackURI = "/google/callback"
 	scopes      = []string{"email", "profile", "openid"}
 	iatOffset   = time.Second * 5
+	urlParams   = []rp.URLParamOpt{
+		rp.WithURLParam("access_type", "offline"),
+
+		// prompt=consent forces google API to send a new refresh token on each login
+		// https://stackoverflow.com/questions/10827920/not-receiving-google-oauth-refresh-token/10857806#10857806
+		rp.WithURLParam("prompt", "consent"),
+	}
 )
 
 type Provider struct {
@@ -44,7 +51,6 @@ func (p *Provider) Init(baseURI string, callback rp.CodeExchangeUserinfoCallback
 
 	redirectURI := fmt.Sprintf("%s%s", baseURI, callbackURI)
 
-	// static port number just for testing
 	orp, err := rp.NewRelyingPartyOIDC(
 		issuer,
 		p.clientID,
@@ -78,6 +84,6 @@ func initHandlers(
 		return uuid.New().String()
 	}
 
-	return rp.AuthURLHandler(state, provider),
+	return rp.AuthURLHandler(state, provider, urlParams...),
 		rp.CodeExchangeHandler(rp.UserinfoCallback(callback), provider), nil
 }

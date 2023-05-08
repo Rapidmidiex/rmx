@@ -3,7 +3,6 @@ package http
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"log"
 	"net/http"
 
@@ -64,7 +63,15 @@ func (s *Service) routes() {
 	}
 }
 
+// any idea what to name this?
+const rtCookieName = "RMX_GOOGLE_RT"
+
 func (s *Service) withCheckUser() rp.CodeExchangeUserinfoCallback[*oidc.IDTokenClaims] {
+	type response struct {
+		AccessToken string `json:"access_token"`
+		IDToken     string `json:"id_token"`
+	}
+
 	return func(
 		w http.ResponseWriter,
 		r *http.Request,
@@ -73,38 +80,52 @@ func (s *Service) withCheckUser() rp.CodeExchangeUserinfoCallback[*oidc.IDTokenC
 		provider rp.RelyingParty,
 		info *oidc.UserInfo,
 	) {
-		userInfo, err := s.repo.GetUserByEmail(r.Context(), info.Email)
+		_, err := s.repo.GetUserByEmail(r.Context(), info.Email)
 		if err != nil {
 			if err == sql.ErrNoRows {
-				created, err := s.createUser(r.Context(), info)
+				// user does not exist, create a new one
+				err := s.createUser(r.Context(), info)
 				if err != nil {
 					s.mux.Respond(w, r, err, http.StatusInternalServerError)
 					return
 				}
 
-				s.mux.Respond(w, r, created, http.StatusOK)
+				_, err = s.repo.GetUserByEmail(r.Context(), info.Email)
+				if err != nil {
+					s.mux.Respond(w, r, err, http.StatusInternalServerError)
+					return
+				}
+			} else {
+				s.mux.Respond(w, r, err, http.StatusInternalServerError)
 				return
 			}
-
-			s.mux.Respond(w, r, err, http.StatusInternalServerError)
-			return
 		}
 
-		bs, err := json.Marshal(userInfo)
-		if err != nil {
-			s.mux.Respond(w, r, err, http.StatusInternalServerError)
-			return
+		rtCookie := &http.Cookie{
+			Name:     rtCookieName,
+			Value:    tokens.RefreshToken,
+			HttpOnly: true,
+			Secure:   true,
+			SameSite: http.SameSiteLaxMode,
+			Expires:  tokens.Expiry,
 		}
 
-		s.mux.Respond(w, r, bs, http.StatusOK)
+		res := &response{
+			AccessToken: tokens.AccessToken,
+			IDToken:     tokens.IDToken,
+		}
+
+		http.SetCookie(w, rtCookie)
+		s.mux.Respond(w, r, res, http.StatusOK)
 	}
 }
 
-func (s *Service) createUser(ctx context.Context, info *oidc.UserInfo) (auth.User, error) {
+func (s *Service) createUser(ctx context.Context, info *oidc.UserInfo) error {
 	user := auth.User{
 		Username: info.GivenName,
 		Email:    info.Email,
 	}
 
-	return s.repo.CreateUser(ctx, user)
+	_, err := s.repo.CreateUser(ctx, user)
+	return err
 }
