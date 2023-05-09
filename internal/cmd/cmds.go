@@ -100,9 +100,11 @@ func LoadConfigFromEnv(dev bool) (*config.Config, error) {
 		},
 		Auth: config.AuthConfig{
 			Google: config.GoogleConfig{
-				ClientID:     "",
-				ClientSecret: "",
+				ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
+				ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
 			},
+			CookieHashKey:       os.Getenv("COOKIE_HASH_KEY"),
+			CookieEncryptionKey: os.Getenv("COOKIE_ENCRYPTION_KEY"),
 		},
 		Dev: dev,
 	}, nil
