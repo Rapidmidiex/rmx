@@ -149,6 +149,7 @@ func serve(cfg *config.Config) error {
 		r.Mount(
 			"/auth",
 			newAuthService(
+				sCtx,
 				fmt.Sprintf("http://localhost:%s/v0/auth", cfg.Port),
 				conn,
 				[]provider.Provider{
@@ -224,6 +225,7 @@ func newJamService(ctx context.Context, conn *sql.DB) *jamHTTP.Service {
 
 // TODO: find a better way to pass provider config
 func newAuthService(
+	ctx context.Context,
 	baseURI string,
 	conn *sql.DB,
 	providers []provider.Provider,
@@ -231,6 +233,6 @@ func newAuthService(
 	encKey string,
 ) *authHTTP.Service {
 	authDB := authDB.New(conn)
-	authHTTP := authHTTP.New(baseURI, authDB, providers)
+	authHTTP := authHTTP.New(ctx, baseURI, authDB, providers)
 	return authHTTP
 }
