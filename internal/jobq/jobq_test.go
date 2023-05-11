@@ -10,13 +10,14 @@ import (
 
 func TestJobQ(t *testing.T) {
 	ctx := context.Background()
+	subject := "jobq"
 	ch := make(chan *pubsub.Message, 10)
 	text := []byte("never gonna give you up")
 
-	q := jobq.New(5)
+	q, _ := jobq.New(ctx, subject, 5)
 
-	t.Run("test JobQ publish", func(t *testing.T) {
-		q.ChanSubscribe(ctx, ch)
+	t.Run("test jobq", func(t *testing.T) {
+		_ = q.ChanSubscribe(ctx, ch)
 
 		_ = q.Publish(ctx, &pubsub.Message{
 			Body: text,

@@ -2,36 +2,46 @@ package jobq
 
 import (
 	"context"
-	"log"
-	"time"
-
 	"gocloud.dev/pubsub"
-	"gocloud.dev/pubsub/mempubsub"
+	_ "gocloud.dev/pubsub/mempubsub"
+	"log"
 )
 
 type JobQ struct {
-	q    *pubsub.Topic
-	sem  chan struct{}
-	log  func(v ...any)
-	logF func(format string, v ...any)
+	subject string
+	q       *pubsub.Topic
+	sem     chan struct{}
+	log     func(v ...any)
+	logF    func(format string, v ...any)
 }
 
-func New(maxHandlers int) *JobQ {
+func New(ctx context.Context, subject string, maxHandlers int) (*JobQ, error) {
+	topic, err := pubsub.OpenTopic(ctx, "mem://"+subject)
+	if err != nil {
+		return nil, err
+	}
+
 	return &JobQ{
-		mempubsub.NewTopic(),
+		subject,
+		topic,
 		make(chan struct{}, maxHandlers),
 		log.Println,
 		log.Printf,
-	}
+	}, nil
 }
 
-func (j *JobQ) ChanSubscribe(ctx context.Context, out chan *pubsub.Message) {
-	sub := mempubsub.NewSubscription(j.q, 1*time.Minute)
+func (j *JobQ) ChanSubscribe(ctx context.Context, out chan *pubsub.Message) error {
+	sub, err := pubsub.OpenSubscription(ctx, j.subject)
+	if err != nil {
+		return err
+	}
 	go j.listen(ctx, sub, out)
-	j.block()
+
+	return nil
 }
 
 func (j *JobQ) listen(ctx context.Context, sub *pubsub.Subscription, out chan *pubsub.Message) {
+recvLoop:
 	for {
 		msg, err := sub.Receive(ctx)
 		if err != nil {
@@ -40,7 +50,7 @@ func (j *JobQ) listen(ctx context.Context, sub *pubsub.Subscription, out chan *p
 
 		select {
 		case <-ctx.Done():
-			return
+			break recvLoop
 		case j.sem <- struct{}{}:
 		}
 
@@ -52,6 +62,8 @@ func (j *JobQ) listen(ctx context.Context, sub *pubsub.Subscription, out chan *p
 			out <- msg
 		}()
 	}
+
+	j.block()
 }
 
 func (j *JobQ) block() {

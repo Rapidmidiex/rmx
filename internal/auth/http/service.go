@@ -67,9 +67,15 @@ func (s *Service) initProviders(baseURI string, providers []provider.Provider) e
 	return nil
 }
 
-func (s *Service) initQueue(ctx context.Context, cap int) error {
-	authq := jobq.New(cap)
-	authq.ChanSubscribe(ctx, s.qc)
+func (s *Service) initQueue(ctx context.Context, subject string, cap int) error {
+	authq, err := jobq.New(ctx, subject, cap)
+	if err != nil {
+		return err
+	}
+
+	if err := authq.ChanSubscribe(ctx, s.qc); err != nil {
+		return err
+	}
 
 	s.queue = authq
 	return nil
