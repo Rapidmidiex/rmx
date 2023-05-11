@@ -2,17 +2,34 @@ package jobq
 
 import (
 	"context"
+	"log"
+
 	"gocloud.dev/pubsub"
 	_ "gocloud.dev/pubsub/mempubsub"
-	"log"
 )
 
 type JobQ struct {
-	subject string
-	q       *pubsub.Topic
-	sem     chan struct{}
-	log     func(v ...any)
-	logF    func(format string, v ...any)
+	sub  string
+	q    *pubsub.Topic
+	sem  chan struct{}
+	log  func(v ...any)
+	logF func(format string, v ...any)
+}
+
+type msgHandler func(*pubsub.Message)
+
+type subscriptionType int
+
+const (
+	asyncSubscription = subscriptionType(iota)
+	chanSubscription
+)
+
+type subscription struct {
+	conn *pubsub.Subscription
+	mcb  msgHandler
+	mch  chan *pubsub.Message
+	typ  subscriptionType
 }
 
 func New(ctx context.Context, subject string, maxHandlers int) (*JobQ, error) {
@@ -30,20 +47,31 @@ func New(ctx context.Context, subject string, maxHandlers int) (*JobQ, error) {
 	}, nil
 }
 
-func (j *JobQ) ChanSubscribe(ctx context.Context, out chan *pubsub.Message) error {
-	sub, err := pubsub.OpenSubscription(ctx, j.subject)
+func (j *JobQ) AsyncSubscribe(ctx context.Context, cb msgHandler) error {
+	sub, err := pubsub.OpenSubscription(ctx, j.sub)
 	if err != nil {
 		return err
 	}
-	go j.listen(ctx, sub, out)
+	go j.listen(ctx, &subscription{sub, cb, nil, chanSubscription})
+
+	return nil
+
+}
+
+func (j *JobQ) ChanSubscribe(ctx context.Context, out chan *pubsub.Message) error {
+	sub, err := pubsub.OpenSubscription(ctx, j.sub)
+	if err != nil {
+		return err
+	}
+	go j.listen(ctx, &subscription{sub, nil, out, chanSubscription})
 
 	return nil
 }
 
-func (j *JobQ) listen(ctx context.Context, sub *pubsub.Subscription, out chan *pubsub.Message) {
+func (j *JobQ) listen(ctx context.Context, sub *subscription) {
 recvLoop:
 	for {
-		msg, err := sub.Receive(ctx)
+		msg, err := sub.conn.Receive(ctx)
 		if err != nil {
 			j.logF("jobq receive: %v", err)
 		}
@@ -59,7 +87,12 @@ recvLoop:
 			defer msg.Ack()            // message must always be acknowledged
 
 			// handle message
-			out <- msg
+			switch sub.typ {
+			case asyncSubscription:
+				sub.mcb(msg)
+			case chanSubscription:
+				sub.mch <- msg
+			}
 		}()
 	}
 
