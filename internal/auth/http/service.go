@@ -10,7 +10,7 @@ import (
 	authDB "github.com/rapidmidiex/rmx/internal/auth/postgres"
 	"github.com/rapidmidiex/rmx/internal/auth/provider"
 	service "github.com/rapidmidiex/rmx/internal/http"
-	"github.com/rapidmidiex/rmx/internal/jobq"
+	"github.com/rapidmidiex/rmx/pkg/jobq"
 	"github.com/zitadel/oidc/v2/pkg/client/rp"
 	"github.com/zitadel/oidc/v2/pkg/oidc"
 	"gocloud.dev/pubsub"

@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/hyphengolang/prelude/testing/is"
-	"github.com/rapidmidiex/rmx/internal/jobq"
+	"github.com/rapidmidiex/rmx/pkg/jobq"
 	"gocloud.dev/pubsub"
 )
 
