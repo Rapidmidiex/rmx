@@ -33,13 +33,14 @@ type subscription struct {
 }
 
 func New(ctx context.Context, subject string, maxHandlers int) (*JobQ, error) {
-	topic, err := pubsub.OpenTopic(ctx, "mem://"+subject)
+	url := "mem://" + subject
+	topic, err := pubsub.OpenTopic(ctx, url)
 	if err != nil {
 		return nil, err
 	}
 
 	return &JobQ{
-		subject,
+		url,
 		topic,
 		make(chan struct{}, maxHandlers),
 		log.Println,
