@@ -57,7 +57,6 @@ func AsyncSubscribe(ctx context.Context, subj string, cb func(*pubsub.Message), 
 	)
 
 	return nil
-
 }
 
 func ChanSubscribe(ctx context.Context, subj string, out chan *pubsub.Message, maxHandlers int) error {
@@ -94,23 +93,24 @@ recvLoop:
 		case <-ctx.Done():
 			break recvLoop
 		case sub.sem <- struct{}{}:
+
+			sub.handleMsg(msg)
 		}
-
-		go func() {
-			defer func() { <-sub.sem }() // frees up the channel for a new receiver
-			defer msg.Ack()              // message must always be acknowledged
-
-			// handle message
-			switch sub.typ {
-			case asyncSubscription:
-				sub.mcb(msg)
-			case chanSubscription:
-				sub.mch <- msg
-			}
-		}()
 	}
 
 	sub.block()
+}
+
+func (s *subscription) handleMsg(m *pubsub.Message) {
+	defer func() { <-s.sem }() // frees up the channel for a new receiver
+	defer m.Ack()              // message must always be acknowledged
+
+	switch s.typ {
+	case asyncSubscription:
+		s.mcb(m)
+	case chanSubscription:
+		s.mch <- m
+	}
 }
 
 func (s *subscription) block() {
