@@ -2,21 +2,12 @@ package jobq
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"gocloud.dev/pubsub"
 	_ "gocloud.dev/pubsub/mempubsub"
 )
-
-type JobQ struct {
-	sub  string
-	q    *pubsub.Topic
-	sem  chan struct{}
-	log  func(v ...any)
-	logF func(format string, v ...any)
-}
-
-type msgHandler func(*pubsub.Message)
 
 type subscriptionType int
 
@@ -27,65 +18,87 @@ const (
 
 type subscription struct {
 	conn *pubsub.Subscription
-	mcb  msgHandler
+	sem  chan struct{}
+	mcb  func(*pubsub.Message)
 	mch  chan *pubsub.Message
 	typ  subscriptionType
+	log  func(v ...any)
+	logF func(format string, v ...any)
 }
 
-func New(ctx context.Context, subject string, maxHandlers int) (*JobQ, error) {
-	url := "mem://" + subject
+func New(ctx context.Context, subj string) (*pubsub.Topic, error) {
+	url := "mem://" + subj
 	topic, err := pubsub.OpenTopic(ctx, url)
 	if err != nil {
 		return nil, err
 	}
 
-	return &JobQ{
-		url,
-		topic,
-		make(chan struct{}, maxHandlers),
-		log.Println,
-		log.Printf,
-	}, nil
+	return topic, nil
 }
 
-func (j *JobQ) AsyncSubscribe(ctx context.Context, cb msgHandler) error {
-	sub, err := pubsub.OpenSubscription(ctx, j.sub)
+func AsyncSubscribe(ctx context.Context, subj string, cb func(*pubsub.Message), maxHandlers int) error {
+	url := "mem://" + subj
+	sub, err := pubsub.OpenSubscription(ctx, url)
 	if err != nil {
-		return err
+		return fmt.Errorf("jobq topic[%s] AsyncSubscribe: %v", url, err)
 	}
-	go j.listen(ctx, &subscription{sub, cb, nil, chanSubscription})
+
+	go listen(
+		ctx,
+		&subscription{
+			sub,
+			make(chan struct{}, maxHandlers),
+			cb,
+			nil,
+			chanSubscription,
+			log.Println,
+			log.Printf,
+		},
+	)
 
 	return nil
 
 }
 
-func (j *JobQ) ChanSubscribe(ctx context.Context, out chan *pubsub.Message) error {
-	sub, err := pubsub.OpenSubscription(ctx, j.sub)
+func ChanSubscribe(ctx context.Context, subj string, out chan *pubsub.Message, maxHandlers int) error {
+	url := "mem://" + subj
+	sub, err := pubsub.OpenSubscription(ctx, url)
 	if err != nil {
-		return err
+		return fmt.Errorf("jobq topic[%s] ChanSubscribe: %v", url, err)
 	}
-	go j.listen(ctx, &subscription{sub, nil, out, chanSubscription})
 
+	go listen(
+		ctx,
+		&subscription{
+			sub,
+			make(chan struct{}, maxHandlers),
+			nil,
+			out,
+			chanSubscription,
+			log.Println,
+			log.Printf,
+		},
+	)
 	return nil
 }
 
-func (j *JobQ) listen(ctx context.Context, sub *subscription) {
+func listen(ctx context.Context, sub *subscription) {
 recvLoop:
 	for {
 		msg, err := sub.conn.Receive(ctx)
 		if err != nil {
-			j.logF("jobq receive: %v", err)
+			sub.logF("jobq receive: %v", err)
 		}
 
 		select {
 		case <-ctx.Done():
 			break recvLoop
-		case j.sem <- struct{}{}:
+		case sub.sem <- struct{}{}:
 		}
 
 		go func() {
-			defer func() { <-j.sem }() // frees up the channel for a new receiver
-			defer msg.Ack()            // message must always be acknowledged
+			defer func() { <-sub.sem }() // frees up the channel for a new receiver
+			defer msg.Ack()              // message must always be acknowledged
 
 			// handle message
 			switch sub.typ {
@@ -97,15 +110,23 @@ recvLoop:
 		}()
 	}
 
-	j.block()
+	sub.block()
 }
 
-func (j *JobQ) block() {
+func (s *subscription) block() {
 	// we're no longer receiving messages. Wait to finish handling any
 	// unacknowledged messages by totally acquiring the semaphore.
-	for n := 0; n < cap(j.sem); n++ {
-		j.sem <- struct{}{}
+	for n := 0; n < cap(s.sem); n++ {
+		s.sem <- struct{}{}
 	}
 }
 
-func (j *JobQ) Publish(ctx context.Context, msg *pubsub.Message) error { return j.q.Send(ctx, msg) }
+func Publish(ctx context.Context, subj string, msg *pubsub.Message) error {
+	url := "mem://" + subj
+	topic, err := pubsub.OpenTopic(ctx, url)
+	if err != nil {
+		return fmt.Errorf("jobq topic[%s] Publish: %v", url, err)
+	}
+
+	return topic.Send(ctx, msg)
+}

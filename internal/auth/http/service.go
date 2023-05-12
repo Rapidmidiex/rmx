@@ -20,7 +20,6 @@ type Service struct {
 	mux service.Service
 
 	repo      authDB.Repo
-	queue     *jobq.JobQ
 	qc        chan *pubsub.Message
 	providers []*provider.Handlers
 
@@ -68,20 +67,19 @@ func (s *Service) initProviders(baseURI string, providers []provider.Provider) e
 }
 
 func (s *Service) initQueue(ctx context.Context, subject string, cap int) error {
-	authq, err := jobq.New(ctx, subject, cap)
+	_, err := jobq.New(ctx, subject)
 	if err != nil {
 		return err
 	}
 
-	if err := authq.ChanSubscribe(ctx, s.qc); err != nil {
+	if err := jobq.AsyncSubscribe(ctx, subject, s.introspect, 10); err != nil {
 		return err
 	}
 
-	s.queue = authq
 	return nil
 }
 
-func (s *Service) introspect(msg *pubsub.Message) {}
+func (s *Service) introspect(m *pubsub.Message) {}
 
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mux.ServeHTTP(w, r)

@@ -17,21 +17,23 @@ func TestJobQ(t *testing.T) {
 	text := []byte("never gonna give you up")
 
 	t.Run("test jobq", func(t *testing.T) {
-		t.Log("hello")
-		q, err := jobq.New(ctx, subject, 5)
+		_, err := jobq.New(ctx, subject)
 		is.NoErr(err)
 
-		err = q.ChanSubscribe(ctx, ch)
+		err = jobq.ChanSubscribe(ctx, subject, ch, 5)
 		is.NoErr(err)
 
-		err = q.Publish(ctx, &pubsub.Message{
+		err = jobq.AsyncSubscribe(ctx, subject, func(m *pubsub.Message) {
+			is.Equal(string(m.Body), text)
+		}, 5)
+		is.NoErr(err)
+
+		err = jobq.Publish(ctx, subject, &pubsub.Message{
 			Body: text,
 		})
 		is.NoErr(err)
 
 		msg := <-ch
-		if string(msg.Body) != string(text) {
-			t.Fail()
-		}
+		is.Equal(msg.Body, text)
 	})
 }
