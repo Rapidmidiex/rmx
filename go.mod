@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/brianvoe/gofakeit/v6 v6.21.0
 	github.com/go-chi/chi/v5 v5.0.8
-	github.com/gobwas/ws v1.2.0
+	github.com/gobwas/ws v1.2.1
 	github.com/golang-migrate/migrate/v4 v4.15.2
 	github.com/gorilla/websocket v1.5.0
 	github.com/hyphengolang/prelude v0.1.3
