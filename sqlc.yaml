@@ -16,7 +16,7 @@ sql:
         json_tags_case_style: "camel"
   - engine: "postgresql"
     queries: "./internal/auth/postgres/query"
-    schema: "./internal/db/migration/000001_init_user.up.sql"
+    schema: "./internal/db/migration/000002_init_auth.up.sql"
     gen:
       go:
         package: "sqlc"

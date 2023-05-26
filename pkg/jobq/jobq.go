@@ -14,6 +14,8 @@ type subscriptionType int
 const (
 	asyncSubscription = subscriptionType(iota)
 	chanSubscription
+
+	urlPrefix = "mem://"
 )
 
 type subscription struct {
@@ -27,8 +29,7 @@ type subscription struct {
 }
 
 func New(ctx context.Context, subj string) (*pubsub.Topic, error) {
-	url := "mem://" + subj
-	topic, err := pubsub.OpenTopic(ctx, url)
+	topic, err := pubsub.OpenTopic(ctx, urlPrefix+subj)
 	if err != nil {
 		return nil, err
 	}
@@ -37,10 +38,9 @@ func New(ctx context.Context, subj string) (*pubsub.Topic, error) {
 }
 
 func AsyncSubscribe(ctx context.Context, subj string, cb func(*pubsub.Message), maxHandlers int) error {
-	url := "mem://" + subj
-	sub, err := pubsub.OpenSubscription(ctx, url)
+	sub, err := pubsub.OpenSubscription(ctx, urlPrefix+subj)
 	if err != nil {
-		return fmt.Errorf("jobq topic[%s] AsyncSubscribe: %v", url, err)
+		return fmt.Errorf("jobq topic[%s] AsyncSubscribe: %v", urlPrefix+subj, err)
 	}
 
 	go listen(
@@ -60,10 +60,9 @@ func AsyncSubscribe(ctx context.Context, subj string, cb func(*pubsub.Message), 
 }
 
 func ChanSubscribe(ctx context.Context, subj string, out chan *pubsub.Message, maxHandlers int) error {
-	url := "mem://" + subj
-	sub, err := pubsub.OpenSubscription(ctx, url)
+	sub, err := pubsub.OpenSubscription(ctx, urlPrefix+subj)
 	if err != nil {
-		return fmt.Errorf("jobq topic[%s] ChanSubscribe: %v", url, err)
+		return fmt.Errorf("jobq topic[%s] ChanSubscribe: %v", urlPrefix+subj, err)
 	}
 
 	go listen(
@@ -122,10 +121,9 @@ func (s *subscription) block() {
 }
 
 func Publish(ctx context.Context, subj string, msg *pubsub.Message) error {
-	url := "mem://" + subj
-	topic, err := pubsub.OpenTopic(ctx, url)
+	topic, err := pubsub.OpenTopic(ctx, urlPrefix+subj)
 	if err != nil {
-		return fmt.Errorf("jobq topic[%s] Publish: %v", url, err)
+		return fmt.Errorf("jobq topic[%s] Publish: %v", urlPrefix+subj, err)
 	}
 
 	return topic.Send(ctx, msg)

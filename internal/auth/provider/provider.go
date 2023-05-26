@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/zitadel/oidc/v2/pkg/client/rp"
@@ -14,4 +15,5 @@ type Handlers struct {
 
 type Provider interface {
 	Init(string, rp.CodeExchangeUserinfoCallback[*oidc.IDTokenClaims]) (*Handlers, error)
+	Introspect(context.Context, string) (*oidc.IntrospectionResponse, error)
 }

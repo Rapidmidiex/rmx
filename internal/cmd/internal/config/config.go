@@ -1,7 +1,10 @@
 package config
 
 import (
+	"crypto/ecdsa"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"log"
 	"os"
@@ -15,6 +18,12 @@ type DBConfig struct {
 	Password string `json:"password"`
 }
 
+type RedisConfig struct {
+	Addr     string `json:"addr"`
+	Password string `json:"password"`
+	DB       int    `json:"db"`
+}
+
 type GoogleConfig struct {
 	ClientID     string `json:"clientId"`
 	ClientSecret string `json:"clientSecret"`
@@ -25,17 +34,22 @@ type AuthConfig struct {
 	Google              GoogleConfig `json:"google"`
 	CookieHashKey       string       `json:"cookieHashKey"`
 	CookieEncryptionKey string       `json:"cookieEncryptionKey"`
+	JWTPrivateKey       *ecdsa.PrivateKey
+	JWTPublicKey        *ecdsa.PublicKey
 }
 
 type Config struct {
-	Port string     `json:"port"`
-	DB   DBConfig   `json:"db"`
-	Auth AuthConfig `json:"auth"`
-	Dev  bool       `json:"dev"`
+	Port  string      `json:"port"`
+	DB    DBConfig    `json:"db"`
+	Redis RedisConfig `json:"redis"`
+	Auth  AuthConfig  `json:"auth"`
+	Dev   bool        `json:"dev"`
 }
 
 const (
-	configFileName = "rmx.config.json"
+	configFileName  = "rmx.config.json"
+	runtimeDir      = "./runtime/"
+	keyPairFileName = "ecdsa_private.pem"
 )
 
 // writes the values of the config to a file
@@ -81,9 +95,33 @@ func ScanConfigFile() (*Config, error) {
 		return nil, err
 	}
 
+	priv, pub, err := readECDSAKeyPairFromFile(runtimeDir + keyPairFileName)
+	if err != nil {
+		return nil, err
+	}
+
+	c.Auth.JWTPrivateKey = priv
+	c.Auth.JWTPublicKey = pub
+
 	if err := json.Unmarshal(bs, c); err != nil {
 		return nil, err
 	}
 
 	return c, nil
+}
+
+func readECDSAKeyPairFromFile(path string) (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
+	bs, err := os.ReadFile(path)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	block, _ := pem.Decode(bs)
+	x509Encoded := block.Bytes
+	priv, err := x509.ParseECPrivateKey(x509Encoded)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return priv, &priv.PublicKey, nil
 }

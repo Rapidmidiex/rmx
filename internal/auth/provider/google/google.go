@@ -1,13 +1,16 @@
 package google
 
 import (
+	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/rapidmidiex/rmx/internal/auth/provider"
 	"github.com/zitadel/oidc/v2/pkg/client/rp"
+	"github.com/zitadel/oidc/v2/pkg/client/rs"
 	httphelper "github.com/zitadel/oidc/v2/pkg/http"
 	"github.com/zitadel/oidc/v2/pkg/oidc"
 )
@@ -28,13 +31,16 @@ var (
 )
 
 type Provider struct {
+	rp rp.RelyingParty
+	rs rs.ResourceServer
+
 	clientID, clientSecret string
 	hashKey                []byte
 	encKey                 []byte
 }
 
 func New(clientID, clientSecret string, hashKey, encKey []byte) provider.Provider {
-	return &Provider{clientID, clientSecret, hashKey, encKey}
+	return &Provider{nil, nil, clientID, clientSecret, hashKey, encKey}
 }
 
 func (p *Provider) Init(baseURI string, callback rp.CodeExchangeUserinfoCallback[*oidc.IDTokenClaims]) (*provider.Handlers, error) {
@@ -44,6 +50,7 @@ func (p *Provider) Init(baseURI string, callback rp.CodeExchangeUserinfoCallback
 		httphelper.WithUnsecure(),
 		httphelper.WithSameSite(http.SameSiteLaxMode),
 	)
+
 	options := []rp.Option{
 		rp.WithCookieHandler(cookieHandler),
 		rp.WithVerifierOpts(rp.WithIssuedAtOffset(iatOffset)),
@@ -63,7 +70,17 @@ func (p *Provider) Init(baseURI string, callback rp.CodeExchangeUserinfoCallback
 		return nil, err
 	}
 
-	ah, ch, err := initHandlers(orp, callback)
+	p.rp = orp
+
+	/*
+		ors, err := rs.NewResourceServerClientCredentials(issuer, p.clientID, p.clientSecret)
+		if err != nil {
+			return nil, err
+		}
+
+		p.rs = ors
+	*/
+	ah, ch, err := p.initHandlers(callback)
 	if err != nil {
 		return nil, err
 	}
@@ -76,14 +93,28 @@ func (p *Provider) Init(baseURI string, callback rp.CodeExchangeUserinfoCallback
 	}, nil
 }
 
-func initHandlers(
-	provider rp.RelyingParty,
-	callback rp.CodeExchangeUserinfoCallback[*oidc.IDTokenClaims],
-) (http.HandlerFunc, http.HandlerFunc, error) {
+func (p *Provider) Introspect(ctx context.Context, token string) (*oidc.IntrospectionResponse, error) {
+	token, err := p.checkToken(token)
+	if err != nil {
+		return nil, err
+	}
+
+	return rs.Introspect(ctx, p.rs, token)
+}
+
+func (*Provider) checkToken(token string) (string, error) {
+	if !strings.HasPrefix(token, oidc.PrefixBearer) {
+		return "", fmt.Errorf("invalid token header")
+	}
+
+	return strings.TrimPrefix(token, oidc.PrefixBearer), nil
+}
+
+func (p *Provider) initHandlers(callback rp.CodeExchangeUserinfoCallback[*oidc.IDTokenClaims]) (http.HandlerFunc, http.HandlerFunc, error) {
 	state := func() string {
 		return uuid.New().String()
 	}
 
-	return rp.AuthURLHandler(state, provider, urlParams...),
-		rp.CodeExchangeHandler(rp.UserinfoCallback(callback), provider), nil
+	return rp.AuthURLHandler(state, p.rp, urlParams...),
+		rp.CodeExchangeHandler(rp.UserinfoCallback(callback), p.rp), nil
 }

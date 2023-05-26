@@ -1,0 +1,10 @@
+#!/bin/bash
+PG_DB="rmx-dev-test"
+PG_USER="rmx"
+PG_PASSWORD="postgrespw"
+PG_HOST="localhost"
+PG_PORT=5432
+PG_CONN_STRING="postgresql://$PG_USER:$PG_PASSWORD@$PG_HOST:$PG_PORT/$PG_DB?sslmode=disable"
+PG_CONTAINER_NAME="postgres-rmx"
+NATS_CONTAINER_NAME="nats-rmx"
+NATS_PORT=4222

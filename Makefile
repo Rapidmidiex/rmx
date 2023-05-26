@@ -3,16 +3,6 @@ PWD = $(shell pwd)
 GO_BUILD= go build
 GOFLAGS= CGO_ENABLED=0
 
-PG_DB=rmx-dev-test
-PG_USER=rmx
-PG_PASSWORD=postgrespw
-PG_HOST=localhost
-PG_PORT=5432
-
-PG_CONN_STRING="postgresql://$(PG_USER):$(PG_PASSWORD)@$(PG_HOST):$(PG_PORT)/$(PG_DB)?sslmode=disable"
-
-PG_CONTAINER_NAME=postgres-rmx
-
 
 ## help: Print this help message
 .PHONY: help
@@ -48,27 +38,32 @@ fmt:
 	go fmt ./...
 
 ## build_server: Build server binary into bin/ directory
-.PHONY: build
-build:
-	$(GOFLAGS) $(GO_BUILD) -a -v -ldflags="-w -s" -o bin/rmx-server cmd/*.go
+.PHONY: build_server
+build_server:
+	make secrets
+	mkdir -p ./bin
+	$(GOFLAGS) $(GO_BUILD) -a -v -ldflags="-w -s" -o bin/rmx-server cmd/server/main.go
+
+.PHONY: secrets
+secrets:
+	sh scripts/secrets.sh
 
 # --host should be from ENV
-.PHONT: tls
+.PHONY: tls
 tls:
-	go run /usr/local/go/src/crypto/tls/generate_cert.go --host=$(HOSTNAME)
+	go run /usr/local/g/src/crypto/tls/generate_cert.go --host=$(HOSTNAME)
 
 .PHONY: postgres
 postgres:
-	docker rm -f postgres-rmx &> /dev/null || true
-	docker run --name $(PG_CONTAINER_NAME) -e POSTGRES_PASSWORD=$(PG_PASSWORD) -p $(PG_PORT):5432 -e POSTGRES_USER=$(PG_USER) -d postgres:14.6-alpine
-
+	sh scripts/postgres.sh
+	
 .PHONY: createdb
 createdb:
-	docker exec -it $(PG_CONTAINER_NAME) createdb --username=$(PG_USER) --owner=$(PG_USER) $(PG_DB)
+	sh scripts/createdb.sh
 
 .PHONY: dropdb
 dropdb:
-	docker exec -it $(PG_CONTAINER_NAME) dropdb --username=$(PG_USER) $(PG_DB)
+	sh scripts/dropdb.sh
 
 .PHONY: migrateup
 migrateup:

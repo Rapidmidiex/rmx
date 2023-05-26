@@ -12,6 +12,11 @@ type User struct {
 	Email    string    `json:"email"`
 }
 
+type Session struct {
+	AccessToken  string `redis:"accessToken"`
+	RefreshToken string `redis:"refreshToken"`
+}
+
 type AuthError struct {
 	StatusCode int   `json:"status"`
 	Err        error `json:"err"`

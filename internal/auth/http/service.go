@@ -11,6 +11,7 @@ import (
 	"github.com/rapidmidiex/rmx/internal/auth/provider"
 	service "github.com/rapidmidiex/rmx/internal/http"
 	"github.com/rapidmidiex/rmx/pkg/jobq"
+	"github.com/redis/go-redis/v9"
 	"github.com/zitadel/oidc/v2/pkg/client/rp"
 	"github.com/zitadel/oidc/v2/pkg/oidc"
 	"gocloud.dev/pubsub"
@@ -20,24 +21,21 @@ type Service struct {
 	mux service.Service
 
 	repo      authDB.Repo
-	qc        chan *pubsub.Message
 	providers []*provider.Handlers
 
 	BaseURI string
 }
 
-func New(ctx context.Context, baseURI string, repo authDB.Repo, providers []provider.Provider) *Service {
-	qCap := 50
+func New(ctx context.Context, providers []provider.Provider, opts ...Option) *Service {
 	s := Service{
 		mux: service.New(),
-
-		repo: repo,
-		qc:   make(chan *pubsub.Message, qCap),
-
-		BaseURI: baseURI,
 	}
 
-	if err := s.initProviders(baseURI, providers); err != nil {
+	for _, opt := range opts {
+		opt(&s)
+	}
+
+	if err := s.initProviders(providers); err != nil {
 		log.Fatal(err)
 	}
 
@@ -51,10 +49,10 @@ func New(ctx context.Context, baseURI string, repo authDB.Repo, providers []prov
 	return &s
 }
 
-func (s *Service) initProviders(baseURI string, providers []provider.Provider) error {
+func (s *Service) initProviders(providers []provider.Provider) error {
 	var phs []*provider.Handlers
 	for _, p := range providers {
-		hs, err := p.Init(baseURI, s.withCheckUser())
+		hs, err := p.Init(s.BaseURI, s.withCheckUser())
 		if err != nil {
 			return err
 		}
@@ -79,7 +77,9 @@ func (s *Service) initQueue(ctx context.Context, subject string, cap int) error 
 	return nil
 }
 
-func (s *Service) introspect(m *pubsub.Message) {}
+func (s *Service) introspect(m *pubsub.Message) {
+	// rs.Introspect()
+}
 
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mux.ServeHTTP(w, r)
@@ -157,4 +157,18 @@ func (s *Service) createUser(ctx context.Context, info *oidc.UserInfo) error {
 
 	_, err := s.repo.CreateUser(ctx, user)
 	return err
+}
+
+type Option func(*Service)
+
+func WithRepo(conn *sql.DB, rc *redis.Client) Option {
+	return func(s *Service) {
+		s.repo = authDB.New(conn, rc)
+	}
+}
+
+func WithBaseURI(uri string) Option {
+	return func(s *Service) {
+		s.BaseURI = uri
+	}
 }

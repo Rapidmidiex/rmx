@@ -16,17 +16,15 @@ import (
 	"time"
 
 	_ "github.com/lib/pq"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/manifoldco/promptui"
 	"github.com/rapidmidiex/rmx/internal/cmd/internal/config"
 	jamHTTP "github.com/rapidmidiex/rmx/internal/jam/http"
 
 	authHTTP "github.com/rapidmidiex/rmx/internal/auth/http"
-	authDB "github.com/rapidmidiex/rmx/internal/auth/postgres"
 	"github.com/rapidmidiex/rmx/internal/auth/provider"
 	"github.com/rapidmidiex/rmx/internal/auth/provider/google"
 	jamDB "github.com/rapidmidiex/rmx/internal/jam/postgres"
@@ -132,33 +130,30 @@ func serve(cfg *config.Config) error {
 		return err
 	}
 
-	if err := runMigrations(conn); err != nil && err != migrate.ErrNoChange {
-		return err
-	}
+	rc := redis.NewClient(&redis.Options{
+		Addr:     cfg.Redis.Addr,
+		Password: cfg.Redis.Password,
+		DB:       cfg.Redis.DB,
+	})
 
-	googleCfg := google.New(
+	gp := google.New(
 		cfg.Auth.Google.ClientID,
 		cfg.Auth.Google.ClientSecret,
 		[]byte(cfg.Auth.CookieHashKey),
 		[]byte(cfg.Auth.CookieEncryptionKey),
 	)
 
+	authOpts := []authHTTP.Option{
+		authHTTP.WithRepo(conn, rc),
+		authHTTP.WithBaseURI(fmt.Sprintf("http://localhost:%s/v0/auth", cfg.Port)),
+	}
+
+	authService := authHTTP.New(sCtx, []provider.Provider{gp}, authOpts...)
+
 	mux := chi.NewMux()
 	mux.Route("/v0", func(r chi.Router) {
 		r.Mount("/jams", newJamService(sCtx, conn))
-		r.Mount(
-			"/auth",
-			newAuthService(
-				sCtx,
-				fmt.Sprintf("http://localhost:%s/v0/auth", cfg.Port),
-				conn,
-				[]provider.Provider{
-					googleCfg,
-				},
-				cfg.Auth.CookieHashKey,
-				cfg.Auth.CookieEncryptionKey,
-			),
-		)
+		r.Mount("/auth", authService)
 	})
 
 	/* START SERVICES BLOCK */
@@ -191,27 +186,6 @@ func serve(cfg *config.Config) error {
 	return g.Wait()
 }
 
-func runMigrations(conn *sql.DB) error {
-	driver, err := postgres.WithInstance(conn, &postgres.Config{})
-	if err != nil {
-		return err
-	}
-
-	m, err := migrate.NewWithDatabaseInstance(
-		"file://internal/db/migration",
-		"postgres",
-		driver,
-	)
-	if err != nil {
-		return err
-	}
-	if err := m.Up(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // StartServer starts the RMX application.
 func StartServer(cfg *config.Config) error {
 	return serve(cfg)
@@ -221,18 +195,4 @@ func newJamService(ctx context.Context, conn *sql.DB) *jamHTTP.Service {
 	jamDB := jamDB.New(conn)
 	jamHTTP := jamHTTP.New(ctx, jamDB)
 	return jamHTTP
-}
-
-// TODO: find a better way to pass provider config
-func newAuthService(
-	ctx context.Context,
-	baseURI string,
-	conn *sql.DB,
-	providers []provider.Provider,
-	hashKey,
-	encKey string,
-) *authHTTP.Service {
-	authDB := authDB.New(conn)
-	authHTTP := authHTTP.New(ctx, baseURI, authDB, providers)
-	return authHTTP
 }

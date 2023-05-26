@@ -26,6 +26,7 @@ cmd/server/server
 certs
 rmx.config.*
 .secrets
+.runtime
 
 # hide staging
 fly.*.toml
