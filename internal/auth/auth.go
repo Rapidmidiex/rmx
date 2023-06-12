@@ -6,15 +6,27 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	natsSubj           = "rmx.auth"
+	natsSessionSufx    = ".session"
+	natsIntrospectSufx = ".introspect"
+)
+
 type User struct {
 	ID       uuid.UUID `json:"id"`
 	Username string    `json:"username"`
 	Email    string    `json:"email"`
 }
 
+type Tokens struct {
+	AccessToken  string `json:"accessToken"`
+	RefreshToken string `json:"refreshToken"`
+}
+
 type Session struct {
-	AccessToken  string `redis:"accessToken"`
-	RefreshToken string `redis:"refreshToken"`
+	ClientID string `json:"clientId"`
+	Issuer   string `json:"issuer"`
+	Tokens   Tokens `json:"tokens"`
 }
 
 type AuthError struct {

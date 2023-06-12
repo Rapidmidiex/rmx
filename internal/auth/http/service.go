@@ -2,16 +2,19 @@ package http
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"database/sql"
 	"log"
 	"net/http"
+	"time"
 
+	"github.com/hyphengolang/prelude/types/suid"
 	"github.com/rapidmidiex/rmx/internal/auth"
+	"github.com/rapidmidiex/rmx/internal/auth/internal/token"
 	authDB "github.com/rapidmidiex/rmx/internal/auth/postgres"
 	"github.com/rapidmidiex/rmx/internal/auth/provider"
+	"github.com/rapidmidiex/rmx/internal/cache"
 	service "github.com/rapidmidiex/rmx/internal/http"
-	"github.com/rapidmidiex/rmx/pkg/jobq"
-	"github.com/redis/go-redis/v9"
 	"github.com/zitadel/oidc/v2/pkg/client/rp"
 	"github.com/zitadel/oidc/v2/pkg/oidc"
 	"gocloud.dev/pubsub"
@@ -22,11 +25,10 @@ type Service struct {
 
 	repo      authDB.Repo
 	providers []*provider.Handlers
-
-	BaseURI string
+	baseURI   string
 }
 
-func New(ctx context.Context, providers []provider.Provider, opts ...Option) *Service {
+func New(ctx context.Context, opts ...Option) *Service {
 	s := Service{
 		mux: service.New(),
 	}
@@ -35,47 +37,11 @@ func New(ctx context.Context, providers []provider.Provider, opts ...Option) *Se
 		opt(&s)
 	}
 
-	if err := s.initProviders(providers); err != nil {
-		log.Fatal(err)
-	}
-
-	/*
-		if err := s.initQueue(ctx, qCap); err != nil {
-			log.Fatal(err)
-		}
-	*/
-
 	s.routes()
 	return &s
 }
 
-func (s *Service) initProviders(providers []provider.Provider) error {
-	var phs []*provider.Handlers
-	for _, p := range providers {
-		hs, err := p.Init(s.BaseURI, s.withCheckUser())
-		if err != nil {
-			return err
-		}
-
-		phs = append(phs, hs)
-	}
-
-	s.providers = phs
-	return nil
-}
-
-func (s *Service) initQueue(ctx context.Context, subject string, cap int) error {
-	_, err := jobq.New(ctx, subject)
-	if err != nil {
-		return err
-	}
-
-	if err := jobq.AsyncSubscribe(ctx, subject, s.introspect, 10); err != nil {
-		return err
-	}
-
-	return nil
-}
+func (s *Service) GetBaseURI() string { return s.baseURI }
 
 func (s *Service) introspect(m *pubsub.Message) {
 	// rs.Introspect()
@@ -92,13 +58,50 @@ func (s *Service) routes() {
 	}
 }
 
+func (s *Service) createUser(ctx context.Context, info *oidc.UserInfo) error {
+	user := auth.User{
+		Username: info.GivenName,
+		Email:    info.Email,
+	}
+
+	_, err := s.repo.CreateUser(ctx, user)
+	return err
+}
+
+type Option func(*Service)
+
+func WithRepo(conn *sql.DB, cache *cache.Cache) Option {
+	return func(s *Service) {
+		s.repo = authDB.New(conn, cache)
+	}
+}
+
+func WithBaseURI(uri string) Option {
+	return func(s *Service) {
+		s.baseURI = uri
+	}
+}
+
+func WithProviders(providers []provider.Provider, pk *ecdsa.PrivateKey) Option {
+	return func(s *Service) {
+		for _, p := range providers {
+			hs, err := p.Init(s.baseURI, s.withCheckUser(pk))
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			s.providers = append(s.providers, hs)
+		}
+	}
+}
+
 // any idea what to name this?
 const rtCookieName = "RMX_AUTH_RT"
 
-func (s *Service) withCheckUser() rp.CodeExchangeUserinfoCallback[*oidc.IDTokenClaims] {
+func (s *Service) withCheckUser(pk *ecdsa.PrivateKey) rp.CodeExchangeUserinfoCallback[*oidc.IDTokenClaims] {
 	type response struct {
-		AccessToken string `json:"access_token"`
-		IDToken     string `json:"id_token"`
+		AccessToken string `json:"accessToken"`
+		IDToken     string `json:"idToken"`
 	}
 
 	return func(
@@ -130,9 +133,39 @@ func (s *Service) withCheckUser() rp.CodeExchangeUserinfoCallback[*oidc.IDTokenC
 			}
 		}
 
+		cid := suid.NewSUID().String()
+		if err = s.repo.CreateSession(
+			info.Email,
+			provider.Issuer(),
+			cid,
+			auth.Tokens{
+				AccessToken:  tokens.AccessToken,
+				RefreshToken: tokens.RefreshToken,
+			},
+		); err != nil {
+			s.mux.Respond(w, r, err, http.StatusInternalServerError)
+			return
+		}
+
+		at, err := token.New(&token.Claims{
+			Issuer:     provider.Issuer(),
+			Audience:   []string{"web"}, // TODO: choose audience
+			Email:      info.Email,
+			ClientID:   cid,
+			Expiration: tokens.Expiry,
+		}, pk)
+
+		rt, err := token.New(&token.Claims{
+			Issuer:     provider.Issuer(),
+			Audience:   []string{"web"},
+			Email:      info.Email,
+			ClientID:   cid,
+			Expiration: time.Now().UTC().Add(time.Hour * 24 * 30), // a month
+		}, pk)
+
 		rtCookie := &http.Cookie{
 			Name:     rtCookieName,
-			Value:    tokens.RefreshToken,
+			Value:    rt,
 			HttpOnly: true,
 			Secure:   true,
 			SameSite: http.SameSiteLaxMode,
@@ -140,35 +173,11 @@ func (s *Service) withCheckUser() rp.CodeExchangeUserinfoCallback[*oidc.IDTokenC
 		}
 
 		res := &response{
-			AccessToken: tokens.AccessToken,
+			AccessToken: at,
 			IDToken:     tokens.IDToken,
 		}
 
 		http.SetCookie(w, rtCookie)
 		s.mux.Respond(w, r, res, http.StatusOK)
-	}
-}
-
-func (s *Service) createUser(ctx context.Context, info *oidc.UserInfo) error {
-	user := auth.User{
-		Username: info.GivenName,
-		Email:    info.Email,
-	}
-
-	_, err := s.repo.CreateUser(ctx, user)
-	return err
-}
-
-type Option func(*Service)
-
-func WithRepo(conn *sql.DB, rc *redis.Client) Option {
-	return func(s *Service) {
-		s.repo = authDB.New(conn, rc)
-	}
-}
-
-func WithBaseURI(uri string) Option {
-	return func(s *Service) {
-		s.BaseURI = uri
 	}
 }

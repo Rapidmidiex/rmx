@@ -18,10 +18,9 @@ type DBConfig struct {
 	Password string `json:"password"`
 }
 
-type RedisConfig struct {
-	Addr     string `json:"addr"`
-	Password string `json:"password"`
-	DB       int    `json:"db"`
+type NatsConfig struct {
+	Addr string `json:"addr"`
+	Port string `json:"port"`
 }
 
 type GoogleConfig struct {
@@ -39,11 +38,11 @@ type AuthConfig struct {
 }
 
 type Config struct {
-	Port  string      `json:"port"`
-	DB    DBConfig    `json:"db"`
-	Redis RedisConfig `json:"redis"`
-	Auth  AuthConfig  `json:"auth"`
-	Dev   bool        `json:"dev"`
+	Port string     `json:"port"`
+	DB   DBConfig   `json:"db"`
+	Nats NatsConfig `json:"nats"`
+	Auth AuthConfig `json:"auth"`
+	Dev  bool       `json:"dev"`
 }
 
 const (

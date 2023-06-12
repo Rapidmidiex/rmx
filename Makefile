@@ -67,11 +67,15 @@ dropdb:
 
 .PHONY: migrateup
 migrateup:
-	migrate -path internal/db/migration -database $(PG_CONN_STRING) -verbose up
+	sh scripts/migrateup.sh
 
 .PHONY: migratedown
 migratedown:
-	migrate -path internal/db/migration -database $(PG_CONN_STRING) -verbose down
+	sh scripts/migratedown.sh
+
+.PHONY: nats
+nats:
+	sh scripts/nats.sh
 
 .PHONY: sqlc
 sqlc:

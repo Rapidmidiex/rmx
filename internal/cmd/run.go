@@ -16,7 +16,6 @@ import (
 	"time"
 
 	_ "github.com/lib/pq"
-	"github.com/redis/go-redis/v9"
 
 	"github.com/go-chi/chi/v5"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
@@ -130,12 +129,6 @@ func serve(cfg *config.Config) error {
 		return err
 	}
 
-	rc := redis.NewClient(&redis.Options{
-		Addr:     cfg.Redis.Addr,
-		Password: cfg.Redis.Password,
-		DB:       cfg.Redis.DB,
-	})
-
 	gp := google.New(
 		cfg.Auth.Google.ClientID,
 		cfg.Auth.Google.ClientSecret,
@@ -144,11 +137,11 @@ func serve(cfg *config.Config) error {
 	)
 
 	authOpts := []authHTTP.Option{
-		authHTTP.WithRepo(conn, rc),
 		authHTTP.WithBaseURI(fmt.Sprintf("http://localhost:%s/v0/auth", cfg.Port)),
+		authHTTP.WithProviders([]provider.Provider{gp}, cfg.Auth.JWTPrivateKey),
 	}
 
-	authService := authHTTP.New(sCtx, []provider.Provider{gp}, authOpts...)
+	authService := authHTTP.New(sCtx, authOpts...)
 
 	mux := chi.NewMux()
 	mux.Route("/v0", func(r chi.Router) {
@@ -156,7 +149,6 @@ func serve(cfg *config.Config) error {
 		r.Mount("/auth", authService)
 	})
 
-	/* START SERVICES BLOCK */
 	srv := http.Server{
 		Addr:    ":" + cfg.Port,
 		Handler: cors.New(c).Handler(mux),
