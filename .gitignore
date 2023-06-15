@@ -24,7 +24,6 @@ cmd/server/server
 .DS_Store
 *.env*
 certs
-rmx.config.*
 .secrets
 .runtime
 
