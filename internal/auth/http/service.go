@@ -58,16 +58,6 @@ func (s *Service) routes() {
 	}
 }
 
-func (s *Service) createUser(ctx context.Context, info *oidc.UserInfo) error {
-	user := auth.User{
-		Username: info.GivenName,
-		Email:    info.Email,
-	}
-
-	_, err := s.repo.CreateUser(ctx, user)
-	return err
-}
-
 type Option func(*Service)
 
 func WithRepo(conn *sql.DB, cache *cache.Cache) Option {
@@ -134,15 +124,7 @@ func (s *Service) withCheckUser(pk *ecdsa.PrivateKey) rp.CodeExchangeUserinfoCal
 		}
 
 		cid := suid.NewSUID().String()
-		if err = s.repo.CreateSession(
-			info.Email,
-			provider.Issuer(),
-			cid,
-			auth.Tokens{
-				AccessToken:  tokens.AccessToken,
-				RefreshToken: tokens.RefreshToken,
-			},
-		); err != nil {
+		if err := s.createSession(cid, provider.Issuer(), info, tokens); err != nil {
 			s.mux.Respond(w, r, err, http.StatusInternalServerError)
 			return
 		}
@@ -154,6 +136,10 @@ func (s *Service) withCheckUser(pk *ecdsa.PrivateKey) rp.CodeExchangeUserinfoCal
 			ClientID:   cid,
 			Expiration: tokens.Expiry,
 		}, pk)
+		if err != nil {
+			s.mux.Respond(w, r, err, http.StatusInternalServerError)
+			return
+		}
 
 		rt, err := token.New(&token.Claims{
 			Issuer:     provider.Issuer(),
@@ -162,6 +148,10 @@ func (s *Service) withCheckUser(pk *ecdsa.PrivateKey) rp.CodeExchangeUserinfoCal
 			ClientID:   cid,
 			Expiration: time.Now().UTC().Add(time.Hour * 24 * 30), // a month
 		}, pk)
+		if err != nil {
+			s.mux.Respond(w, r, err, http.StatusInternalServerError)
+			return
+		}
 
 		rtCookie := &http.Cookie{
 			Name:     rtCookieName,
@@ -180,4 +170,31 @@ func (s *Service) withCheckUser(pk *ecdsa.PrivateKey) rp.CodeExchangeUserinfoCal
 		http.SetCookie(w, rtCookie)
 		s.mux.Respond(w, r, res, http.StatusOK)
 	}
+}
+
+func (s *Service) createUser(ctx context.Context, info *oidc.UserInfo) error {
+	user := auth.User{
+		Username: info.GivenName,
+		Email:    info.Email,
+	}
+
+	_, err := s.repo.CreateUser(ctx, user)
+	return err
+}
+
+func (s *Service) createSession(
+	cid string,
+	issuer string,
+	info *oidc.UserInfo,
+	tokens *oidc.Tokens[*oidc.IDTokenClaims],
+) error {
+	return s.repo.CreateSession(
+		info.Email,
+		issuer,
+		cid,
+		auth.Tokens{
+			AccessToken:  tokens.AccessToken,
+			RefreshToken: tokens.RefreshToken,
+		},
+	)
 }

@@ -3,15 +3,11 @@ package cmd
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
-	"net/url"
-	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -19,8 +15,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
-	"github.com/manifoldco/promptui"
-	"github.com/rapidmidiex/rmx/internal/cmd/internal/config"
+	"github.com/rapidmidiex/rmx/internal/cmd/config"
 	jamHTTP "github.com/rapidmidiex/rmx/internal/jam/http"
 
 	authHTTP "github.com/rapidmidiex/rmx/internal/auth/http"
@@ -34,66 +29,9 @@ import (
 )
 
 func run(dev bool) func(cCtx *cli.Context) error {
-	var f = func(cCtx *cli.Context) error {
-		dbEnv := os.Getenv("DB_URL")
-		// check if a config file exists and use that
-		c, err := config.ScanConfigFile() // set dev mode true/false
-		if err != nil {
-			return errors.New("failed to scan config file")
-		}
-		if dbEnv != "" {
-			dbParsed, err := url.Parse(dbEnv)
-			if err != nil {
-				return fmt.Errorf("invalid DB_URL env var: %q: %w", dbEnv, err)
-			}
-
-			dbHost := dbParsed.Host
-			dbPort := dbParsed.Port()
-			dbName := strings.TrimPrefix(dbParsed.Path, "/")
-
-			dbUser := dbParsed.User.Username()
-			dbPassword, _ := dbParsed.User.Password()
-
-			c.DB = config.DBConfig{
-				Host:     dbHost,
-				Port:     dbPort,
-				Name:     dbName,
-				User:     dbUser,
-				Password: dbPassword,
-			}
-		}
-		if c != nil {
-			configPrompt := promptui.Prompt{
-				Label:     "A config file was found. do you want to use it?",
-				IsConfirm: true,
-				Default:   "y",
-			}
-
-			validateConfirm := func(s string) error {
-				if len(s) == 1 && strings.Contains("YyNn", s) ||
-					configPrompt.Default != "" && len(s) == 0 {
-					return nil
-				}
-				return errors.New(`invalid input (you can only use "y" or "n")`)
-			}
-
-			configPrompt.Validate = validateConfirm
-
-			result, err := configPrompt.Run()
-			if err != nil {
-				if strings.ToLower(result) != "n" {
-					return err
-				}
-			}
-
-			if strings.ToLower(result) == "y" {
-				return serve(c)
-			}
-
-		}
-		return nil
+	return func(cCtx *cli.Context) error {
+		return serve(config.LoadFromEnv())
 	}
-	return f
 }
 
 func serve(cfg *config.Config) error {
@@ -106,7 +44,6 @@ func serve(cfg *config.Config) error {
 	)
 	defer cancel()
 
-	// ? should this defined within the instantiation of a new service
 	c := cors.Options{
 		AllowedOrigins:   []string{"*"}, // ? band-aid, needs to change to a flag
 		AllowCredentials: true,
@@ -116,29 +53,21 @@ func serve(cfg *config.Config) error {
 		Debug:            cfg.Dev,
 	}
 
-	dbURL := fmt.Sprintf(
-		"postgres://%s:%s@%s/%s?sslmode=disable",
-		cfg.DB.User,
-		cfg.DB.Password,
-		cfg.DB.Host,
-		cfg.DB.Name,
-	)
-
-	conn, err := sql.Open("postgres", dbURL)
+	conn, err := sql.Open("postgres", cfg.Store.DatabaseURL)
 	if err != nil {
 		return err
 	}
 
 	gp := google.New(
-		cfg.Auth.Google.ClientID,
-		cfg.Auth.Google.ClientSecret,
-		[]byte(cfg.Auth.CookieHashKey),
-		[]byte(cfg.Auth.CookieEncryptionKey),
+		cfg.Auth.Providers.Google.ClientID,
+		cfg.Auth.Providers.Google.ClientSecret,
+		[]byte(cfg.Auth.Keys.CookieHashKey),
+		[]byte(cfg.Auth.Keys.CookieEncryptionKey),
 	)
 
 	authOpts := []authHTTP.Option{
-		authHTTP.WithBaseURI(fmt.Sprintf("http://localhost:%s/v0/auth", cfg.Port)),
-		authHTTP.WithProviders([]provider.Provider{gp}, cfg.Auth.JWTPrivateKey),
+		authHTTP.WithBaseURI(fmt.Sprintf("http://localhost:%s/v0/auth", cfg.Server.Port)),
+		authHTTP.WithProviders([]provider.Provider{gp}, cfg.Auth.Keys.JWTPrivateKey),
 	}
 
 	authService := authHTTP.New(sCtx, authOpts...)
@@ -150,7 +79,7 @@ func serve(cfg *config.Config) error {
 	})
 
 	srv := http.Server{
-		Addr:    ":" + cfg.Port,
+		Addr:    ":" + cfg.Server.Port,
 		Handler: cors.New(c).Handler(mux),
 		// max time to read request from the client
 		ReadTimeout: 10 * time.Second,
@@ -166,7 +95,7 @@ func serve(cfg *config.Config) error {
 
 	g.Go(func() error {
 		// Run the server
-		srv.ErrorLog.Printf("App server starting on %s", srv.Addr)
+		srv.ErrorLog.Printf("rmx server starting on %s", srv.Addr)
 		return srv.ListenAndServe()
 	})
 
