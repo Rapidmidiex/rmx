@@ -1,5 +1,5 @@
 -- name: CreateUser :one
-INSERT INTO "user" (username, email)
+INSERT INTO users (username, email)
     VALUES ($1, $2)
 RETURNING
     *;
@@ -8,7 +8,7 @@ RETURNING
 SELECT
     *
 FROM
-    "user"
+    users
 WHERE
     id = $1
 LIMIT 1;
@@ -17,7 +17,7 @@ LIMIT 1;
 SELECT
     *
 FROM
-    "user"
+    users
 WHERE
     email = $1
 LIMIT 1;
@@ -26,14 +26,14 @@ LIMIT 1;
 SELECT
     *
 FROM
-    "user"
+    users
 ORDER BY
-    "name"
+    username
 LIMIT $1 OFFSET $2;
 
 -- name: UpdateUserByID :one
 UPDATE
-    "user"
+    users
 SET
     username = $2
 WHERE
@@ -43,7 +43,7 @@ RETURNING
 
 -- name: UpdateUserByEmail :one
 UPDATE
-    "user"
+    users
 SET
     username = $2
 WHERE
@@ -52,10 +52,10 @@ RETURNING
     *;
 
 -- name: DeleteUserByID :exec
-DELETE FROM "user"
+DELETE FROM users
 WHERE id = $1;
 
 -- name: DeleteUserByEmail :exec
-DELETE FROM "user"
+DELETE FROM users
 WHERE email = $1;
 

@@ -8,11 +8,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/hyphengolang/prelude/types/suid"
 	"github.com/rapidmidiex/rmx/internal/auth"
 	"github.com/rapidmidiex/rmx/internal/auth/internal/token"
-	authDB "github.com/rapidmidiex/rmx/internal/auth/postgres"
 	"github.com/rapidmidiex/rmx/internal/auth/provider"
+	authStore "github.com/rapidmidiex/rmx/internal/auth/store"
 	"github.com/rapidmidiex/rmx/internal/cache"
 	service "github.com/rapidmidiex/rmx/internal/http"
 	"github.com/zitadel/oidc/v2/pkg/client/rp"
@@ -21,9 +20,9 @@ import (
 )
 
 type Service struct {
-	mux service.Service
-
-	repo      authDB.Repo
+	ctx       context.Context
+	mux       service.Service
+	repo      authStore.Repo
 	providers []*provider.Handlers
 	baseURI   string
 }
@@ -60,9 +59,9 @@ func (s *Service) routes() {
 
 type Option func(*Service)
 
-func WithRepo(conn *sql.DB, cache *cache.Cache) Option {
+func WithRepo(conn *sql.DB, sessionCache, tokenCache *cache.Cache) Option {
 	return func(s *Service) {
-		s.repo = authDB.New(conn, cache)
+		s.repo = authStore.New(conn, sessionCache, tokenCache)
 	}
 }
 
@@ -123,8 +122,8 @@ func (s *Service) withCheckUser(pk *ecdsa.PrivateKey) rp.CodeExchangeUserinfoCal
 			}
 		}
 
-		cid := suid.NewSUID().String()
-		if err := s.createSession(cid, provider.Issuer(), info, tokens); err != nil {
+		cid, err := s.createSession(s.ctx, provider.Issuer(), info, tokens)
+		if err != nil {
 			s.mux.Respond(w, r, err, http.StatusInternalServerError)
 			return
 		}
@@ -146,7 +145,7 @@ func (s *Service) withCheckUser(pk *ecdsa.PrivateKey) rp.CodeExchangeUserinfoCal
 			Audience:   []string{"web"},
 			Email:      info.Email,
 			ClientID:   cid,
-			Expiration: time.Now().UTC().Add(time.Hour * 24 * 30), // a month
+			Expiration: time.Now().UTC().Add(auth.RefreshTokenExp),
 		}, pk)
 		if err != nil {
 			s.mux.Respond(w, r, err, http.StatusInternalServerError)
@@ -183,16 +182,16 @@ func (s *Service) createUser(ctx context.Context, info *oidc.UserInfo) error {
 }
 
 func (s *Service) createSession(
-	cid string,
+	ctx context.Context,
 	issuer string,
 	info *oidc.UserInfo,
 	tokens *oidc.Tokens[*oidc.IDTokenClaims],
-) error {
+) (string, error) {
 	return s.repo.CreateSession(
+		ctx,
 		info.Email,
 		issuer,
-		cid,
-		auth.Tokens{
+		auth.Session{
 			AccessToken:  tokens.AccessToken,
 			RefreshToken: tokens.RefreshToken,
 		},

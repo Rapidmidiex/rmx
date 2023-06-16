@@ -12,9 +12,12 @@ import (
 	"time"
 
 	_ "github.com/lib/pq"
+	"github.com/nats-io/nats.go"
 
 	"github.com/go-chi/chi/v5"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/rapidmidiex/rmx/internal/auth"
+	"github.com/rapidmidiex/rmx/internal/cache"
 	"github.com/rapidmidiex/rmx/internal/cmd/config"
 	jamHTTP "github.com/rapidmidiex/rmx/internal/jam/http"
 
@@ -53,6 +56,21 @@ func serve(cfg *config.Config) error {
 		Debug:            cfg.Dev,
 	}
 
+	nc, err := nats.Connect(cfg.Store.NatsURL)
+	if err != nil {
+		return err
+	}
+
+	sessionCache, err := cache.New("sessions", nc, -1) // -1 for permanent cache
+	if err != nil {
+		return err
+	}
+
+	tokensCache, err := cache.New("tokens", nc, auth.RefreshTokenExp)
+	if err != nil {
+		return err
+	}
+
 	conn, err := sql.Open("postgres", cfg.Store.DatabaseURL)
 	if err != nil {
 		return err
@@ -68,6 +86,7 @@ func serve(cfg *config.Config) error {
 	authOpts := []authHTTP.Option{
 		authHTTP.WithBaseURI(fmt.Sprintf("http://localhost:%s/v0/auth", cfg.Server.Port)),
 		authHTTP.WithProviders([]provider.Provider{gp}, cfg.Auth.Keys.JWTPrivateKey),
+		authHTTP.WithRepo(conn, sessionCache, tokensCache),
 	}
 
 	authService := authHTTP.New(sCtx, authOpts...)

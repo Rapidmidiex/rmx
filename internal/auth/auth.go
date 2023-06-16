@@ -2,6 +2,7 @@ package auth
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -12,21 +13,19 @@ const (
 	natsIntrospectSufx = ".introspect"
 )
 
+var (
+	RefreshTokenExp = time.Hour * 24 * 30
+)
+
 type User struct {
 	ID       uuid.UUID `json:"id"`
 	Username string    `json:"username"`
 	Email    string    `json:"email"`
 }
 
-type Tokens struct {
+type Session struct {
 	AccessToken  string `json:"accessToken"`
 	RefreshToken string `json:"refreshToken"`
-}
-
-type Session struct {
-	ClientID string `json:"clientId"`
-	Issuer   string `json:"issuer"`
-	Tokens   Tokens `json:"tokens"`
 }
 
 type AuthError struct {

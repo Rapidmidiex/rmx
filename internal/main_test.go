@@ -18,10 +18,8 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
-	authDB "github.com/rapidmidiex/rmx/internal/auth/postgres/sqlc"
-	authSQLC "github.com/rapidmidiex/rmx/internal/auth/postgres/sqlc"
+	authStore "github.com/rapidmidiex/rmx/internal/auth/store/sqlc"
 	jamDB "github.com/rapidmidiex/rmx/internal/jam/postgres/sqlc"
-	jamSQLC "github.com/rapidmidiex/rmx/internal/jam/postgres/sqlc"
 	"github.com/stretchr/testify/require"
 )
 
@@ -29,8 +27,8 @@ import (
 var migrations embed.FS
 
 var pgDB *sql.DB
-var jamTestQueries *jamSQLC.Queries
-var authTestQueries *authSQLC.Queries
+var jamTestQueries *jamDB.Queries
+var authTestQueries *authStore.Queries
 var dbName = "rmx-test"
 var pgUser = "rmx-test"
 var pgPass = "password123dev"
@@ -45,8 +43,8 @@ func TestMain(m *testing.M) {
 			log.Fatalf("cannot connect to db: %s\nconnection string: %s", err, databaseURL)
 		}
 
-		jamTestQueries = jamSQLC.New(pgDB)
-		authTestQueries = authSQLC.New(pgDB)
+		jamTestQueries = jamDB.New(pgDB)
+		authTestQueries = authStore.New(pgDB)
 		// Run tests
 		code := m.Run()
 		os.Exit(code)
@@ -105,8 +103,8 @@ func TestMain(m *testing.M) {
 		log.Fatalf("Could not connect to docker: %s", err)
 	}
 	// Instantiate testQueries
-	jamTestQueries = jamSQLC.New(pgDB)
-	authTestQueries = authSQLC.New(pgDB)
+	jamTestQueries = jamDB.New(pgDB)
+	authTestQueries = authStore.New(pgDB)
 
 	err = migrateUp()
 	if err != nil {
@@ -191,11 +189,11 @@ func TestCreateJam(t *testing.T) {
 }
 
 func TestCreateAuth(t *testing.T) {
-	want := authDB.User{
+	want := authStore.User{
 		Username: gofakeit.Username(),
 		Email:    gofakeit.Email(),
 	}
-	arg := authDB.CreateUserParams{
+	arg := authStore.CreateUserParams{
 		Username: want.Username,
 		Email:    want.Email,
 	}

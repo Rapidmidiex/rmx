@@ -1,2 +1,2 @@
-DROP TABLE IF EXISTS "session";
-DROP TABLE IF EXISTS "user";
+DROP TABLE IF EXISTS "sessions";
+DROP TABLE IF EXISTS "users";

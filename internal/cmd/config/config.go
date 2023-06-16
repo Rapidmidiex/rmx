@@ -51,8 +51,14 @@ type Config struct {
 }
 
 func LoadFromEnv() *Config {
-	if err := godotenv.Load("rmx.env", ".env"); err != nil {
-		log.Fatalf("rmx: couldn't read env\n%v", err)
+	if _, err := os.Stat("rmx.env"); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+	} else {
+		if err := godotenv.Load("rmx.env"); err != nil {
+			log.Fatalf("rmx: couldn't read env\n%v", err)
+		}
 	}
 
 	// server

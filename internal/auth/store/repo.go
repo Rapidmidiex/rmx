@@ -3,12 +3,12 @@ package postgres
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/hyphengolang/prelude/types/suid"
 	"github.com/rapidmidiex/rmx/internal/auth"
-	"github.com/rapidmidiex/rmx/internal/auth/postgres/sqlc"
+	"github.com/rapidmidiex/rmx/internal/auth/store/sqlc"
 	"github.com/rapidmidiex/rmx/internal/cache"
 )
 
@@ -16,28 +16,30 @@ type Repo interface {
 	CreateUser(context.Context, auth.User) (*auth.User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (*auth.User, error)
 	GetUserByEmail(ctx context.Context, email string) (*auth.User, error)
-	ListUsers(context.Context) ([]auth.User, error)
+	ListUsers(ctx context.Context) ([]auth.User, error)
 	UpdateUserByID(ctx context.Context, id uuid.UUID, username string) (*auth.User, error)
 	UpdateUserByEmail(ctx context.Context, email, username string) (*auth.User, error)
 	DeleteUserByID(ctx context.Context, id uuid.UUID) error
 	DeleteUserByEmail(ctx context.Context, email string) error
 
-	CreateSession(email, issuer, cid string, tokens auth.Tokens) error
-	GetSession(email string, cid string) (*auth.Session, error)
-	GetAllSessions(email string) ([]auth.Session, error)
-	DeleteSession(email string, cid string) error
-	DeleteAllSessions(email string) error
+	CreateSession(ctx context.Context, email, issuer string, tokens auth.Session) (string, error)
+	GetSession(cid string) (*auth.Session, error)
+	GetAllSessions(ctx context.Context, email string) ([]auth.Session, error)
+	DeleteSession(ctx context.Context, cid string) error
+	DeleteAllSessions(ctx context.Context, email string) error
 }
 
 type store struct {
-	q *sqlc.Queries
-	c *cache.Cache
+	q  *sqlc.Queries
+	sc *cache.Cache
+	tc *cache.Cache
 }
 
-func New(conn sqlc.DBTX, cache *cache.Cache) Repo {
+func New(conn sqlc.DBTX, sessionCache, tokenCache *cache.Cache) Repo {
 	return &store{
-		q: sqlc.New(conn),
-		c: cache,
+		q:  sqlc.New(conn),
+		sc: sessionCache,
+		tc: tokenCache,
 	}
 }
 
@@ -143,91 +145,91 @@ func (s *store) DeleteUserByEmail(ctx context.Context, email string) error {
 	return s.q.DeleteUserByEmail(ctx, email)
 }
 
-func (s *store) CreateSession(email, issuer, cid string, tokens auth.Tokens) error {
-	ssb, err := s.c.Get(email)
+func (s *store) CreateSession(ctx context.Context, email, issuer string, tokens auth.Session) (string, error) {
+	params := &sqlc.CreateSessionParams{
+		Email:  email,
+		Issuer: issuer,
+	}
+
+	created, err := s.q.CreateSession(ctx, params)
 	if err != nil {
-		return err
+		return "", nil
 	}
 
-	var sessions []auth.Session
-	if err = json.Unmarshal(ssb, &sessions); err != nil {
-		return err
-	}
-
-	newSession := auth.Session{
-		ClientID: cid,
-		Issuer:   issuer,
-		Tokens:   tokens,
-	}
-	sessions = append(sessions, newSession)
-
-	bs, err := json.Marshal(sessions)
+	bs, err := json.Marshal(tokens)
 	if err != nil {
-		return err
+		return "", nil
 	}
 
-	return s.c.Set(email, bs)
+	return created.ID.String(), s.sc.Set(created.ID.String(), bs)
 }
 
-func (s *store) GetSession(email string, cid string) (*auth.Session, error) {
-	ssb, err := s.c.Get(email)
+func (s *store) GetSession(cid string) (*auth.Session, error) {
+	sb, err := s.sc.Get(cid)
+	if err != nil {
+		return nil, err
+	}
+
+	var session auth.Session
+	if err = json.Unmarshal(sb, &session); err != nil {
+		return nil, err
+	}
+
+	return &session, nil
+}
+
+func (s *store) GetAllSessions(ctx context.Context, email string) ([]auth.Session, error) {
+	sIDs, err := s.q.GetSessionsByEmail(ctx, email)
 	if err != nil {
 		return nil, err
 	}
 
 	var sessions []auth.Session
-	if err = json.Unmarshal(ssb, &sessions); err != nil {
-		return nil, err
-	}
-
-	for _, session := range sessions {
-		if session.ClientID == cid {
-			return &session, nil
+	for _, ses := range sIDs {
+		bs, err := s.sc.Get(ses.ID.String())
+		if err != nil {
+			return nil, err
 		}
-	}
 
-	return nil, errors.New("invalid cid")
-}
+		var session auth.Session
+		if err := json.Unmarshal(bs, &session); err != nil {
+			return nil, err
+		}
 
-func (s *store) GetAllSessions(email string) ([]auth.Session, error) {
-	sbs, err := s.c.Get(email)
-	if err != nil {
-		return nil, err
-	}
-
-	var sessions []auth.Session
-	if err = json.Unmarshal(sbs, &sessions); err != nil {
-		return nil, err
+		sessions = append(sessions, session)
 	}
 
 	return sessions, nil
 }
 
-func (s *store) DeleteSession(email string, cid string) error {
-	ssb, err := s.c.Get(email)
+func (s *store) DeleteSession(ctx context.Context, cid string) error {
+	cidParsed, err := suid.ParseString(cid)
 	if err != nil {
 		return err
 	}
 
-	var sessions []auth.Session
-	if err = json.Unmarshal(ssb, &sessions); err != nil {
+	if err := s.q.DeleteSessionByID(ctx, cidParsed.UUID); err != nil {
 		return err
 	}
 
-	for i, session := range sessions {
-		if session.ClientID == cid {
-			sessions = append(sessions[:i], sessions[i+1:]...) // removes only the matching session
+	return s.sc.Delete(cid)
+}
+
+func (s *store) DeleteAllSessions(ctx context.Context, email string) error {
+	sIDs, err := s.q.GetSessionsByEmail(ctx, email)
+	if err != nil {
+		return err
+	}
+
+	if err := s.q.DeleteSessionsByEmail(ctx, email); err != nil {
+		return err
+	}
+
+	for _, ses := range sIDs {
+		if err := s.sc.Delete(ses.ID.String()); err != nil {
+			return err
 		}
 	}
 
-	bs, err := json.Marshal(sessions)
-	if err != nil {
-		return err
-	}
-
-	return s.c.Set(email, bs)
-}
-
-func (s *store) DeleteAllSessions(email string) error {
-	return s.c.Delete(email)
+	return nil
 }
