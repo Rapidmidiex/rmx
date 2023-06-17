@@ -83,10 +83,14 @@ func serve(cfg *config.Config) error {
 		[]byte(cfg.Auth.Keys.CookieEncryptionKey),
 	)
 
+	// order is important
 	authOpts := []authHTTP.Option{
+		authHTTP.WithContext(sCtx),
 		authHTTP.WithBaseURI(fmt.Sprintf("http://localhost:%s/v0/auth", cfg.Server.Port)),
-		authHTTP.WithProviders([]provider.Provider{gp}, cfg.Auth.Keys.JWTPrivateKey),
+		authHTTP.WithNats(nc),
 		authHTTP.WithRepo(conn, sessionCache, tokensCache),
+		authHTTP.WithProviders([]provider.Provider{gp}, cfg.Auth.Keys.JWTPrivateKey),
+		authHTTP.WithPublicKey(cfg.Auth.Keys.JWTPublicKey),
 	}
 
 	authService := authHTTP.New(sCtx, authOpts...)

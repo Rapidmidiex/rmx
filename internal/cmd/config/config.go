@@ -50,13 +50,15 @@ type Config struct {
 	Dev    bool
 }
 
+const rmxEnvPath = "rmx.env"
+
 func LoadFromEnv() *Config {
-	if _, err := os.Stat("rmx.env"); err != nil {
+	if _, err := os.Stat(rmxEnvPath); err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
 			return nil
 		}
 	} else {
-		if err := godotenv.Load("rmx.env"); err != nil {
+		if err := godotenv.Load(rmxEnvPath); err != nil {
 			log.Fatalf("rmx: couldn't read env\n%v", err)
 		}
 	}

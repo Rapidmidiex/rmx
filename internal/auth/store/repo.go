@@ -3,13 +3,16 @@ package postgres
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/hyphengolang/prelude/types/suid"
+	"github.com/nats-io/nats.go"
 	"github.com/rapidmidiex/rmx/internal/auth"
 	"github.com/rapidmidiex/rmx/internal/auth/store/sqlc"
 	"github.com/rapidmidiex/rmx/internal/cache"
+	"github.com/rapidmidiex/rmx/internal/events"
 )
 
 type Repo interface {
@@ -27,6 +30,9 @@ type Repo interface {
 	GetAllSessions(ctx context.Context, email string) ([]auth.Session, error)
 	DeleteSession(ctx context.Context, cid string) error
 	DeleteAllSessions(ctx context.Context, email string) error
+
+	BlacklistToken(ctx context.Context, id string) error
+	VerifyToken(ctx context.Context, id string) (string, error)
 }
 
 type store struct {
@@ -232,4 +238,19 @@ func (s *store) DeleteAllSessions(ctx context.Context, email string) error {
 	}
 
 	return nil
+}
+
+func (s *store) BlacklistToken(ctx context.Context, id string) error { return s.tc.Set(id, nil) }
+
+func (s *store) VerifyToken(ctx context.Context, id string) (string, error) {
+	_, err := s.tc.Get(id)
+	if err != nil {
+		if errors.Is(err, nats.ErrNoKeysFound) {
+			return events.TokenAccepted, nil
+		}
+
+		return events.TokenRejected, err
+	}
+
+	return events.TokenRejected, nil
 }

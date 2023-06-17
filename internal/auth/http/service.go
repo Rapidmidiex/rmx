@@ -4,32 +4,41 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
 
+	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/lestrrat-go/jwx/v2/jwt"
+	"github.com/nats-io/nats.go"
 	"github.com/rapidmidiex/rmx/internal/auth"
 	"github.com/rapidmidiex/rmx/internal/auth/internal/token"
 	"github.com/rapidmidiex/rmx/internal/auth/provider"
 	authStore "github.com/rapidmidiex/rmx/internal/auth/store"
 	"github.com/rapidmidiex/rmx/internal/cache"
+	"github.com/rapidmidiex/rmx/internal/events"
 	service "github.com/rapidmidiex/rmx/internal/http"
+	"github.com/rapidmidiex/rmx/internal/middlewares"
 	"github.com/zitadel/oidc/v2/pkg/client/rp"
 	"github.com/zitadel/oidc/v2/pkg/oidc"
-	"gocloud.dev/pubsub"
 )
 
 type Service struct {
 	ctx       context.Context
 	mux       service.Service
+	nc        *nats.Conn
 	repo      authStore.Repo
 	providers []*provider.Handlers
 	baseURI   string
+	pubk      *ecdsa.PublicKey
+	errc      chan error
 }
 
 func New(ctx context.Context, opts ...Option) *Service {
 	s := Service{
-		mux: service.New(),
+		mux:  service.New(),
+		errc: make(chan error),
 	}
 
 	for _, opt := range opts {
@@ -37,13 +46,41 @@ func New(ctx context.Context, opts ...Option) *Service {
 	}
 
 	s.routes()
+	go s.errors()
+	go s.introspect()
 	return &s
 }
 
 func (s *Service) GetBaseURI() string { return s.baseURI }
 
-func (s *Service) introspect(m *pubsub.Message) {
-	// rs.Introspect()
+// I have no idea what to do with the errors here
+func (s *Service) errors() {
+	for {
+		err := <-s.errc
+		log.Println(err.Error())
+	}
+}
+
+func (s *Service) introspect() {
+	subj := fmt.Sprint(events.NatsSubj, events.NatsSessionSufx, events.NatsIntrospectSufx)
+	s.nc.Subscribe(subj, func(msg *nats.Msg) {
+		token := string(msg.Data)
+		parsed, err := jwt.Parse([]byte(token), jwt.WithKey(jwa.ES256, s.pubk))
+		if err != nil {
+			if err := msg.Respond([]byte(events.TokenRejected)); err != nil {
+				s.errc <- fmt.Errorf("rmx: introspect [parse]\n%v", err)
+			}
+		}
+
+		res, err := s.repo.VerifyToken(s.ctx, parsed.JwtID())
+		if err != nil {
+			s.errc <- fmt.Errorf("rmx: introspect [verify]\n%v", err)
+		}
+
+		if err := msg.Respond([]byte(res)); err != nil {
+			s.errc <- fmt.Errorf("rmx: introspect [result]\n%v", err)
+		}
+	})
 }
 
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -55,9 +92,42 @@ func (s *Service) routes() {
 		s.mux.Handle(p.AuthURI, p.AuthHandler)
 		s.mux.Handle(p.CallbackURI, p.CallbackHandler)
 	}
+	s.mux.Handle("/refresh", s.handleRefresh())
+	s.mux.Handle("/protected", middlewares.ParseSession(middlewares.VerifySession(s.handleProtected(), s.nc)))
+}
+
+func (s *Service) handleProtected() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("welcome to RMX!"))
+	}
+}
+
+func (s *Service) handleRefresh() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+	}
 }
 
 type Option func(*Service)
+
+func WithContext(ctx context.Context) Option {
+	return func(s *Service) {
+		s.ctx = ctx
+	}
+}
+
+func WithNats(conn *nats.Conn) Option {
+	return func(s *Service) {
+		s.nc = conn
+	}
+}
+
+func WithPublicKey(pk *ecdsa.PublicKey) Option {
+	return func(s *Service) {
+		s.pubk = pk
+	}
+}
 
 func WithRepo(conn *sql.DB, sessionCache, tokenCache *cache.Cache) Option {
 	return func(s *Service) {

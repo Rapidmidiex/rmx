@@ -7,12 +7,6 @@ import (
 	"github.com/google/uuid"
 )
 
-const (
-	natsSubj           = "rmx.auth"
-	natsSessionSufx    = ".session"
-	natsIntrospectSufx = ".introspect"
-)
-
 var (
 	RefreshTokenExp = time.Hour * 24 * 30
 )

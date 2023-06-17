@@ -3,6 +3,7 @@ package token
 import (
 	"crypto/ecdsa"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/hyphengolang/prelude/types/suid"
@@ -45,5 +46,7 @@ func New(claims *Claims, key *ecdsa.PrivateKey) (string, error) {
 		return "", err
 	}
 
-	return string(signed), nil
+	bearer := fmt.Sprint("Bearer ", string(signed))
+
+	return bearer, nil
 }
