@@ -93,7 +93,7 @@ func (s *Service) routes() {
 		s.mux.Handle(p.CallbackURI, p.CallbackHandler)
 	}
 	s.mux.Handle("/refresh", s.handleRefresh())
-	s.mux.Handle("/protected", middlewares.ParseSession(middlewares.VerifySession(s.handleProtected(), s.nc)))
+	s.mux.Handle("/protected", middlewares.VerifySession(s.handleProtected(), s.nc, s.pubk))
 }
 
 func (s *Service) handleProtected() http.HandlerFunc {
