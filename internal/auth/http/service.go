@@ -98,8 +98,13 @@ func (s *Service) routes() {
 
 func (s *Service) handleProtected() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("welcome to RMX!"))
+		session, ok := r.Context().Value(middlewares.SessionCtx).(middlewares.ParsedClaims)
+		if !ok {
+			s.mux.Respond(w, r, nil, http.StatusBadRequest)
+			return
+		}
+
+		s.mux.Respond(w, r, session, http.StatusOK)
 	}
 }
 
