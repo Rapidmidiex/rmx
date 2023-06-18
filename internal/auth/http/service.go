@@ -75,7 +75,7 @@ func (s *Service) errors() {
 
 func (s *Service) introspect() {
 	subj := fmt.Sprint(events.NatsSubj, events.NatsSessionSufx, events.NatsIntrospectSufx)
-	s.nc.Subscribe(subj, func(msg *nats.Msg) {
+	if _, err := s.nc.Subscribe(subj, func(msg *nats.Msg) {
 		at := string(msg.Data)
 		parsed, err := jwt.Parse([]byte(at), jwt.WithKey(jwa.ES256, s.pubk))
 		if err != nil {
@@ -92,7 +92,9 @@ func (s *Service) introspect() {
 		if err := msg.Respond([]byte(res)); err != nil {
 			s.errc <- fmt.Errorf("rmx: introspect [result]\n%v", err)
 		}
-	})
+	}); err != nil {
+		log.Fatalf("rmx: introspect\n%v", err)
+	}
 }
 
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
