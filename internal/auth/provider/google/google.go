@@ -65,7 +65,7 @@ func (p *Provider) GetHandlers(baseURI string, callback rp.CodeExchangeUserinfoC
 	redirectURI := fmt.Sprintf("%s%s", baseURI, callbackURI)
 
 	orp, err := rp.NewRelyingPartyOIDC(
-		issuer,
+		p.issuer,
 		p.clientID,
 		p.clientSecret,
 		redirectURI,
@@ -78,14 +78,18 @@ func (p *Provider) GetHandlers(baseURI string, callback rp.CodeExchangeUserinfoC
 
 	p.rp = orp
 
-	/*
-		ors, err := rs.NewResourceServerClientCredentials(issuer, p.clientID, p.clientSecret)
-		if err != nil {
-			return nil, err
-		}
+	// ors, err := rs.NewResourceServerClientCredentials(
+	// 	p.issuer,
+	// 	p.clientID,
+	// 	p.clientSecret,
+	// 	rs.WithStaticEndpoints("", ""),
+	// )
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-		p.rs = ors
-	*/
+	// p.rs = ors
+
 	ah, ch, err := p.getHandlers(callback)
 	if err != nil {
 		return nil, err

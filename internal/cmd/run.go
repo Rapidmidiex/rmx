@@ -47,7 +47,7 @@ func serve(cfg *config.Config) error {
 	defer cancel()
 
 	c := cors.Options{
-		AllowedOrigins:   []string{"*"}, // ? band-aid, needs to change to a flag
+		AllowedOrigins:   []string{"http://localhost:*", "http://127.0.0.1:*"}, // ? band-aid, needs to change to a flag
 		AllowCredentials: true,
 		AllowedMethods:   []string{http.MethodGet, http.MethodPost},
 		AllowedHeaders:   []string{"Origin", "Content-Type", "Accept", "Authorization"},
@@ -60,7 +60,7 @@ func serve(cfg *config.Config) error {
 		return err
 	}
 
-	sessionCache, err := cache.New("sessions", nc, -1) // -1 for permanent cache
+	sessionCache, err := cache.New("sessions", nc, 0) // -1 for permanent cache
 	if err != nil {
 		return err
 	}

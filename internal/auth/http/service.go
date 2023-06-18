@@ -39,8 +39,9 @@ type Service struct {
 
 func New(ctx context.Context, opts ...Option) *Service {
 	s := Service{
-		mux:  service.New(),
-		errc: make(chan error),
+		mux:       service.New(),
+		providers: make(map[string]provider.Provider),
+		errc:      make(chan error),
 	}
 
 	for _, opt := range opts {
