@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rapidmidiex/rmx/internal/auth"
 	"github.com/rapidmidiex/rmx/internal/auth/provider"
 	"github.com/zitadel/oidc/v2/pkg/client/rp"
 	"github.com/zitadel/oidc/v2/pkg/client/rs"
@@ -25,14 +26,15 @@ var (
 		rp.WithURLParam("access_type", "offline"),
 
 		// prompt=consent forces google API to send a new refresh token on each login
-		// https://stackoverflow.com/questions/10827920/not-receiving-google-oauth-refresh-token/10857806#10857806
+		// https://stackoverflow.com/questions/10827920/not-receiving-google-oauth-refresh-token
 		rp.WithURLParam("prompt", "consent"),
 	}
 )
 
 type Provider struct {
-	rp rp.RelyingParty
-	rs rs.ResourceServer
+	issuer string
+	rp     rp.RelyingParty
+	rs     rs.ResourceServer
 
 	clientID, clientSecret string
 	hashKey                []byte
@@ -40,10 +42,14 @@ type Provider struct {
 }
 
 func New(clientID, clientSecret string, hashKey, encKey []byte) provider.Provider {
-	return &Provider{nil, nil, clientID, clientSecret, hashKey, encKey}
+	return &Provider{issuer, nil, nil, clientID, clientSecret, hashKey, encKey}
 }
 
-func (p *Provider) Init(baseURI string, callback rp.CodeExchangeUserinfoCallback[*oidc.IDTokenClaims]) (*provider.Handlers, error) {
+func (p *Provider) Issuer() string {
+	return p.issuer
+}
+
+func (p *Provider) GetHandlers(baseURI string, callback rp.CodeExchangeUserinfoCallback[*oidc.IDTokenClaims]) (*provider.Handlers, error) {
 	cookieHandler := httphelper.NewCookieHandler(
 		p.hashKey,
 		p.encKey,
@@ -80,7 +86,7 @@ func (p *Provider) Init(baseURI string, callback rp.CodeExchangeUserinfoCallback
 
 		p.rs = ors
 	*/
-	ah, ch, err := p.initHandlers(callback)
+	ah, ch, err := p.getHandlers(callback)
 	if err != nil {
 		return nil, err
 	}
@@ -93,8 +99,17 @@ func (p *Provider) Init(baseURI string, callback rp.CodeExchangeUserinfoCallback
 	}, nil
 }
 
-func (p *Provider) Introspect(ctx context.Context, token string) (*oidc.IntrospectionResponse, error) {
-	token, err := p.checkToken(token)
+func (p *Provider) getHandlers(callback rp.CodeExchangeUserinfoCallback[*oidc.IDTokenClaims]) (http.HandlerFunc, http.HandlerFunc, error) {
+	state := func() string {
+		return uuid.New().String()
+	}
+
+	return rp.AuthURLHandler(state, p.rp, urlParams...),
+		rp.CodeExchangeHandler(rp.UserinfoCallback(callback), p.rp), nil
+}
+
+func (p *Provider) Introspect(ctx context.Context, session *auth.Session) (*oidc.IntrospectionResponse, error) {
+	token, err := p.checkToken(session.AccessToken)
 	if err != nil {
 		return nil, err
 	}
@@ -108,13 +123,4 @@ func (*Provider) checkToken(token string) (string, error) {
 	}
 
 	return strings.TrimPrefix(token, oidc.PrefixBearer), nil
-}
-
-func (p *Provider) initHandlers(callback rp.CodeExchangeUserinfoCallback[*oidc.IDTokenClaims]) (http.HandlerFunc, http.HandlerFunc, error) {
-	state := func() string {
-		return uuid.New().String()
-	}
-
-	return rp.AuthURLHandler(state, p.rp, urlParams...),
-		rp.CodeExchangeHandler(rp.UserinfoCallback(callback), p.rp), nil
 }

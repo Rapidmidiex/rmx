@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -29,9 +30,10 @@ type Service struct {
 	mux       service.Service
 	nc        *nats.Conn
 	repo      authStore.Repo
-	providers []*provider.Handlers
+	providers map[string]provider.Provider
 	baseURI   string
 	pubk      *ecdsa.PublicKey
+	privk     *ecdsa.PrivateKey
 	errc      chan error
 }
 
@@ -45,7 +47,17 @@ func New(ctx context.Context, opts ...Option) *Service {
 		opt(&s)
 	}
 
-	s.routes()
+	var phs []*provider.Handlers
+	for _, p := range s.providers {
+		hs, err := p.GetHandlers(s.baseURI, s.withCheckUser(s.privk))
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		phs = append(phs, hs)
+	}
+
+	s.routes(phs)
 	go s.errors()
 	go s.introspect()
 	return &s
@@ -64,8 +76,8 @@ func (s *Service) errors() {
 func (s *Service) introspect() {
 	subj := fmt.Sprint(events.NatsSubj, events.NatsSessionSufx, events.NatsIntrospectSufx)
 	s.nc.Subscribe(subj, func(msg *nats.Msg) {
-		token := string(msg.Data)
-		parsed, err := jwt.Parse([]byte(token), jwt.WithKey(jwa.ES256, s.pubk))
+		at := string(msg.Data)
+		parsed, err := jwt.Parse([]byte(at), jwt.WithKey(jwa.ES256, s.pubk))
 		if err != nil {
 			if err := msg.Respond([]byte(events.TokenRejected)); err != nil {
 				s.errc <- fmt.Errorf("rmx: introspect [parse]\n%v", err)
@@ -87,8 +99,8 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mux.ServeHTTP(w, r)
 }
 
-func (s *Service) routes() {
-	for _, p := range s.providers {
+func (s *Service) routes(phs []*provider.Handlers) {
+	for _, p := range phs {
 		s.mux.Handle(p.AuthURI, p.AuthHandler)
 		s.mux.Handle(p.CallbackURI, p.CallbackHandler)
 	}
@@ -98,7 +110,7 @@ func (s *Service) routes() {
 
 func (s *Service) handleProtected() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		session, ok := r.Context().Value(middlewares.SessionCtx).(middlewares.ParsedClaims)
+		session, ok := r.Context().Value(middlewares.SessionCtx).(token.ParsedClaims)
 		if !ok {
 			s.mux.Respond(w, r, nil, http.StatusBadRequest)
 			return
@@ -109,9 +121,100 @@ func (s *Service) handleProtected() http.HandlerFunc {
 }
 
 func (s *Service) handleRefresh() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-
+	type response struct {
+		AccessToken string `json:"accessToken"`
 	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		rtCookie, err := r.Cookie(auth.RefreshTokenCookieName)
+		if err != nil {
+			s.mux.Respond(w, r, nil, http.StatusBadRequest)
+			return
+		}
+
+		rt := token.TrimPrefix(rtCookie.Value)
+
+		parsed, err := jwt.Parse([]byte(rt), jwt.WithKey(jwa.ES256, s.pubk))
+		if err != nil {
+			s.mux.Respond(w, r, nil, http.StatusUnauthorized)
+			return
+		}
+
+		session, err := s.repo.GetSession(parsed.Subject())
+		if err != nil {
+			s.mux.Respond(w, r, nil, http.StatusUnauthorized)
+			return
+		}
+
+		// no need for the response here
+		_, err = s.validateSession(parsed.Issuer(), session)
+		if err != nil {
+			s.mux.Respond(w, r, nil, http.StatusUnauthorized)
+			return
+		}
+
+		emailInterface, ok := parsed.Get("email")
+		if !ok {
+			s.mux.Respond(w, r, nil, http.StatusBadRequest)
+			return
+		}
+
+		email, ok := emailInterface.(string)
+		if !ok {
+			s.mux.Respond(w, r, nil, http.StatusBadRequest)
+			return
+		}
+
+		at, err := token.New(&token.Claims{
+			Issuer:     parsed.Issuer(),
+			Audience:   parsed.Audience(), // TODO: choose audience
+			Email:      email,
+			ClientID:   parsed.Subject(),
+			Expiration: time.Now().UTC().Add(auth.AccessTokenExp),
+		}, s.privk)
+		if err != nil {
+			s.mux.Respond(w, r, err, http.StatusInternalServerError)
+			return
+		}
+
+		newRt, err := token.New(&token.Claims{
+			Issuer:     parsed.Issuer(),
+			Audience:   parsed.Audience(), // TODO: choose audience
+			Email:      email,
+			ClientID:   parsed.Subject(),
+			Expiration: time.Now().UTC().Add(auth.RefreshTokenExp),
+		}, s.privk)
+		if err != nil {
+			s.mux.Respond(w, r, err, http.StatusInternalServerError)
+			return
+		}
+
+		newRtCookie := &http.Cookie{
+			Name:     auth.RefreshTokenCookieName,
+			Value:    newRt,
+			HttpOnly: true,
+			Secure:   true,
+			SameSite: http.SameSiteLaxMode,
+			Expires:  time.Now().UTC().Add(auth.RefreshTokenExp),
+		}
+
+		res := &response{
+			AccessToken: at,
+		}
+
+		http.SetCookie(w, newRtCookie)
+		s.mux.Respond(w, r, res, http.StatusOK)
+	}
+}
+
+func (s *Service) validateSession(issuer string, session *auth.Session) (*oidc.IntrospectionResponse, error) {
+	// TODO: refresh session access token
+	pr, ok := s.providers[issuer]
+	if !ok {
+		return nil, errors.New("rmx: invalid provider")
+	}
+
+	return pr.Introspect(s.ctx, session)
 }
 
 type Option func(*Service)
@@ -128,9 +231,10 @@ func WithNats(conn *nats.Conn) Option {
 	}
 }
 
-func WithPublicKey(pk *ecdsa.PublicKey) Option {
+func WithKeys(privk *ecdsa.PrivateKey, pubk *ecdsa.PublicKey) Option {
 	return func(s *Service) {
-		s.pubk = pk
+		s.privk = privk
+		s.pubk = pubk
 	}
 }
 
@@ -146,21 +250,11 @@ func WithBaseURI(uri string) Option {
 	}
 }
 
-func WithProviders(providers []provider.Provider, pk *ecdsa.PrivateKey) Option {
+func WithProvider(provider provider.Provider) Option {
 	return func(s *Service) {
-		for _, p := range providers {
-			hs, err := p.Init(s.baseURI, s.withCheckUser(pk))
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			s.providers = append(s.providers, hs)
-		}
+		s.providers[provider.Issuer()] = provider
 	}
 }
-
-// any idea what to name this?
-const rtCookieName = "RMX_AUTH_RT"
 
 func (s *Service) withCheckUser(pk *ecdsa.PrivateKey) rp.CodeExchangeUserinfoCallback[*oidc.IDTokenClaims] {
 	type response struct {
@@ -197,7 +291,7 @@ func (s *Service) withCheckUser(pk *ecdsa.PrivateKey) rp.CodeExchangeUserinfoCal
 			}
 		}
 
-		cid, err := s.createSession(s.ctx, provider.Issuer(), info, tokens)
+		sid, err := s.createSession(s.ctx, provider.Issuer(), info, tokens)
 		if err != nil {
 			s.mux.Respond(w, r, err, http.StatusInternalServerError)
 			return
@@ -207,8 +301,8 @@ func (s *Service) withCheckUser(pk *ecdsa.PrivateKey) rp.CodeExchangeUserinfoCal
 			Issuer:     provider.Issuer(),
 			Audience:   []string{"web"}, // TODO: choose audience
 			Email:      info.Email,
-			ClientID:   cid,
-			Expiration: tokens.Expiry,
+			ClientID:   sid,
+			Expiration: time.Now().UTC().Add(auth.AccessTokenExp),
 		}, pk)
 		if err != nil {
 			s.mux.Respond(w, r, err, http.StatusInternalServerError)
@@ -219,7 +313,7 @@ func (s *Service) withCheckUser(pk *ecdsa.PrivateKey) rp.CodeExchangeUserinfoCal
 			Issuer:     provider.Issuer(),
 			Audience:   []string{"web"},
 			Email:      info.Email,
-			ClientID:   cid,
+			ClientID:   sid,
 			Expiration: time.Now().UTC().Add(auth.RefreshTokenExp),
 		}, pk)
 		if err != nil {
@@ -228,7 +322,7 @@ func (s *Service) withCheckUser(pk *ecdsa.PrivateKey) rp.CodeExchangeUserinfoCal
 		}
 
 		rtCookie := &http.Cookie{
-			Name:     rtCookieName,
+			Name:     auth.RefreshTokenCookieName,
 			Value:    rt,
 			HttpOnly: true,
 			Secure:   true,
@@ -267,8 +361,10 @@ func (s *Service) createSession(
 		info.Email,
 		issuer,
 		auth.Session{
+			TokenType:    tokens.TokenType,
 			AccessToken:  tokens.AccessToken,
 			RefreshToken: tokens.RefreshToken,
+			Expiry:       tokens.Expiry,
 		},
 	)
 }

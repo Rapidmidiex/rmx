@@ -22,7 +22,6 @@ import (
 	jamHTTP "github.com/rapidmidiex/rmx/internal/jam/http"
 
 	authHTTP "github.com/rapidmidiex/rmx/internal/auth/http"
-	"github.com/rapidmidiex/rmx/internal/auth/provider"
 	"github.com/rapidmidiex/rmx/internal/auth/provider/google"
 	jamDB "github.com/rapidmidiex/rmx/internal/jam/postgres"
 
@@ -83,14 +82,13 @@ func serve(cfg *config.Config) error {
 		[]byte(cfg.Auth.Keys.CookieEncryptionKey),
 	)
 
-	// order is important
 	authOpts := []authHTTP.Option{
 		authHTTP.WithContext(sCtx),
 		authHTTP.WithBaseURI(fmt.Sprintf("http://localhost:%s/v0/auth", cfg.Server.Port)),
 		authHTTP.WithNats(nc),
 		authHTTP.WithRepo(conn, sessionCache, tokensCache),
-		authHTTP.WithProviders([]provider.Provider{gp}, cfg.Auth.Keys.JWTPrivateKey),
-		authHTTP.WithPublicKey(cfg.Auth.Keys.JWTPublicKey),
+		authHTTP.WithKeys(cfg.Auth.Keys.JWTPrivateKey, cfg.Auth.Keys.JWTPublicKey),
+		authHTTP.WithProvider(gp),
 	}
 
 	authService := authHTTP.New(sCtx, authOpts...)

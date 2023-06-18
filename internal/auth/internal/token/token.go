@@ -4,12 +4,14 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/hyphengolang/prelude/types/suid"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jws"
 	"github.com/lestrrat-go/jwx/v2/jwt"
+	"github.com/zitadel/oidc/v2/pkg/oidc"
 )
 
 type Claims struct {
@@ -18,6 +20,17 @@ type Claims struct {
 	Email      string
 	ClientID   string
 	Expiration time.Time
+}
+
+type ParsedClaims struct {
+	JwtID      string    `json:"jti"`
+	Subject    string    `json:"sub"`
+	Issuer     string    `json:"iss"`
+	Audience   []string  `json:"aud"`
+	IssuedAt   time.Time `json:"iat"`
+	NotBefore  time.Time `json:"nbf"`
+	Expiration time.Time `json:"exp"`
+	Email      string    `json:"email"`
 }
 
 func New(claims *Claims, key *ecdsa.PrivateKey) (string, error) {
@@ -46,7 +59,11 @@ func New(claims *Claims, key *ecdsa.PrivateKey) (string, error) {
 		return "", err
 	}
 
-	bearer := fmt.Sprint("Bearer ", string(signed))
+	bearer := fmt.Sprint(oidc.PrefixBearer, string(signed))
 
 	return bearer, nil
+}
+
+func TrimPrefix(token string) string {
+	return strings.TrimPrefix(token, oidc.PrefixBearer)
 }

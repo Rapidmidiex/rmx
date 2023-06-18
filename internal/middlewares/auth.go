@@ -14,6 +14,7 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/nats-io/nats.go"
 	"github.com/rapidmidiex/rmx/internal/events"
+	"github.com/zitadel/oidc/v2/pkg/oidc"
 )
 
 type ctxKey string
@@ -36,14 +37,7 @@ type ParsedClaims struct {
 
 func VerifySession(next http.HandlerFunc, nc *nats.Conn, pubk *ecdsa.PublicKey) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		token := r.Header.Get("Authorization")
-		split := strings.Split(token, "Bearer")
-		if len(split) != 2 {
-			w.WriteHeader(http.StatusUnauthorized)
-			return
-		}
-
-		token = strings.TrimSpace(split[1])
+		token := strings.TrimPrefix(r.Header.Get("Authorization"), oidc.PrefixBearer)
 
 		res, err := nc.Request(fmt.Sprint(
 			events.NatsSubj,

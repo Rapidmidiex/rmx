@@ -8,7 +8,9 @@ import (
 )
 
 var (
-	RefreshTokenExp = time.Hour * 24 * 30
+	AccessTokenExp         = time.Minute * 30
+	RefreshTokenExp        = time.Hour * 24 * 30
+	RefreshTokenCookieName = "RMX_AUTH_RT"
 )
 
 type User struct {
@@ -18,8 +20,10 @@ type User struct {
 }
 
 type Session struct {
-	AccessToken  string `json:"accessToken"`
-	RefreshToken string `json:"refreshToken"`
+	TokenType    string    `json:"tokenType"`
+	AccessToken  string    `json:"accessToken"`
+	RefreshToken string    `json:"refreshToken"`
+	Expiry       time.Time `json:"expiry"`
 }
 
 type AuthError struct {

@@ -25,10 +25,10 @@ type Repo interface {
 	DeleteUserByID(ctx context.Context, id uuid.UUID) error
 	DeleteUserByEmail(ctx context.Context, email string) error
 
-	CreateSession(ctx context.Context, email, issuer string, tokens auth.Session) (string, error)
-	GetSession(cid string) (*auth.Session, error)
+	CreateSession(ctx context.Context, email, issuer string, session auth.Session) (string, error)
+	GetSession(sid string) (*auth.Session, error)
 	GetAllSessions(ctx context.Context, email string) ([]auth.Session, error)
-	DeleteSession(ctx context.Context, cid string) error
+	DeleteSession(ctx context.Context, sid string) error
 	DeleteAllSessions(ctx context.Context, email string) error
 
 	BlacklistToken(ctx context.Context, id string) error
@@ -151,7 +151,7 @@ func (s *store) DeleteUserByEmail(ctx context.Context, email string) error {
 	return s.q.DeleteUserByEmail(ctx, email)
 }
 
-func (s *store) CreateSession(ctx context.Context, email, issuer string, tokens auth.Session) (string, error) {
+func (s *store) CreateSession(ctx context.Context, email, issuer string, session auth.Session) (string, error) {
 	params := &sqlc.CreateSessionParams{
 		Email:  email,
 		Issuer: issuer,
@@ -162,7 +162,7 @@ func (s *store) CreateSession(ctx context.Context, email, issuer string, tokens 
 		return "", nil
 	}
 
-	bs, err := json.Marshal(tokens)
+	bs, err := json.Marshal(session)
 	if err != nil {
 		return "", nil
 	}
@@ -170,8 +170,8 @@ func (s *store) CreateSession(ctx context.Context, email, issuer string, tokens 
 	return created.ID.String(), s.sc.Set(created.ID.String(), bs)
 }
 
-func (s *store) GetSession(cid string) (*auth.Session, error) {
-	sb, err := s.sc.Get(cid)
+func (s *store) GetSession(sid string) (*auth.Session, error) {
+	sb, err := s.sc.Get(sid)
 	if err != nil {
 		return nil, err
 	}
@@ -208,17 +208,17 @@ func (s *store) GetAllSessions(ctx context.Context, email string) ([]auth.Sessio
 	return sessions, nil
 }
 
-func (s *store) DeleteSession(ctx context.Context, cid string) error {
-	cidParsed, err := suid.ParseString(cid)
+func (s *store) DeleteSession(ctx context.Context, sid string) error {
+	sidParsed, err := suid.ParseString(sid)
 	if err != nil {
 		return err
 	}
 
-	if err := s.q.DeleteSessionByID(ctx, cidParsed.UUID); err != nil {
+	if err := s.q.DeleteSessionByID(ctx, sidParsed.UUID); err != nil {
 		return err
 	}
 
-	return s.sc.Delete(cid)
+	return s.sc.Delete(sid)
 }
 
 func (s *store) DeleteAllSessions(ctx context.Context, email string) error {
