@@ -21,13 +21,14 @@ type StoreConfig struct {
 	NatsURL     string
 }
 
-type GoogleConfig struct {
+type ProviderConfig struct {
 	ClientID     string
 	ClientSecret string
 }
 
 type ProvidersConfig struct {
-	Google GoogleConfig
+	Google ProviderConfig
+	Github ProviderConfig
 }
 
 type Keys struct {
@@ -74,6 +75,8 @@ func LoadFromEnv() *Config {
 	enableAuth := readEnvBool("ENABLE_AUTH")
 	googleClientID := readEnvStr("GOOGLE_CLIENT_ID")
 	googleClientSecret := readEnvStr("GOOGLE_CLIENT_SECRET")
+	githubClientID := readEnvStr("GITHUB_CLIENT_ID")
+	githubClientSecret := readEnvStr("GITHUB_CLIENT_SECRET")
 	cookieHashKey := readEnvStr("COOKIE_HASH_KEY")
 	cookieEncryptionKey := readEnvStr("COOKIE_ENCRYPTION_KEY")
 	jwtEncodedPrivateKey := readEnvStr("JWT_PRIVATE_KEY")
@@ -98,9 +101,13 @@ func LoadFromEnv() *Config {
 		Auth: AuthConfig{
 			Enable: enableAuth,
 			Providers: ProvidersConfig{
-				Google: GoogleConfig{
+				Google: ProviderConfig{
 					ClientID:     googleClientID,
 					ClientSecret: googleClientSecret,
+				},
+				Github: ProviderConfig{
+					ClientID:     githubClientID,
+					ClientSecret: githubClientSecret,
 				},
 			},
 			Keys: Keys{

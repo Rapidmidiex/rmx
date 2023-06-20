@@ -259,13 +259,13 @@ func WithProvider(provider provider.Provider) Option {
 	}
 }
 
-func (s *Service) withCheckUser(pk *ecdsa.PrivateKey) rp.CodeExchangeUserinfoCallback[*oidc.IDTokenClaims] {
+func (s *Service) withCheckUser(pk *ecdsa.PrivateKey) rp.CodeExchangeCallback[*oidc.IDTokenClaims] {
 	type response struct {
 		AccessToken string `json:"accessToken"`
 		IDToken     string `json:"idToken"`
 	}
 
-	return func(
+	return rp.UserinfoCallback[*oidc.IDTokenClaims](func(
 		w http.ResponseWriter,
 		r *http.Request,
 		tokens *oidc.Tokens[*oidc.IDTokenClaims],
@@ -340,7 +340,7 @@ func (s *Service) withCheckUser(pk *ecdsa.PrivateKey) rp.CodeExchangeUserinfoCal
 
 		http.SetCookie(w, rtCookie)
 		s.mux.Respond(w, r, res, http.StatusOK)
-	}
+	})
 }
 
 func (s *Service) createUser(ctx context.Context, info *oidc.UserInfo) error {

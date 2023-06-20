@@ -22,6 +22,7 @@ import (
 	jamHTTP "github.com/rapidmidiex/rmx/internal/jam/http"
 
 	authHTTP "github.com/rapidmidiex/rmx/internal/auth/http"
+	"github.com/rapidmidiex/rmx/internal/auth/provider/github"
 	"github.com/rapidmidiex/rmx/internal/auth/provider/google"
 	jamDB "github.com/rapidmidiex/rmx/internal/jam/postgres"
 
@@ -75,7 +76,14 @@ func serve(cfg *config.Config) error {
 		return err
 	}
 
-	gp := google.New(
+	githubProvider := github.New(
+		cfg.Auth.Providers.Github.ClientID,
+		cfg.Auth.Providers.Github.ClientSecret,
+		[]byte(cfg.Auth.Keys.CookieHashKey),
+		[]byte(cfg.Auth.Keys.CookieEncryptionKey),
+	)
+
+	googleProvider := google.New(
 		cfg.Auth.Providers.Google.ClientID,
 		cfg.Auth.Providers.Google.ClientSecret,
 		[]byte(cfg.Auth.Keys.CookieHashKey),
@@ -88,7 +96,8 @@ func serve(cfg *config.Config) error {
 		authHTTP.WithNats(nc),
 		authHTTP.WithRepo(conn, sessionCache, tokensCache),
 		authHTTP.WithKeys(cfg.Auth.Keys.JWTPrivateKey, cfg.Auth.Keys.JWTPublicKey),
-		authHTTP.WithProvider(gp),
+		authHTTP.WithProvider(googleProvider),
+		authHTTP.WithProvider(githubProvider),
 	}
 
 	authService := authHTTP.New(sCtx, authOpts...)

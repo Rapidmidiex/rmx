@@ -1,10 +1,9 @@
-package google
+package github
 
 import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,20 +13,18 @@ import (
 	"github.com/zitadel/oidc/v2/pkg/client/rs"
 	httphelper "github.com/zitadel/oidc/v2/pkg/http"
 	"github.com/zitadel/oidc/v2/pkg/oidc"
+	"golang.org/x/oauth2"
+	githubOAuth "golang.org/x/oauth2/github"
 )
 
 var (
-	issuer      = "https://accounts.google.com"
-	authURI     = "/google"
-	callbackURI = "/google/callback"
-	scopes      = []string{"email", "profile", "openid"}
+	issuer      = githubOAuth.Endpoint.AuthURL
+	authURI     = "/github"
+	callbackURI = "/github/callback"
+	scopes      = []string{"(no scope)"}
 	iatOffset   = time.Second * 5
 	urlParams   = []rp.URLParamOpt{
-		rp.WithURLParam("access_type", "offline"),
-
-		// prompt=consent forces google API to send a new refresh token on each login
-		// https://stackoverflow.com/questions/10827920/not-receiving-google-oauth-refresh-token
-		rp.WithURLParam("prompt", "consent"),
+		rp.WithURLParam("grant_type", "refresh_token"),
 	}
 )
 
@@ -57,38 +54,27 @@ func (p *Provider) GetHandlers(baseURI string, callback rp.CodeExchangeCallback[
 		httphelper.WithSameSite(http.SameSiteLaxMode),
 	)
 
+	redirectURI := fmt.Sprintf("%s%s", baseURI, callbackURI)
+
+	rpConfig := &oauth2.Config{
+		ClientID:     p.clientID,
+		ClientSecret: p.clientSecret,
+		RedirectURL:  redirectURI,
+		Scopes:       scopes,
+		Endpoint:     githubOAuth.Endpoint,
+	}
+
 	options := []rp.Option{
 		rp.WithCookieHandler(cookieHandler),
 		rp.WithVerifierOpts(rp.WithIssuedAtOffset(iatOffset)),
 	}
 
-	redirectURI := fmt.Sprintf("%s%s", baseURI, callbackURI)
-
-	orp, err := rp.NewRelyingPartyOIDC(
-		p.issuer,
-		p.clientID,
-		p.clientSecret,
-		redirectURI,
-		scopes,
-		options...,
-	)
+	orp, err := rp.NewRelyingPartyOAuth(rpConfig, options...)
 	if err != nil {
 		return nil, err
 	}
 
 	p.rp = orp
-
-	// ors, err := rs.NewResourceServerClientCredentials(
-	// 	p.issuer,
-	// 	p.clientID,
-	// 	p.clientSecret,
-	// 	rs.WithStaticEndpoints("", ""),
-	// )
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// p.rs = ors
 
 	ah, ch, err := p.getHandlers(callback)
 	if err != nil {
@@ -109,22 +95,13 @@ func (p *Provider) getHandlers(callback rp.CodeExchangeCallback[*oidc.IDTokenCla
 	}
 
 	return rp.AuthURLHandler(state, p.rp, urlParams...),
-		rp.CodeExchangeHandler(callback, p.rp), nil
+		rp.CodeExchangeHandler(rp.CodeExchangeCallback[*oidc.IDTokenClaims](callback2), p.rp), nil
+}
+
+func callback2(w http.ResponseWriter, r *http.Request, tokens *oidc.Tokens[*oidc.IDTokenClaims], state string, rp rp.RelyingParty) {
+	fmt.Printf("%v", tokens.AccessToken)
 }
 
 func (p *Provider) Introspect(ctx context.Context, session *auth.Session) (*oidc.IntrospectionResponse, error) {
-	token, err := p.checkToken(session.AccessToken)
-	if err != nil {
-		return nil, err
-	}
-
-	return rs.Introspect(ctx, p.rs, token)
-}
-
-func (*Provider) checkToken(token string) (string, error) {
-	if !strings.HasPrefix(token, oidc.PrefixBearer) {
-		return "", fmt.Errorf("invalid token header")
-	}
-
-	return strings.TrimPrefix(token, oidc.PrefixBearer), nil
+	return rs.Introspect(ctx, p.rs, "token")
 }

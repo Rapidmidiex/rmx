@@ -16,6 +16,6 @@ type Handlers struct {
 
 type Provider interface {
 	Issuer() string
-	GetHandlers(baseURI string, callback rp.CodeExchangeUserinfoCallback[*oidc.IDTokenClaims]) (*Handlers, error)
+	GetHandlers(baseURI string, callback rp.CodeExchangeCallback[*oidc.IDTokenClaims]) (*Handlers, error)
 	Introspect(ctx context.Context, token *auth.Session) (*oidc.IntrospectionResponse, error)
 }
