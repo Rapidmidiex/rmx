@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"crypto/ecdsa"
 	"fmt"
 	"time"
 
@@ -12,6 +13,23 @@ var (
 	RefreshTokenExp        = time.Hour * 24 * 30
 	RefreshTokenCookieName = "RMX_AUTH_RT"
 )
+
+type AuthType int
+
+const (
+	OAuth AuthType = iota
+	OIDC
+)
+
+type KeyPair struct {
+	PrivateKey *ecdsa.PrivateKey
+	PublicKey  *ecdsa.PublicKey
+}
+
+type OAuthUserInfo struct {
+	Username string
+	Email    string
+}
 
 type User struct {
 	ID       uuid.UUID `json:"id"`

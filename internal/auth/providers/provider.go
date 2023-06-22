@@ -1,4 +1,4 @@
-package provider
+package providers
 
 import (
 	"context"
@@ -15,7 +15,9 @@ type Handlers struct {
 }
 
 type Provider interface {
-	Issuer() string
+	GetIssuer() string
+	GetAuthType() auth.AuthType
 	GetHandlers(baseURI string, callback rp.CodeExchangeCallback[*oidc.IDTokenClaims]) (*Handlers, error)
 	Introspect(ctx context.Context, token *auth.Session) (*oidc.IntrospectionResponse, error)
+	UserInfo(ctx context.Context, token string) (*auth.OAuthUserInfo, error)
 }

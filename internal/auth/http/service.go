@@ -15,7 +15,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/rapidmidiex/rmx/internal/auth"
 	"github.com/rapidmidiex/rmx/internal/auth/internal/token"
-	"github.com/rapidmidiex/rmx/internal/auth/provider"
+	"github.com/rapidmidiex/rmx/internal/auth/providers"
 	authStore "github.com/rapidmidiex/rmx/internal/auth/store"
 	"github.com/rapidmidiex/rmx/internal/cache"
 	"github.com/rapidmidiex/rmx/internal/events"
@@ -30,17 +30,16 @@ type Service struct {
 	mux       service.Service
 	nc        *nats.Conn
 	repo      authStore.Repo
-	providers map[string]provider.Provider
+	providers map[string]providers.Provider
 	baseURI   string
-	pubk      *ecdsa.PublicKey
-	privk     *ecdsa.PrivateKey
+	keyPair   auth.KeyPair
 	errc      chan error
 }
 
 func New(ctx context.Context, opts ...Option) *Service {
 	s := Service{
 		mux:       service.New(),
-		providers: make(map[string]provider.Provider),
+		providers: make(map[string]providers.Provider),
 		errc:      make(chan error),
 	}
 
@@ -48,14 +47,22 @@ func New(ctx context.Context, opts ...Option) *Service {
 		opt(&s)
 	}
 
-	var phs []*provider.Handlers
+	var phs []*providers.Handlers
 	for _, p := range s.providers {
-		hs, err := p.GetHandlers(s.baseURI, s.withCheckUser(s.privk))
-		if err != nil {
-			log.Fatal(err)
+		switch p.GetAuthType() {
+		case auth.OIDC:
+			hs, err := p.GetHandlers(s.baseURI, s.oidcCallback(s.keyPair.PrivateKey))
+			if err != nil {
+				log.Fatal(err)
+			}
+			phs = append(phs, hs)
+		case auth.OAuth:
+			hs, err := p.GetHandlers(s.baseURI, s.oauthCallback(s.keyPair.PrivateKey))
+			if err != nil {
+				log.Fatal(err)
+			}
+			phs = append(phs, hs)
 		}
-
-		phs = append(phs, hs)
 	}
 
 	s.routes(phs)
@@ -78,7 +85,7 @@ func (s *Service) introspect() {
 	subj := fmt.Sprint(events.NatsSubj, events.NatsSessionSufx, events.NatsIntrospectSufx)
 	if _, err := s.nc.Subscribe(subj, func(msg *nats.Msg) {
 		at := string(msg.Data)
-		parsed, err := jwt.Parse([]byte(at), jwt.WithKey(jwa.ES256, s.pubk))
+		parsed, err := jwt.Parse([]byte(at), jwt.WithKey(jwa.ES256, s.keyPair.PublicKey))
 		if err != nil {
 			if err := msg.Respond([]byte(events.TokenRejected)); err != nil {
 				s.errc <- fmt.Errorf("rmx: introspect [parse]\n%v", err)
@@ -102,13 +109,13 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mux.ServeHTTP(w, r)
 }
 
-func (s *Service) routes(phs []*provider.Handlers) {
+func (s *Service) routes(phs []*providers.Handlers) {
 	for _, p := range phs {
 		s.mux.Handle(p.AuthURI, p.AuthHandler)
 		s.mux.Handle(p.CallbackURI, p.CallbackHandler)
 	}
 	s.mux.Handle("/refresh", s.handleRefresh())
-	s.mux.Handle("/protected", middlewares.VerifySession(s.handleProtected(), s.nc, s.pubk))
+	s.mux.Handle("/protected", middlewares.VerifySession(s.handleProtected(), s.nc, s.keyPair.PublicKey))
 }
 
 func (s *Service) handleProtected() http.HandlerFunc {
@@ -137,7 +144,7 @@ func (s *Service) handleRefresh() http.HandlerFunc {
 
 		rt := token.TrimPrefix(rtCookie.Value)
 
-		parsed, err := jwt.Parse([]byte(rt), jwt.WithKey(jwa.ES256, s.pubk))
+		parsed, err := jwt.Parse([]byte(rt), jwt.WithKey(jwa.ES256, s.keyPair.PublicKey))
 		if err != nil {
 			s.mux.Respond(w, r, nil, http.StatusUnauthorized)
 			return
@@ -174,7 +181,7 @@ func (s *Service) handleRefresh() http.HandlerFunc {
 			Email:      email,
 			ClientID:   parsed.Subject(),
 			Expiration: time.Now().UTC().Add(auth.AccessTokenExp),
-		}, s.privk)
+		}, s.keyPair.PrivateKey)
 		if err != nil {
 			s.mux.Respond(w, r, err, http.StatusInternalServerError)
 			return
@@ -186,7 +193,7 @@ func (s *Service) handleRefresh() http.HandlerFunc {
 			Email:      email,
 			ClientID:   parsed.Subject(),
 			Expiration: time.Now().UTC().Add(auth.RefreshTokenExp),
-		}, s.privk)
+		}, s.keyPair.PrivateKey)
 		if err != nil {
 			s.mux.Respond(w, r, err, http.StatusInternalServerError)
 			return
@@ -220,46 +227,11 @@ func (s *Service) validateSession(issuer string, session *auth.Session) (*oidc.I
 	return pr.Introspect(s.ctx, session)
 }
 
-type Option func(*Service)
-
-func WithContext(ctx context.Context) Option {
-	return func(s *Service) {
-		s.ctx = ctx
-	}
+func (s *Service) oauthCallback(pk *ecdsa.PrivateKey) rp.CodeExchangeCallback[*oidc.IDTokenClaims] {
+	return nil
 }
 
-func WithNats(conn *nats.Conn) Option {
-	return func(s *Service) {
-		s.nc = conn
-	}
-}
-
-func WithKeys(privk *ecdsa.PrivateKey, pubk *ecdsa.PublicKey) Option {
-	return func(s *Service) {
-		s.privk = privk
-		s.pubk = pubk
-	}
-}
-
-func WithRepo(conn *sql.DB, sessionCache, tokenCache *cache.Cache) Option {
-	return func(s *Service) {
-		s.repo = authStore.New(conn, sessionCache, tokenCache)
-	}
-}
-
-func WithBaseURI(uri string) Option {
-	return func(s *Service) {
-		s.baseURI = uri
-	}
-}
-
-func WithProvider(provider provider.Provider) Option {
-	return func(s *Service) {
-		s.providers[provider.Issuer()] = provider
-	}
-}
-
-func (s *Service) withCheckUser(pk *ecdsa.PrivateKey) rp.CodeExchangeCallback[*oidc.IDTokenClaims] {
+func (s *Service) oidcCallback(pk *ecdsa.PrivateKey) rp.CodeExchangeCallback[*oidc.IDTokenClaims] {
 	type response struct {
 		AccessToken string `json:"accessToken"`
 		IDToken     string `json:"idToken"`
@@ -294,7 +266,7 @@ func (s *Service) withCheckUser(pk *ecdsa.PrivateKey) rp.CodeExchangeCallback[*o
 			}
 		}
 
-		sid, err := s.createSession(s.ctx, provider.Issuer(), info, tokens)
+		sid, err := s.createSession(r.Context(), provider.Issuer(), info, tokens)
 		if err != nil {
 			s.mux.Respond(w, r, err, http.StatusInternalServerError)
 			return
@@ -341,6 +313,45 @@ func (s *Service) withCheckUser(pk *ecdsa.PrivateKey) rp.CodeExchangeCallback[*o
 		http.SetCookie(w, rtCookie)
 		s.mux.Respond(w, r, res, http.StatusOK)
 	})
+}
+
+type Option func(*Service)
+
+func WithContext(ctx context.Context) Option {
+	return func(s *Service) {
+		s.ctx = ctx
+	}
+}
+
+func WithNats(conn *nats.Conn) Option {
+	return func(s *Service) {
+		s.nc = conn
+	}
+}
+
+func WithKeys(privk *ecdsa.PrivateKey, pubk *ecdsa.PublicKey) Option {
+	return func(s *Service) {
+		s.keyPair.PrivateKey = privk
+		s.keyPair.PublicKey = pubk
+	}
+}
+
+func WithRepo(conn *sql.DB, sessionCache, tokenCache *cache.Cache) Option {
+	return func(s *Service) {
+		s.repo = authStore.New(conn, sessionCache, tokenCache)
+	}
+}
+
+func WithBaseURI(uri string) Option {
+	return func(s *Service) {
+		s.baseURI = uri
+	}
+}
+
+func WithProvider(provider providers.Provider) Option {
+	return func(s *Service) {
+		s.providers[provider.GetIssuer()] = provider
+	}
 }
 
 func (s *Service) createUser(ctx context.Context, info *oidc.UserInfo) error {
