@@ -8,70 +8,45 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"time"
 
-	"github.com/lestrrat-go/jwx/v2/jwa"
-	"github.com/lestrrat-go/jwx/v2/jwt"
+	"github.com/go-chi/chi/v5"
 	"github.com/nats-io/nats.go"
+	"github.com/rapidmidiex/oauth"
+	"github.com/rapidmidiex/oauth/auther"
 	"github.com/rapidmidiex/rmx/internal/auth"
 	"github.com/rapidmidiex/rmx/internal/auth/internal/token"
-	"github.com/rapidmidiex/rmx/internal/auth/providers"
 	authStore "github.com/rapidmidiex/rmx/internal/auth/store"
 	"github.com/rapidmidiex/rmx/internal/cache"
-	"github.com/rapidmidiex/rmx/internal/events"
 	service "github.com/rapidmidiex/rmx/internal/http"
 	"github.com/rapidmidiex/rmx/internal/middlewares"
-	"github.com/zitadel/oidc/v2/pkg/client/rp"
 	"github.com/zitadel/oidc/v2/pkg/oidc"
 )
 
 type Service struct {
-	ctx       context.Context
-	mux       service.Service
-	nc        *nats.Conn
-	repo      authStore.Repo
-	providers map[string]providers.Provider
-	baseURI   string
-	keyPair   auth.KeyPair
-	errc      chan error
+	ctx     context.Context
+	mux     service.Service
+	nc      *nats.Conn
+	repo    authStore.Repo
+	keyPair auth.KeyPair
+	errc    chan error
 }
 
 func New(ctx context.Context, opts ...Option) *Service {
 	s := Service{
-		mux:       service.New(),
-		providers: make(map[string]providers.Provider),
-		errc:      make(chan error),
+		mux:  service.New(),
+		errc: make(chan error),
 	}
 
 	for _, opt := range opts {
 		opt(&s)
 	}
 
-	var phs []*providers.Handlers
-	for _, p := range s.providers {
-		switch p.GetAuthType() {
-		case auth.OIDC:
-			hs, err := p.GetHandlers(s.baseURI, s.oidcCallback(s.keyPair.PrivateKey))
-			if err != nil {
-				log.Fatal(err)
-			}
-			phs = append(phs, hs)
-		case auth.OAuth:
-			hs, err := p.GetHandlers(s.baseURI, s.oauthCallback(s.keyPair.PrivateKey))
-			if err != nil {
-				log.Fatal(err)
-			}
-			phs = append(phs, hs)
-		}
-	}
-
-	s.routes(phs)
+	s.routes(oauth.GetProviders())
 	go s.errors()
-	go s.introspect()
 	return &s
 }
-
-func (s *Service) GetBaseURI() string { return s.baseURI }
 
 // I have no idea what to do with the errors here
 func (s *Service) errors() {
@@ -81,41 +56,156 @@ func (s *Service) errors() {
 	}
 }
 
-func (s *Service) introspect() {
-	subj := fmt.Sprint(events.NatsSubj, events.NatsSessionSufx, events.NatsIntrospectSufx)
-	if _, err := s.nc.Subscribe(subj, func(msg *nats.Msg) {
-		at := string(msg.Data)
-		parsed, err := jwt.Parse([]byte(at), jwt.WithKey(jwa.ES256, s.keyPair.PublicKey))
-		if err != nil {
-			if err := msg.Respond([]byte(events.TokenRejected)); err != nil {
-				s.errc <- fmt.Errorf("rmx: introspect [parse]\n%v", err)
-			}
-		}
+// func (s *Service) introspect() {
+// 	subj := fmt.Sprint(events.NatsSubj, events.NatsSessionSufx, events.NatsIntrospectSufx)
+// 	if _, err := s.nc.Subscribe(subj, func(msg *nats.Msg) {
+// 		at := string(msg.Data)
+// 		parsed, err := jwt.Parse([]byte(at), jwt.WithKey(jwa.ES256, s.keyPair.PublicKey))
+// 		if err != nil {
+// 			if err := msg.Respond([]byte(events.TokenRejected)); err != nil {
+// 				s.errc <- fmt.Errorf("rmx: introspect [parse]\n%v", err)
+// 			}
+// 		}
 
-		res, err := s.repo.VerifyToken(s.ctx, parsed.JwtID())
-		if err != nil {
-			s.errc <- fmt.Errorf("rmx: introspect [verify]\n%v", err)
-		}
+// 		res, err := s.repo.VerifyToken(s.ctx, parsed.JwtID())
+// 		if err != nil {
+// 			s.errc <- fmt.Errorf("rmx: introspect [verify]\n%v", err)
+// 		}
 
-		if err := msg.Respond([]byte(res)); err != nil {
-			s.errc <- fmt.Errorf("rmx: introspect [result]\n%v", err)
-		}
-	}); err != nil {
-		log.Fatalf("rmx: introspect\n%v", err)
-	}
-}
+// 		if err := msg.Respond([]byte(res)); err != nil {
+// 			s.errc <- fmt.Errorf("rmx: introspect [result]\n%v", err)
+// 		}
+// 	}); err != nil {
+// 		log.Fatalf("rmx: introspect\n%v", err)
+// 	}
+// }
 
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mux.ServeHTTP(w, r)
 }
 
-func (s *Service) routes(phs []*providers.Handlers) {
-	for _, p := range phs {
-		s.mux.Handle(p.AuthURI, p.AuthHandler)
-		s.mux.Handle(p.CallbackURI, p.CallbackHandler)
+func (s *Service) routes(ps oauth.Providers) {
+	s.mux.Get("/{provider}", func(w http.ResponseWriter, r *http.Request) {
+		providerName := chi.URLParam(r, "provider")
+		provider, err := oauth.GetProvider(providerName)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		sess, err := provider.BeginAuth(auther.SetState(r))
+		if err != nil {
+			fmt.Println("here")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		url, err := sess.GetAuthURL()
+		if err != nil {
+			fmt.Println("here2")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		fmt.Print(sess.Marshal() + "\n")
+		cookie := &http.Cookie{
+			Name:     "_rmx_session",
+			Value:    sess.Marshal(),
+			Path:     "/",
+			Expires:  time.Now().UTC().Add(auth.RefreshTokenExp),
+			Secure:   false,
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
+		}
+
+		http.SetCookie(w, cookie)
+		http.Redirect(w, r, url, http.StatusTemporaryRedirect)
+	})
+	s.mux.Get("/{provider}/callback", func(w http.ResponseWriter, r *http.Request) {
+		providerName := chi.URLParam(r, "provider")
+		provider, err := oauth.GetProvider(providerName)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		cookie, err := r.Cookie("_rmx_session")
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		sess, err := provider.UnmarshalSession(cookie.Value)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		defer auther.Logout(w, r)
+
+		err = validateState(r, sess)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		user, err := provider.FetchUser(sess)
+		if err == nil {
+			fmt.Println(user)
+			return
+		}
+
+		params := r.URL.Query()
+		if params.Encode() == "" && r.Method == "POST" {
+			r.ParseForm()
+			params = r.Form
+		}
+
+		// get new token and retry fetch
+		_, err = sess.Authorize(provider, params)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		gu, err := provider.FetchUser(sess)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		fmt.Printf("%+v\n", gu)
+	})
+	s.mux.Get("/refresh", func(w http.ResponseWriter, r *http.Request) {
+	})
+	// s.mux.Handle("/protected", middlewares.VerifySession(s.handleProtected(), s.nc, s.keyPair.PublicKey))
+}
+
+// validateState ensures that the state token param from the original
+// AuthURL matches the one included in the current (callback) request.
+func validateState(req *http.Request, sess oauth.Session) error {
+	rawAuthURL, err := sess.GetAuthURL()
+	if err != nil {
+		return err
 	}
-	s.mux.Handle("/refresh", s.handleRefresh())
-	s.mux.Handle("/protected", middlewares.VerifySession(s.handleProtected(), s.nc, s.keyPair.PublicKey))
+
+	authURL, err := url.Parse(rawAuthURL)
+	if err != nil {
+		return err
+	}
+
+	reqState := auther.GetState(req)
+
+	originalState := authURL.Query().Get("state")
+	if originalState != "" && (originalState != reqState) {
+		return errors.New("state token mismatch")
+	}
+	return nil
 }
 
 func (s *Service) handleProtected() http.HandlerFunc {
@@ -130,202 +220,32 @@ func (s *Service) handleProtected() http.HandlerFunc {
 	}
 }
 
-func (s *Service) handleRefresh() http.HandlerFunc {
-	type response struct {
-		AccessToken string `json:"accessToken"`
-	}
+// _, err := s.repo.GetUserByEmail(r.Context(), info.Email)
+// if err != nil {
+// 	if err == sql.ErrNoRows {
+// 		// user does not exist, create a new one
+// 		err := s.createUser(r.Context(), info)
+// 		if err != nil {
+// 			s.mux.Respond(w, r, err, http.StatusInternalServerError)
+// 			return
+// 		}
 
-	return func(w http.ResponseWriter, r *http.Request) {
-		rtCookie, err := r.Cookie(auth.RefreshTokenCookieName)
-		if err != nil {
-			s.mux.Respond(w, r, nil, http.StatusBadRequest)
-			return
-		}
-
-		rt := token.TrimPrefix(rtCookie.Value)
-
-		parsed, err := jwt.Parse([]byte(rt), jwt.WithKey(jwa.ES256, s.keyPair.PublicKey))
-		if err != nil {
-			s.mux.Respond(w, r, nil, http.StatusUnauthorized)
-			return
-		}
-
-		session, err := s.repo.GetSession(parsed.Subject())
-		if err != nil {
-			s.mux.Respond(w, r, nil, http.StatusUnauthorized)
-			return
-		}
-
-		// no need for the response here
-		_, err = s.validateSession(parsed.Issuer(), session)
-		if err != nil {
-			s.mux.Respond(w, r, nil, http.StatusUnauthorized)
-			return
-		}
-
-		emailInterface, ok := parsed.Get("email")
-		if !ok {
-			s.mux.Respond(w, r, nil, http.StatusBadRequest)
-			return
-		}
-
-		email, ok := emailInterface.(string)
-		if !ok {
-			s.mux.Respond(w, r, nil, http.StatusBadRequest)
-			return
-		}
-
-		at, err := token.New(&token.Claims{
-			Issuer:     parsed.Issuer(),
-			Audience:   parsed.Audience(), // TODO: choose audience
-			Email:      email,
-			ClientID:   parsed.Subject(),
-			Expiration: time.Now().UTC().Add(auth.AccessTokenExp),
-		}, s.keyPair.PrivateKey)
-		if err != nil {
-			s.mux.Respond(w, r, err, http.StatusInternalServerError)
-			return
-		}
-
-		newRt, err := token.New(&token.Claims{
-			Issuer:     parsed.Issuer(),
-			Audience:   parsed.Audience(), // TODO: choose audience
-			Email:      email,
-			ClientID:   parsed.Subject(),
-			Expiration: time.Now().UTC().Add(auth.RefreshTokenExp),
-		}, s.keyPair.PrivateKey)
-		if err != nil {
-			s.mux.Respond(w, r, err, http.StatusInternalServerError)
-			return
-		}
-
-		newRtCookie := &http.Cookie{
-			Name:     auth.RefreshTokenCookieName,
-			Value:    newRt,
-			HttpOnly: true,
-			Secure:   true,
-			SameSite: http.SameSiteLaxMode,
-			Expires:  time.Now().UTC().Add(auth.RefreshTokenExp),
-		}
-
-		res := &response{
-			AccessToken: at,
-		}
-
-		http.SetCookie(w, newRtCookie)
-		s.mux.Respond(w, r, res, http.StatusOK)
-	}
-}
-
-func (s *Service) validateSession(issuer string, session *auth.Session) (*oidc.IntrospectionResponse, error) {
-	// TODO: refresh session access token
-	pr, ok := s.providers[issuer]
-	if !ok {
-		return nil, errors.New("rmx: invalid provider")
-	}
-
-	return pr.Introspect(s.ctx, session)
-}
-
-func (s *Service) oauthCallback(pk *ecdsa.PrivateKey) rp.CodeExchangeCallback[*oidc.IDTokenClaims] {
-	return nil
-}
-
-func (s *Service) oidcCallback(pk *ecdsa.PrivateKey) rp.CodeExchangeCallback[*oidc.IDTokenClaims] {
-	type response struct {
-		AccessToken string `json:"accessToken"`
-		IDToken     string `json:"idToken"`
-	}
-
-	return rp.UserinfoCallback[*oidc.IDTokenClaims](func(
-		w http.ResponseWriter,
-		r *http.Request,
-		tokens *oidc.Tokens[*oidc.IDTokenClaims],
-		state string,
-		provider rp.RelyingParty,
-		info *oidc.UserInfo,
-	) {
-		_, err := s.repo.GetUserByEmail(r.Context(), info.Email)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				// user does not exist, create a new one
-				err := s.createUser(r.Context(), info)
-				if err != nil {
-					s.mux.Respond(w, r, err, http.StatusInternalServerError)
-					return
-				}
-
-				_, err = s.repo.GetUserByEmail(r.Context(), info.Email)
-				if err != nil {
-					s.mux.Respond(w, r, err, http.StatusInternalServerError)
-					return
-				}
-			} else {
-				s.mux.Respond(w, r, err, http.StatusInternalServerError)
-				return
-			}
-		}
-
-		sid, err := s.createSession(r.Context(), provider.Issuer(), info, tokens)
-		if err != nil {
-			s.mux.Respond(w, r, err, http.StatusInternalServerError)
-			return
-		}
-
-		at, err := token.New(&token.Claims{
-			Issuer:     provider.Issuer(),
-			Audience:   []string{"web"}, // TODO: choose audience
-			Email:      info.Email,
-			ClientID:   sid,
-			Expiration: time.Now().UTC().Add(auth.AccessTokenExp),
-		}, pk)
-		if err != nil {
-			s.mux.Respond(w, r, err, http.StatusInternalServerError)
-			return
-		}
-
-		rt, err := token.New(&token.Claims{
-			Issuer:     provider.Issuer(),
-			Audience:   []string{"web"},
-			Email:      info.Email,
-			ClientID:   sid,
-			Expiration: time.Now().UTC().Add(auth.RefreshTokenExp),
-		}, pk)
-		if err != nil {
-			s.mux.Respond(w, r, err, http.StatusInternalServerError)
-			return
-		}
-
-		rtCookie := &http.Cookie{
-			Name:     auth.RefreshTokenCookieName,
-			Value:    rt,
-			HttpOnly: true,
-			Secure:   true,
-			SameSite: http.SameSiteLaxMode,
-			Expires:  tokens.Expiry,
-		}
-
-		res := &response{
-			AccessToken: at,
-			IDToken:     tokens.IDToken,
-		}
-
-		http.SetCookie(w, rtCookie)
-		s.mux.Respond(w, r, res, http.StatusOK)
-	})
-}
+// 		_, err = s.repo.GetUserByEmail(r.Context(), info.Email)
+// 		if err != nil {
+// 			s.mux.Respond(w, r, err, http.StatusInternalServerError)
+// 			return
+// 		}
+// 	} else {
+// 		s.mux.Respond(w, r, err, http.StatusInternalServerError)
+// 		return
+// 	}
+// }
 
 type Option func(*Service)
 
 func WithContext(ctx context.Context) Option {
 	return func(s *Service) {
 		s.ctx = ctx
-	}
-}
-
-func WithNats(conn *nats.Conn) Option {
-	return func(s *Service) {
-		s.nc = conn
 	}
 }
 
@@ -336,21 +256,21 @@ func WithKeys(privk *ecdsa.PrivateKey, pubk *ecdsa.PublicKey) Option {
 	}
 }
 
-func WithRepo(conn *sql.DB, sessionCache, tokenCache *cache.Cache) Option {
+func WithNats(nc *nats.Conn) Option {
 	return func(s *Service) {
-		s.repo = authStore.New(conn, sessionCache, tokenCache)
+		s.nc = nc
 	}
 }
 
-func WithBaseURI(uri string) Option {
+func WithRepo(dbConn *sql.DB, sessionCache, tokensCache *cache.Cache) Option {
 	return func(s *Service) {
-		s.baseURI = uri
+		s.repo = authStore.New(dbConn, sessionCache, tokensCache)
 	}
 }
 
-func WithProvider(provider providers.Provider) Option {
+func WithProviders(p ...oauth.Provider) Option {
 	return func(s *Service) {
-		s.providers[provider.GetIssuer()] = provider
+		oauth.UseProviders(p...)
 	}
 }
 
@@ -362,23 +282,4 @@ func (s *Service) createUser(ctx context.Context, info *oidc.UserInfo) error {
 
 	_, err := s.repo.CreateUser(ctx, user)
 	return err
-}
-
-func (s *Service) createSession(
-	ctx context.Context,
-	issuer string,
-	info *oidc.UserInfo,
-	tokens *oidc.Tokens[*oidc.IDTokenClaims],
-) (string, error) {
-	return s.repo.CreateSession(
-		ctx,
-		info.Email,
-		issuer,
-		auth.Session{
-			TokenType:    tokens.TokenType,
-			AccessToken:  tokens.AccessToken,
-			RefreshToken: tokens.RefreshToken,
-			Expiry:       tokens.Expiry,
-		},
-	)
 }

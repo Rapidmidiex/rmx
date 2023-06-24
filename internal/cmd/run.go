@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -16,13 +15,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/rapidmidiex/oauth/providers/github"
 	"github.com/rapidmidiex/rmx/internal/auth"
 	"github.com/rapidmidiex/rmx/internal/cache"
 	"github.com/rapidmidiex/rmx/internal/cmd/config"
 	jamHTTP "github.com/rapidmidiex/rmx/internal/jam/http"
 
 	authHTTP "github.com/rapidmidiex/rmx/internal/auth/http"
-	"github.com/rapidmidiex/rmx/internal/auth/providers"
 	jamDB "github.com/rapidmidiex/rmx/internal/jam/postgres"
 
 	"github.com/rs/cors"
@@ -75,34 +74,32 @@ func serve(cfg *config.Config) error {
 		return err
 	}
 
-	githubProvider, err := providers.NewGithub(
-		cfg.Auth.Providers.Github.ClientID,
-		cfg.Auth.Providers.Github.ClientSecret,
-		[]byte(cfg.Auth.Keys.CookieHashKey),
-		[]byte(cfg.Auth.Keys.CookieEncryptionKey),
-	)
-	if err != nil {
-		return err
-	}
-
-	googleProvider, err := providers.NewGoogle(
-		cfg.Auth.Providers.Google.ClientID,
-		cfg.Auth.Providers.Google.ClientSecret,
-		[]byte(cfg.Auth.Keys.CookieHashKey),
-		[]byte(cfg.Auth.Keys.CookieEncryptionKey),
-	)
-	if err != nil {
-		return err
-	}
-
 	authOpts := []authHTTP.Option{
 		authHTTP.WithContext(sCtx),
-		authHTTP.WithBaseURI(fmt.Sprintf("http://localhost:%s/v0/auth", cfg.Server.Port)),
+		// authHTTP.WithSessions(sessions.New(sessionCache, &sessions.CookieOptions{
+		// 	Name:     "_rmx_session",
+		// 	Path:     "/",
+		// 	MaxAge:   int(auth.RefreshTokenExp.Seconds()),
+		// 	HttpOnly: true,
+		// 	Secure:   false,
+		// 	SameSite: http.SameSiteLaxMode,
+		// })),
 		authHTTP.WithNats(nc),
 		authHTTP.WithRepo(conn, sessionCache, tokensCache),
 		authHTTP.WithKeys(cfg.Auth.Keys.JWTPrivateKey, cfg.Auth.Keys.JWTPublicKey),
-		authHTTP.WithProvider(googleProvider),
-		authHTTP.WithProvider(githubProvider),
+		authHTTP.WithProviders(
+			github.NewCustomisedURL(
+				cfg.Auth.Providers.Github.ClientID,
+				cfg.Auth.Providers.Github.ClientSecret,
+				"http://localhost:8000/v0/auth/github/callback",
+				github.AuthURL,
+				github.TokenURL,
+				github.ProfileURL,
+				github.EmailURL,
+				"read:user",
+				"read:email",
+			),
+		),
 	}
 
 	authService := authHTTP.New(sCtx, authOpts...)

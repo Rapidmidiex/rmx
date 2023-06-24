@@ -14,13 +14,6 @@ var (
 	RefreshTokenCookieName = "RMX_AUTH_RT"
 )
 
-type AuthType int
-
-const (
-	OAuth AuthType = iota
-	OIDC
-)
-
 type KeyPair struct {
 	PrivateKey *ecdsa.PrivateKey
 	PublicKey  *ecdsa.PublicKey
@@ -35,13 +28,6 @@ type User struct {
 	ID       uuid.UUID `json:"id"`
 	Username string    `json:"username"`
 	Email    string    `json:"email"`
-}
-
-type Session struct {
-	TokenType    string    `json:"tokenType"`
-	AccessToken  string    `json:"accessToken"`
-	RefreshToken string    `json:"refreshToken"`
-	Expiry       time.Time `json:"expiry"`
 }
 
 type AuthError struct {

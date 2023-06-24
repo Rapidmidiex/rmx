@@ -2,12 +2,10 @@ package postgres
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/hyphengolang/prelude/types/suid"
 	"github.com/nats-io/nats.go"
 	"github.com/rapidmidiex/rmx/internal/auth"
 	"github.com/rapidmidiex/rmx/internal/auth/store/sqlc"
@@ -24,15 +22,6 @@ type Repo interface {
 	UpdateUserByEmail(ctx context.Context, email, username string) (*auth.User, error)
 	DeleteUserByID(ctx context.Context, id uuid.UUID) error
 	DeleteUserByEmail(ctx context.Context, email string) error
-
-	CreateSession(ctx context.Context, email, issuer string, session auth.Session) (string, error)
-	GetSession(sid string) (*auth.Session, error)
-	GetAllSessions(ctx context.Context, email string) ([]auth.Session, error)
-	DeleteSession(ctx context.Context, sid string) error
-	DeleteAllSessions(ctx context.Context, email string) error
-
-	BlacklistToken(ctx context.Context, id string) error
-	VerifyToken(ctx context.Context, id string) (string, error)
 }
 
 type store struct {
@@ -149,95 +138,6 @@ func (s *store) DeleteUserByID(ctx context.Context, id uuid.UUID) error {
 
 func (s *store) DeleteUserByEmail(ctx context.Context, email string) error {
 	return s.q.DeleteUserByEmail(ctx, email)
-}
-
-func (s *store) CreateSession(ctx context.Context, email, issuer string, session auth.Session) (string, error) {
-	params := &sqlc.CreateSessionParams{
-		Email:  email,
-		Issuer: issuer,
-	}
-
-	created, err := s.q.CreateSession(ctx, params)
-	if err != nil {
-		return "", nil
-	}
-
-	bs, err := json.Marshal(session)
-	if err != nil {
-		return "", nil
-	}
-
-	return created.ID.String(), s.sc.Set(created.ID.String(), bs)
-}
-
-func (s *store) GetSession(sid string) (*auth.Session, error) {
-	sb, err := s.sc.Get(sid)
-	if err != nil {
-		return nil, err
-	}
-
-	var session auth.Session
-	if err = json.Unmarshal(sb, &session); err != nil {
-		return nil, err
-	}
-
-	return &session, nil
-}
-
-func (s *store) GetAllSessions(ctx context.Context, email string) ([]auth.Session, error) {
-	sIDs, err := s.q.GetSessionsByEmail(ctx, email)
-	if err != nil {
-		return nil, err
-	}
-
-	var sessions []auth.Session
-	for _, ses := range sIDs {
-		bs, err := s.sc.Get(ses.ID.String())
-		if err != nil {
-			return nil, err
-		}
-
-		var session auth.Session
-		if err := json.Unmarshal(bs, &session); err != nil {
-			return nil, err
-		}
-
-		sessions = append(sessions, session)
-	}
-
-	return sessions, nil
-}
-
-func (s *store) DeleteSession(ctx context.Context, sid string) error {
-	sidParsed, err := suid.ParseString(sid)
-	if err != nil {
-		return err
-	}
-
-	if err := s.q.DeleteSessionByID(ctx, sidParsed.UUID); err != nil {
-		return err
-	}
-
-	return s.sc.Delete(sid)
-}
-
-func (s *store) DeleteAllSessions(ctx context.Context, email string) error {
-	sIDs, err := s.q.GetSessionsByEmail(ctx, email)
-	if err != nil {
-		return err
-	}
-
-	if err := s.q.DeleteSessionsByEmail(ctx, email); err != nil {
-		return err
-	}
-
-	for _, ses := range sIDs {
-		if err := s.sc.Delete(ses.ID.String()); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func (s *store) BlacklistToken(ctx context.Context, id string) error { return s.tc.Set(id, nil) }
