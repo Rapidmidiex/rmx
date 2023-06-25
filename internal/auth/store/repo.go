@@ -14,7 +14,7 @@ import (
 )
 
 type Repo interface {
-	CreateUser(context.Context, auth.User) (*auth.User, error)
+	CreateUser(context.Context, *auth.User) (*auth.User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (*auth.User, error)
 	GetUserByEmail(ctx context.Context, email string) (*auth.User, error)
 	ListUsers(ctx context.Context) ([]auth.User, error)
@@ -38,7 +38,7 @@ func New(conn sqlc.DBTX, sessionCache, tokenCache *cache.Cache) Repo {
 	}
 }
 
-func (s *store) CreateUser(ctx context.Context, u auth.User) (*auth.User, error) {
+func (s *store) CreateUser(ctx context.Context, u *auth.User) (*auth.User, error) {
 	created, err := s.q.CreateUser(ctx, &sqlc.CreateUserParams{
 		Username: u.Username,
 		Email:    u.Email,

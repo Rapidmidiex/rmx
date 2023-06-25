@@ -4,8 +4,8 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"database/sql"
+	"encoding/base64"
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -21,19 +21,19 @@ import (
 	"github.com/rapidmidiex/rmx/internal/cache"
 	service "github.com/rapidmidiex/rmx/internal/http"
 	"github.com/rapidmidiex/rmx/internal/middlewares"
-	"github.com/zitadel/oidc/v2/pkg/oidc"
 )
 
 type Service struct {
-	ctx     context.Context
-	mux     service.Service
-	nc      *nats.Conn
-	repo    authStore.Repo
-	keyPair auth.KeyPair
-	errc    chan error
+	ctx         context.Context
+	mux         service.Service
+	nc          *nats.Conn
+	repo        authStore.Repo
+	keyPair     auth.KeyPair
+	callbackURL string
+	errc        chan error
 }
 
-func New(ctx context.Context, opts ...Option) *Service {
+func New(opts ...Option) *Service {
 	s := Service{
 		mux:  service.New(),
 		errc: make(chan error),
@@ -85,7 +85,15 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) routes(ps oauth.Providers) {
-	s.mux.Get("/{provider}", func(w http.ResponseWriter, r *http.Request) {
+	s.mux.Get("/{provider}", s.handleAuth())
+	s.mux.Get("/{provider}/callback", s.handleCallback())
+	s.mux.Get("/refresh", func(w http.ResponseWriter, r *http.Request) {
+	})
+	// s.mux.Handle("/protected", middlewares.VerifySession(s.handleProtected(), s.nc, s.keyPair.PublicKey))
+}
+
+func (s *Service) handleAuth() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		providerName := chi.URLParam(r, "provider")
 		provider, err := oauth.GetProvider(providerName)
 		if err != nil {
@@ -95,33 +103,23 @@ func (s *Service) routes(ps oauth.Providers) {
 
 		sess, err := provider.BeginAuth(auther.SetState(r))
 		if err != nil {
-			fmt.Println("here")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
 		url, err := sess.GetAuthURL()
 		if err != nil {
-			fmt.Println("here2")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		fmt.Print(sess.Marshal() + "\n")
-		cookie := &http.Cookie{
-			Name:     "_rmx_session",
-			Value:    sess.Marshal(),
-			Path:     "/",
-			Expires:  time.Now().UTC().Add(auth.RefreshTokenExp),
-			Secure:   false,
-			HttpOnly: true,
-			SameSite: http.SameSiteLaxMode,
-		}
-
-		http.SetCookie(w, cookie)
+		setSession(w, sess)
 		http.Redirect(w, r, url, http.StatusTemporaryRedirect)
-	})
-	s.mux.Get("/{provider}/callback", func(w http.ResponseWriter, r *http.Request) {
+	}
+}
+
+func (s *Service) handleCallback() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		providerName := chi.URLParam(r, "provider")
 		provider, err := oauth.GetProvider(providerName)
 		if err != nil {
@@ -129,61 +127,37 @@ func (s *Service) routes(ps oauth.Providers) {
 			return
 		}
 
-		cookie, err := r.Cookie("_rmx_session")
+		sessDecoded, err := getSession(r)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		sess, err := provider.UnmarshalSession(string(sessDecoded))
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-
-		sess, err := provider.UnmarshalSession(cookie.Value)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		defer auther.Logout(w, r)
 
 		err = validateState(r, sess)
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		user, err := provider.FetchUser(sess)
-		if err == nil {
-			fmt.Println(user)
-			return
-		}
-
-		params := r.URL.Query()
-		if params.Encode() == "" && r.Method == "POST" {
-			r.ParseForm()
-			params = r.Form
-		}
-
-		// get new token and retry fetch
-		_, err = sess.Authorize(provider, params)
+		user, err := fetchUser(r, provider, sess)
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		gu, err := provider.FetchUser(sess)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
+		if err := s.saveUser(r, &user); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		fmt.Printf("%+v\n", gu)
-	})
-	s.mux.Get("/refresh", func(w http.ResponseWriter, r *http.Request) {
-	})
-	// s.mux.Handle("/protected", middlewares.VerifySession(s.handleProtected(), s.nc, s.keyPair.PublicKey))
+		http.Redirect(w, r, s.callbackURL, http.StatusPermanentRedirect)
+	}
 }
 
 // validateState ensures that the state token param from the original
@@ -208,6 +182,79 @@ func validateState(req *http.Request, sess oauth.Session) error {
 	return nil
 }
 
+func fetchUser(r *http.Request, provider oauth.Provider, sess oauth.Session) (oauth.User, error) {
+	user, err := provider.FetchUser(sess)
+	if err == nil {
+		return user, nil
+	}
+
+	params := r.URL.Query()
+	if params.Encode() == "" && r.Method == http.MethodPost {
+		r.ParseForm()
+		params = r.Form
+	}
+
+	// get new token and retry fetch
+	_, err = sess.Authorize(provider, params)
+	if err != nil {
+		return oauth.User{}, err
+	}
+
+	return provider.FetchUser(sess)
+}
+
+func (s *Service) saveUser(r *http.Request, user *oauth.User) error {
+	_, err := s.repo.GetUserByEmail(r.Context(), user.Email)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			// user does not exist, create a new one
+			if err := s.createUser(r.Context(), user.Email, user.Name); err != nil {
+				return err
+			}
+
+			if _, err := s.repo.GetUserByEmail(r.Context(), user.Email); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *Service) createUser(ctx context.Context, email, username string) error {
+	_, err := s.repo.CreateUser(ctx, &auth.User{
+		Email:    email,
+		Username: username,
+	})
+	return err
+}
+
+const sessionCookieName = "_rmx_session"
+
+func setSession(w http.ResponseWriter, sess oauth.Session) {
+	cookie := &http.Cookie{
+		Name:     sessionCookieName,
+		Value:    base64.StdEncoding.EncodeToString([]byte(sess.Marshal())),
+		Expires:  time.Now().UTC().Add(auth.RefreshTokenExp),
+		Secure:   false,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	}
+
+	http.SetCookie(w, cookie)
+}
+
+func getSession(r *http.Request) ([]byte, error) {
+	cookie, err := r.Cookie(sessionCookieName)
+	if err != nil {
+		return nil, err
+	}
+
+	return base64.StdEncoding.DecodeString(cookie.Value)
+}
+
 func (s *Service) handleProtected() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		session, ok := r.Context().Value(middlewares.SessionCtx).(token.ParsedClaims)
@@ -219,27 +266,6 @@ func (s *Service) handleProtected() http.HandlerFunc {
 		s.mux.Respond(w, r, session, http.StatusOK)
 	}
 }
-
-// _, err := s.repo.GetUserByEmail(r.Context(), info.Email)
-// if err != nil {
-// 	if err == sql.ErrNoRows {
-// 		// user does not exist, create a new one
-// 		err := s.createUser(r.Context(), info)
-// 		if err != nil {
-// 			s.mux.Respond(w, r, err, http.StatusInternalServerError)
-// 			return
-// 		}
-
-// 		_, err = s.repo.GetUserByEmail(r.Context(), info.Email)
-// 		if err != nil {
-// 			s.mux.Respond(w, r, err, http.StatusInternalServerError)
-// 			return
-// 		}
-// 	} else {
-// 		s.mux.Respond(w, r, err, http.StatusInternalServerError)
-// 		return
-// 	}
-// }
 
 type Option func(*Service)
 
@@ -274,12 +300,8 @@ func WithProviders(p ...oauth.Provider) Option {
 	}
 }
 
-func (s *Service) createUser(ctx context.Context, info *oidc.UserInfo) error {
-	user := auth.User{
-		Username: info.GivenName,
-		Email:    info.Email,
+func WithCallback(callbackURL string) Option {
+	return func(s *Service) {
+		s.callbackURL = callbackURL
 	}
-
-	_, err := s.repo.CreateUser(ctx, user)
-	return err
 }

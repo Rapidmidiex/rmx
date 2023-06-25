@@ -76,14 +76,6 @@ func serve(cfg *config.Config) error {
 
 	authOpts := []authHTTP.Option{
 		authHTTP.WithContext(sCtx),
-		// authHTTP.WithSessions(sessions.New(sessionCache, &sessions.CookieOptions{
-		// 	Name:     "_rmx_session",
-		// 	Path:     "/",
-		// 	MaxAge:   int(auth.RefreshTokenExp.Seconds()),
-		// 	HttpOnly: true,
-		// 	Secure:   false,
-		// 	SameSite: http.SameSiteLaxMode,
-		// })),
 		authHTTP.WithNats(nc),
 		authHTTP.WithRepo(conn, sessionCache, tokensCache),
 		authHTTP.WithKeys(cfg.Auth.Keys.JWTPrivateKey, cfg.Auth.Keys.JWTPublicKey),
@@ -96,13 +88,14 @@ func serve(cfg *config.Config) error {
 				github.TokenURL,
 				github.ProfileURL,
 				github.EmailURL,
+				"user:email",
 				"read:user",
-				"read:email",
 			),
 		),
+		authHTTP.WithCallback(cfg.Auth.CallbackURL),
 	}
 
-	authService := authHTTP.New(sCtx, authOpts...)
+	authService := authHTTP.New(authOpts...)
 
 	mux := chi.NewMux()
 	mux.Route("/v0", func(r chi.Router) {

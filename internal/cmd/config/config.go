@@ -39,9 +39,10 @@ type Keys struct {
 }
 
 type AuthConfig struct {
-	Enable    bool
-	Providers ProvidersConfig
-	Keys      Keys
+	Enable      bool
+	CallbackURL string
+	Providers   ProvidersConfig
+	Keys        Keys
 }
 
 type Config struct {
@@ -73,6 +74,7 @@ func LoadFromEnv() *Config {
 
 	// auth
 	enableAuth := readEnvBool("ENABLE_AUTH")
+	callbackURL := readEnvStr("CALLBACK_URL")
 	googleClientID := readEnvStr("GOOGLE_CLIENT_ID")
 	googleClientSecret := readEnvStr("GOOGLE_CLIENT_SECRET")
 	githubClientID := readEnvStr("GITHUB_CLIENT_ID")
@@ -99,7 +101,8 @@ func LoadFromEnv() *Config {
 			NatsURL:     natsURL,
 		},
 		Auth: AuthConfig{
-			Enable: enableAuth,
+			Enable:      enableAuth,
+			CallbackURL: callbackURL,
 			Providers: ProvidersConfig{
 				Google: ProviderConfig{
 					ClientID:     googleClientID,
