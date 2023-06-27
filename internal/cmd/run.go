@@ -59,12 +59,12 @@ func serve(cfg *config.Config) error {
 		return err
 	}
 
-	sessionCache, err := cache.New("sessions", nc, 0) // -1 for permanent cache
+	sessionCache, err := cache.New("sessions", nc, 0, []byte(cfg.Auth.Keys.SessionKey)) // 0 for permanent cache
 	if err != nil {
 		return err
 	}
 
-	tokensCache, err := cache.New("tokens", nc, auth.RefreshTokenExp)
+	tokensCache, err := cache.New("tokens", nc, auth.RefreshTokenExp, nil)
 	if err != nil {
 		return err
 	}

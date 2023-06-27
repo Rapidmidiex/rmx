@@ -36,6 +36,7 @@ type Keys struct {
 	CookieEncryptionKey string
 	JWTPrivateKey       *ecdsa.PrivateKey
 	JWTPublicKey        *ecdsa.PublicKey
+	SessionKey          string
 }
 
 type AuthConfig struct {
@@ -83,6 +84,7 @@ func LoadFromEnv() *Config {
 	cookieEncryptionKey := readEnvStr("COOKIE_ENCRYPTION_KEY")
 	jwtEncodedPrivateKey := readEnvStr("JWT_PRIVATE_KEY")
 	jwtEncodedPublicKey := readEnvStr("JWT_PUBLIC_KEY")
+	sessionKey := readEnvStr("SESSION_KEY")
 
 	// env
 	dev := readEnvBool("DEV")
@@ -118,6 +120,7 @@ func LoadFromEnv() *Config {
 				CookieEncryptionKey: cookieEncryptionKey,
 				JWTPrivateKey:       priv,
 				JWTPublicKey:        pub,
+				SessionKey:          sessionKey,
 			},
 		},
 		Dev: dev,

@@ -22,6 +22,12 @@ type Repo interface {
 	UpdateUserByEmail(ctx context.Context, email, username string) (*auth.User, error)
 	DeleteUserByID(ctx context.Context, id uuid.UUID) error
 	DeleteUserByEmail(ctx context.Context, email string) error
+
+	GetSession(sid string) ([]byte, error)
+	SaveSession(sess []byte) (string, error)
+
+	BlacklistToken(ctx context.Context, id string) error
+	VerifyToken(ctx context.Context, id string) (string, error)
 }
 
 type store struct {
@@ -138,6 +144,17 @@ func (s *store) DeleteUserByID(ctx context.Context, id uuid.UUID) error {
 
 func (s *store) DeleteUserByEmail(ctx context.Context, email string) error {
 	return s.q.DeleteUserByEmail(ctx, email)
+}
+
+func (s *store) GetSession(sid string) ([]byte, error) { return s.sc.Get(sid) }
+
+func (s *store) SaveSession(sess []byte) (string, error) {
+	sid := uuid.NewString()
+	if err := s.sc.Set(sid, sess); err != nil {
+		return "", err
+	}
+
+	return sid, nil
 }
 
 func (s *store) BlacklistToken(ctx context.Context, id string) error { return s.tc.Set(id, nil) }

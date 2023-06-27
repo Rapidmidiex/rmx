@@ -44,6 +44,14 @@ build_server:
 	mkdir -p ./bin
 	$(GOFLAGS) $(GO_BUILD) -a -v -ldflags="-w -s" -o bin/rmx-server cmd/server/main.go
 
+.PHONY: setup
+setup:
+	sh scripts/setup.sh
+
+.PHONY: cleanup
+cleanup:
+	sh scripts/cleanup.sh
+
 .PHONY: secrets
 secrets:
 	sh scripts/secrets.sh

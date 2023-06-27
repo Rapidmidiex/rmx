@@ -4,46 +4,49 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"database/sql"
-	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/lestrrat-go/jwx/v2/jws"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/nats-io/nats.go"
 	"github.com/rapidmidiex/oauth"
-	"github.com/rapidmidiex/oauth/auther"
 	"github.com/rapidmidiex/rmx/internal/auth"
-	"github.com/rapidmidiex/rmx/internal/auth/internal/token"
 	authStore "github.com/rapidmidiex/rmx/internal/auth/store"
 	"github.com/rapidmidiex/rmx/internal/cache"
 	service "github.com/rapidmidiex/rmx/internal/http"
-	"github.com/rapidmidiex/rmx/internal/middlewares"
 )
 
 type Service struct {
 	ctx         context.Context
 	mux         service.Service
+	client      *oauth.Client
 	nc          *nats.Conn
 	repo        authStore.Repo
-	keyPair     auth.KeyPair
+	keyPair     *auth.KeyPair
 	callbackURL string
 	errc        chan error
 }
 
 func New(opts ...Option) *Service {
 	s := Service{
-		mux:  service.New(),
-		errc: make(chan error),
+		mux:    service.New(),
+		client: oauth.NewClient(),
+		errc:   make(chan error),
 	}
 
 	for _, opt := range opts {
 		opt(&s)
 	}
 
-	s.routes(oauth.GetProviders())
+	s.routes(s.client.GetProviders())
 	go s.errors()
 	return &s
 }
@@ -87,33 +90,60 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *Service) routes(ps oauth.Providers) {
 	s.mux.Get("/{provider}", s.handleAuth())
 	s.mux.Get("/{provider}/callback", s.handleCallback())
-	s.mux.Get("/refresh", func(w http.ResponseWriter, r *http.Request) {
-	})
+	s.mux.Get("/refresh", s.handleRefresh())
 	// s.mux.Handle("/protected", middlewares.VerifySession(s.handleProtected(), s.nc, s.keyPair.PublicKey))
 }
+
+const sessionCookieName = "_rmx_oauth_session"
 
 func (s *Service) handleAuth() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		providerName := chi.URLParam(r, "provider")
-		provider, err := oauth.GetProvider(providerName)
+		provider, err := s.client.GetProvider(providerName)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("provider not found"))
 			return
 		}
 
-		sess, err := provider.BeginAuth(auther.SetState(r))
+		sess, err := provider.BeginAuth(oauth.SetState(r))
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("couldn't begin auth"))
 			return
 		}
 
 		url, err := sess.GetAuthURL()
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("couldn't get auth url"))
 			return
 		}
 
-		setSession(w, sess)
+		str, err := sess.Marshal()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("couldn't get auth url"))
+			return
+		}
+
+		sid, err := s.repo.SaveSession([]byte(str))
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("couldn't get auth url"))
+			return
+		}
+
+		cookie := &http.Cookie{
+			Name:     sessionCookieName,
+			Value:    sid,
+			HttpOnly: true,
+			Secure:   false,
+			SameSite: http.SameSiteLaxMode,
+			Expires:  time.Now().UTC().Add(auth.RefreshTokenExp),
+		}
+
+		http.SetCookie(w, cookie)
 		http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 	}
 }
@@ -121,65 +151,69 @@ func (s *Service) handleAuth() http.HandlerFunc {
 func (s *Service) handleCallback() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		providerName := chi.URLParam(r, "provider")
-		provider, err := oauth.GetProvider(providerName)
+		provider, err := s.client.GetProvider(providerName)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("provider not found"))
 			return
 		}
 
-		sessDecoded, err := getSession(r)
+		sessBytes, err := s.getSession(r)
 		if err != nil {
+			fmt.Println(err)
 			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("couldn't get session"))
 			return
 		}
 
-		sess, err := provider.UnmarshalSession(string(sessDecoded))
+		sess, err := provider.UnmarshalSession(string(sessBytes))
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("couldn't unmarshal session"))
 			return
 		}
 
-		err = validateState(r, sess)
-		if err != nil {
+		if err := oauth.ValidateState(r, sess); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("couldn't validate session"))
 			return
 		}
 
 		user, err := fetchUser(r, provider, sess)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("couldn't fetch user data"))
 			return
 		}
 
 		if err := s.saveUser(r, &user); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("couldn't save user"))
 			return
 		}
 
-		http.Redirect(w, r, s.callbackURL, http.StatusPermanentRedirect)
+		// accessToken, refreshToken, err := s.genTokens(provider.Name(), uuid.NewString(), user.Email)
+		// if err != nil {
+		// 	w.WriteHeader(http.StatusInternalServerError)
+		// 	return
+		// }
+
+		// if err := setTokens(w, accessToken, refreshToken); err != nil {
+		// 	w.WriteHeader(http.StatusInternalServerError)
+		// 	return
+		// }
+
+		http.Redirect(w, r, s.callbackURL, http.StatusTemporaryRedirect)
 	}
 }
 
-// validateState ensures that the state token param from the original
-// AuthURL matches the one included in the current (callback) request.
-func validateState(req *http.Request, sess oauth.Session) error {
-	rawAuthURL, err := sess.GetAuthURL()
+func (s *Service) getSession(r *http.Request) ([]byte, error) {
+	cookie, err := r.Cookie(sessionCookieName)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	authURL, err := url.Parse(rawAuthURL)
-	if err != nil {
-		return err
-	}
-
-	reqState := auther.GetState(req)
-
-	originalState := authURL.Query().Get("state")
-	if originalState != "" && (originalState != reqState) {
-		return errors.New("state token mismatch")
-	}
-	return nil
+	return s.repo.GetSession(cookie.Value)
 }
 
 func fetchUser(r *http.Request, provider oauth.Provider, sess oauth.Session) (oauth.User, error) {
@@ -208,7 +242,10 @@ func (s *Service) saveUser(r *http.Request, user *oauth.User) error {
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			// user does not exist, create a new one
-			if err := s.createUser(r.Context(), user.Email, user.Name); err != nil {
+			if _, err := s.repo.CreateUser(r.Context(), &auth.User{
+				Email:    user.Email,
+				Username: user.Name,
+			}); err != nil {
 				return err
 			}
 
@@ -223,48 +260,84 @@ func (s *Service) saveUser(r *http.Request, user *oauth.User) error {
 	return nil
 }
 
-func (s *Service) createUser(ctx context.Context, email, username string) error {
-	_, err := s.repo.CreateUser(ctx, &auth.User{
-		Email:    email,
-		Username: username,
-	})
-	return err
-}
+func (s *Service) handleRefresh() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 
-const sessionCookieName = "_rmx_session"
-
-func setSession(w http.ResponseWriter, sess oauth.Session) {
-	cookie := &http.Cookie{
-		Name:     sessionCookieName,
-		Value:    base64.StdEncoding.EncodeToString([]byte(sess.Marshal())),
-		Expires:  time.Now().UTC().Add(auth.RefreshTokenExp),
-		Secure:   false,
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
 	}
-
-	http.SetCookie(w, cookie)
 }
 
-func getSession(r *http.Request) ([]byte, error) {
-	cookie, err := r.Cookie(sessionCookieName)
+func (s *Service) genTokens(issuer, sid, email string) (string, string, error) {
+	accessToken, err := jwt.NewBuilder().
+		JwtID(uuid.NewString()).
+		Issuer(issuer).
+		Audience([]string{"web"}).
+		Subject(sid).
+		IssuedAt(time.Now().UTC()).
+		NotBefore(time.Now().UTC()).
+		Expiration(time.Now().UTC().Add(auth.AccessTokenExp)).
+		Claim("email", email).
+		Build()
 	if err != nil {
-		return nil, err
+		return "", "", err
 	}
 
-	return base64.StdEncoding.DecodeString(cookie.Value)
+	bs, err := json.Marshal(accessToken)
+	if err != nil {
+		return "", "", err
+	}
+
+	atSigned, err := jws.Sign(bs, jws.WithKey(jwa.ES256, s.keyPair.PrivateKey))
+	if err != nil {
+		return "", "", err
+	}
+
+	refreshToken, err := jwt.NewBuilder().
+		JwtID(uuid.NewString()).
+		Issuer(issuer).
+		Audience([]string{"web"}).
+		Subject(sid).
+		IssuedAt(time.Now().UTC()).
+		NotBefore(time.Now().UTC()).
+		Expiration(time.Now().UTC().Add(auth.RefreshTokenExp)).
+		Claim("email", email).
+		Build()
+	if err != nil {
+		return "", "", err
+	}
+
+	bs, err = json.Marshal(refreshToken)
+	if err != nil {
+		return "", "", err
+	}
+
+	rtSigned, err := jws.Sign(bs, jws.WithKey(jwa.ES256, s.keyPair.PrivateKey))
+	if err != nil {
+		return "", "", err
+	}
+
+	return string(atSigned), string(rtSigned), nil
 }
+
+// func setTokens(w http.ResponseWriter, accessToken, refreshToken string) string {
+// 	type response struct {
+// 		AccessToken string `json:"accessToken"`
+// 	}
+
+// 	cookie := &http.Cookie{
+// 		Name:     sessionCookieName,
+// 		Value:    refreshToken,
+// 		Expires:  time.Now().UTC().Add(auth.RefreshTokenExp),
+// 		Secure:   true,
+// 		HttpOnly: true,
+// 		SameSite: http.SameSiteLaxMode,
+// 	}
+
+// 	http.SetCookie(w, cookie)
+// 	return ""
+// }
 
 func (s *Service) handleProtected() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		session, ok := r.Context().Value(middlewares.SessionCtx).(token.ParsedClaims)
-		if !ok {
-			s.mux.Respond(w, r, nil, http.StatusBadRequest)
-			return
-		}
-
-		s.mux.Respond(w, r, session, http.StatusOK)
-	}
+	return func(w http.ResponseWriter, r *http.Request) {}
 }
 
 type Option func(*Service)
@@ -277,8 +350,10 @@ func WithContext(ctx context.Context) Option {
 
 func WithKeys(privk *ecdsa.PrivateKey, pubk *ecdsa.PublicKey) Option {
 	return func(s *Service) {
-		s.keyPair.PrivateKey = privk
-		s.keyPair.PublicKey = pubk
+		s.keyPair = &auth.KeyPair{
+			PrivateKey: privk,
+			PublicKey:  pubk,
+		}
 	}
 }
 
@@ -296,7 +371,7 @@ func WithRepo(dbConn *sql.DB, sessionCache, tokensCache *cache.Cache) Option {
 
 func WithProviders(p ...oauth.Provider) Option {
 	return func(s *Service) {
-		oauth.UseProviders(p...)
+		s.client.UseProviders(p...)
 	}
 }
 
