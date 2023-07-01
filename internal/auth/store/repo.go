@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -23,8 +24,8 @@ type Repo interface {
 	DeleteUserByID(ctx context.Context, id uuid.UUID) error
 	DeleteUserByEmail(ctx context.Context, email string) error
 
-	GetSession(sid string) ([]byte, error)
-	SaveSession(sess []byte) (string, error)
+	GetSession(sid string) (*auth.Session, error)
+	SaveSession(sess *auth.Session) (string, error)
 
 	BlacklistToken(ctx context.Context, id string) error
 	VerifyToken(ctx context.Context, id string) (string, error)
@@ -146,11 +147,28 @@ func (s *store) DeleteUserByEmail(ctx context.Context, email string) error {
 	return s.q.DeleteUserByEmail(ctx, email)
 }
 
-func (s *store) GetSession(sid string) ([]byte, error) { return s.sc.Get(sid) }
+func (s *store) GetSession(sid string) (*auth.Session, error) {
+	bs, err := s.sc.Get(sid)
+	if err != nil {
+		return nil, err
+	}
 
-func (s *store) SaveSession(sess []byte) (string, error) {
+	var sess *auth.Session
+	if err := json.Unmarshal(bs, &sess); err != nil {
+		return nil, err
+	}
+
+	return sess, nil
+}
+
+func (s *store) SaveSession(sess *auth.Session) (string, error) {
+	bs, err := json.Marshal(sess)
+	if err != nil {
+		return "", err
+	}
+
 	sid := uuid.NewString()
-	if err := s.sc.Set(sid, sess); err != nil {
+	if err := s.sc.Set(sid, bs); err != nil {
 		return "", err
 	}
 

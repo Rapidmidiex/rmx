@@ -4,18 +4,12 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"database/sql"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
-	"time"
+	"net/url"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
-	"github.com/lestrrat-go/jwx/v2/jwa"
-	"github.com/lestrrat-go/jwx/v2/jws"
-	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/nats-io/nats.go"
 	"github.com/rapidmidiex/oauth"
 	"github.com/rapidmidiex/rmx/internal/auth"
@@ -90,11 +84,14 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *Service) routes(ps oauth.Providers) {
 	s.mux.Get("/{provider}", s.handleAuth())
 	s.mux.Get("/{provider}/callback", s.handleCallback())
-	s.mux.Get("/refresh", s.handleRefresh())
+	// s.mux.Get("/refresh", s.handleRefresh())
 	// s.mux.Handle("/protected", middlewares.VerifySession(s.handleProtected(), s.nc, s.keyPair.PublicKey))
 }
 
-const sessionCookieName = "_rmx_oauth_session"
+const (
+	sessionCookieName = "_rmx_session"
+	oauthCookieName   = "_rmx_oauth"
+)
 
 func (s *Service) handleAuth() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -123,27 +120,30 @@ func (s *Service) handleAuth() http.HandlerFunc {
 		str, err := sess.Marshal()
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("couldn't get auth url"))
+			w.Write([]byte("couldn't marshal session"))
 			return
 		}
 
-		sid, err := s.repo.SaveSession([]byte(str))
+		sid, err := s.repo.SaveSession(&auth.Session{
+			Provider:    provider.Name(),
+			SessionInfo: str,
+		})
+		println(sid)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("couldn't get auth url"))
+			w.Write([]byte("couldn't save session"))
 			return
 		}
 
-		cookie := &http.Cookie{
-			Name:     sessionCookieName,
+		http.SetCookie(w, &http.Cookie{
+			Name:     oauthCookieName,
 			Value:    sid,
+			Path:     "/",
+			MaxAge:   60 * 5, // 5 minutes
+			Secure:   true,
 			HttpOnly: true,
-			Secure:   false,
 			SameSite: http.SameSiteLaxMode,
-			Expires:  time.Now().UTC().Add(auth.RefreshTokenExp),
-		}
-
-		http.SetCookie(w, cookie)
+		})
 		http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 	}
 }
@@ -158,17 +158,24 @@ func (s *Service) handleCallback() http.HandlerFunc {
 			return
 		}
 
-		sessBytes, err := s.getSession(r)
+		sessCookie, err := r.Cookie(oauthCookieName)
 		if err != nil {
-			fmt.Println(err)
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("couldn't get session"))
+			w.Write([]byte("no session cookie"))
 			return
 		}
 
-		sess, err := provider.UnmarshalSession(string(sessBytes))
+		appSession, err := s.repo.GetSession(sessCookie.Value)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			println(err)
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("couldn't find session"))
+			return
+		}
+
+		sess, err := provider.UnmarshalSession(string(appSession.SessionInfo))
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("couldn't unmarshal session"))
 			return
 		}
@@ -192,28 +199,37 @@ func (s *Service) handleCallback() http.HandlerFunc {
 			return
 		}
 
-		// accessToken, refreshToken, err := s.genTokens(provider.Name(), uuid.NewString(), user.Email)
-		// if err != nil {
-		// 	w.WriteHeader(http.StatusInternalServerError)
-		// 	return
-		// }
+		accessToken, refreshToken, err := s.genTokens(provider.Name(), sessCookie.Value, user.Email)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("couldn't set session"))
+			return
+		}
 
-		// if err := setTokens(w, accessToken, refreshToken); err != nil {
-		// 	w.WriteHeader(http.StatusInternalServerError)
-		// 	return
-		// }
+		// this is so stupid and dangerous, tokens will expire tho
+		callbackURL, err := url.Parse(s.callbackURL)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("couldn't parse callback url"))
+			return
+		}
+		q := callbackURL.Query()
+		q.Set("accessToken", accessToken)
+		callbackURL.RawQuery = q.Encode()
 
-		http.Redirect(w, r, s.callbackURL, http.StatusTemporaryRedirect)
+		cookie := &http.Cookie{
+			Name:     sessionCookieName,
+			Value:    refreshToken,
+			Path:     "/",
+			MaxAge:   86400 * 30, // 30 days
+			HttpOnly: true,
+			Secure:   true,
+			SameSite: http.SameSiteLaxMode,
+		}
+
+		http.SetCookie(w, cookie)
+		http.Redirect(w, r, callbackURL.String(), http.StatusTemporaryRedirect)
 	}
-}
-
-func (s *Service) getSession(r *http.Request) ([]byte, error) {
-	cookie, err := r.Cookie(sessionCookieName)
-	if err != nil {
-		return nil, err
-	}
-
-	return s.repo.GetSession(cookie.Value)
 }
 
 func fetchUser(r *http.Request, provider oauth.Provider, sess oauth.Session) (oauth.User, error) {
@@ -260,63 +276,15 @@ func (s *Service) saveUser(r *http.Request, user *oauth.User) error {
 	return nil
 }
 
-func (s *Service) handleRefresh() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-
-	}
-}
-
-func (s *Service) genTokens(issuer, sid, email string) (string, string, error) {
-	accessToken, err := jwt.NewBuilder().
-		JwtID(uuid.NewString()).
-		Issuer(issuer).
-		Audience([]string{"web"}).
-		Subject(sid).
-		IssuedAt(time.Now().UTC()).
-		NotBefore(time.Now().UTC()).
-		Expiration(time.Now().UTC().Add(auth.AccessTokenExp)).
-		Claim("email", email).
-		Build()
-	if err != nil {
-		return "", "", err
-	}
-
-	bs, err := json.Marshal(accessToken)
-	if err != nil {
-		return "", "", err
-	}
-
-	atSigned, err := jws.Sign(bs, jws.WithKey(jwa.ES256, s.keyPair.PrivateKey))
-	if err != nil {
-		return "", "", err
-	}
-
-	refreshToken, err := jwt.NewBuilder().
-		JwtID(uuid.NewString()).
-		Issuer(issuer).
-		Audience([]string{"web"}).
-		Subject(sid).
-		IssuedAt(time.Now().UTC()).
-		NotBefore(time.Now().UTC()).
-		Expiration(time.Now().UTC().Add(auth.RefreshTokenExp)).
-		Claim("email", email).
-		Build()
-	if err != nil {
-		return "", "", err
-	}
-
-	bs, err = json.Marshal(refreshToken)
-	if err != nil {
-		return "", "", err
-	}
-
-	rtSigned, err := jws.Sign(bs, jws.WithKey(jwa.ES256, s.keyPair.PrivateKey))
-	if err != nil {
-		return "", "", err
-	}
-
-	return string(atSigned), string(rtSigned), nil
-}
+// func (s *Service) handleRefresh() http.HandlerFunc {
+// 	return func(w http.ResponseWriter, r *http.Request) {
+// 		cookie, _ := r.Cookie(sessionCookieName)
+// 		sess, _ := s.repo.GetSession(cookie.Value)
+// 		provider, _ := s.client.GetProvider(sess.Provider)
+// 		sessInfo, _ := provider.UnmarshalSession(sess.SessionInfo)
+// 		provider.
+// 	}
+// }
 
 // func setTokens(w http.ResponseWriter, accessToken, refreshToken string) string {
 // 	type response struct {

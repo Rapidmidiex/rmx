@@ -24,6 +24,11 @@ type OAuthUserInfo struct {
 	Email    string
 }
 
+type Session struct {
+	Provider    string `json:"provider"`
+	SessionInfo string `json:"sessionInfo"`
+}
+
 type User struct {
 	ID       uuid.UUID `json:"id"`
 	Username string    `json:"username"`
