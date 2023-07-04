@@ -2,16 +2,15 @@ package postgres
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
+	"github.com/rapidmidiex/oauth"
 	"github.com/rapidmidiex/rmx/internal/auth"
 	"github.com/rapidmidiex/rmx/internal/auth/store/sqlc"
 	"github.com/rapidmidiex/rmx/internal/cache"
-	"github.com/rapidmidiex/rmx/internal/events"
 )
 
 type Repo interface {
@@ -24,11 +23,11 @@ type Repo interface {
 	DeleteUserByID(ctx context.Context, id uuid.UUID) error
 	DeleteUserByEmail(ctx context.Context, email string) error
 
-	GetSession(sid string) (*auth.Session, error)
-	SaveSession(sess *auth.Session) (string, error)
+	GetSession(sid string) ([]byte, error)
+	SaveSession(sess oauth.Session) (string, error)
 
-	BlacklistToken(ctx context.Context, id string) error
-	VerifyToken(ctx context.Context, id string) (string, error)
+	BlacklistSession(ctx context.Context, sid string) error
+	VerifySession(ctx context.Context, sid string) (bool, error)
 }
 
 type store struct {
@@ -147,45 +146,36 @@ func (s *store) DeleteUserByEmail(ctx context.Context, email string) error {
 	return s.q.DeleteUserByEmail(ctx, email)
 }
 
-func (s *store) GetSession(sid string) (*auth.Session, error) {
-	bs, err := s.sc.Get(sid)
-	if err != nil {
-		return nil, err
-	}
-
-	var sess *auth.Session
-	if err := json.Unmarshal(bs, &sess); err != nil {
-		return nil, err
-	}
-
-	return sess, nil
+func (s *store) GetSession(sid string) ([]byte, error) {
+	return s.sc.Get(sid)
 }
 
-func (s *store) SaveSession(sess *auth.Session) (string, error) {
-	bs, err := json.Marshal(sess)
+func (s *store) SaveSession(sess oauth.Session) (string, error) {
+	str, err := sess.Marshal()
 	if err != nil {
 		return "", err
 	}
 
 	sid := uuid.NewString()
-	if err := s.sc.Set(sid, bs); err != nil {
+	if err := s.sc.Set(sid, []byte(str)); err != nil {
 		return "", err
 	}
 
 	return sid, nil
 }
 
-func (s *store) BlacklistToken(ctx context.Context, id string) error { return s.tc.Set(id, nil) }
+func (s *store) BlacklistSession(ctx context.Context, sid string) error { return s.tc.Set(sid, nil) }
 
-func (s *store) VerifyToken(ctx context.Context, id string) (string, error) {
-	_, err := s.tc.Get(id)
+// VerifySession returns true if the session id is not found and is not blacklisted
+func (s *store) VerifySession(ctx context.Context, sid string) (bool, error) {
+	_, err := s.tc.Get(sid)
 	if err != nil {
 		if errors.Is(err, nats.ErrNoKeysFound) {
-			return events.TokenAccepted, nil
+			return true, nil
 		}
 
-		return events.TokenRejected, err
+		return false, err
 	}
 
-	return events.TokenRejected, nil
+	return false, nil
 }

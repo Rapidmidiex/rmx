@@ -9,9 +9,8 @@ import (
 )
 
 var (
-	AccessTokenExp         = time.Minute * 30
-	RefreshTokenExp        = time.Hour * 24 * 30
-	RefreshTokenCookieName = "RMX_AUTH_RT"
+	AccessTokenExp  = time.Minute * 30
+	RefreshTokenExp = time.Hour * 24 * 30
 )
 
 type KeyPair struct {
@@ -24,22 +23,18 @@ type OAuthUserInfo struct {
 	Email    string
 }
 
-type Session struct {
-	Provider    string `json:"provider"`
-	SessionInfo string `json:"sessionInfo"`
-}
-
 type User struct {
 	ID       uuid.UUID `json:"id"`
 	Username string    `json:"username"`
 	Email    string    `json:"email"`
 }
 
-type AuthError struct {
-	StatusCode int   `json:"status"`
-	Err        error `json:"err"`
+type Error struct {
+	StatusCode int    `json:"status"`
+	Err        error  `json:"err"`
+	Text       string `json:"text"`
 }
 
-func (e *AuthError) Error() string {
+func (e Error) Error() string {
 	return fmt.Sprintf("status %d: err %v", e.StatusCode, e.Err)
 }

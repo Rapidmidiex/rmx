@@ -92,7 +92,7 @@ func serve(cfg *config.Config) error {
 				"read:user",
 			),
 		),
-		authHTTP.WithCallback(cfg.Auth.CallbackURL),
+		authHTTP.WithCallbackURL(cfg.Auth.CallbackURL),
 	}
 
 	authService := authHTTP.New(authOpts...)

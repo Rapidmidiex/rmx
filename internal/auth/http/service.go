@@ -5,9 +5,10 @@ import (
 	"crypto/ecdsa"
 	"database/sql"
 	"errors"
-	"log"
+	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/nats-io/nats.go"
@@ -26,14 +27,12 @@ type Service struct {
 	repo        authStore.Repo
 	keyPair     *auth.KeyPair
 	callbackURL string
-	errc        chan error
 }
 
 func New(opts ...Option) *Service {
 	s := Service{
 		mux:    service.New(),
 		client: oauth.NewClient(),
-		errc:   make(chan error),
 	}
 
 	for _, opt := range opts {
@@ -41,41 +40,8 @@ func New(opts ...Option) *Service {
 	}
 
 	s.routes(s.client.GetProviders())
-	go s.errors()
 	return &s
 }
-
-// I have no idea what to do with the errors here
-func (s *Service) errors() {
-	for {
-		err := <-s.errc
-		log.Println(err.Error())
-	}
-}
-
-// func (s *Service) introspect() {
-// 	subj := fmt.Sprint(events.NatsSubj, events.NatsSessionSufx, events.NatsIntrospectSufx)
-// 	if _, err := s.nc.Subscribe(subj, func(msg *nats.Msg) {
-// 		at := string(msg.Data)
-// 		parsed, err := jwt.Parse([]byte(at), jwt.WithKey(jwa.ES256, s.keyPair.PublicKey))
-// 		if err != nil {
-// 			if err := msg.Respond([]byte(events.TokenRejected)); err != nil {
-// 				s.errc <- fmt.Errorf("rmx: introspect [parse]\n%v", err)
-// 			}
-// 		}
-
-// 		res, err := s.repo.VerifyToken(s.ctx, parsed.JwtID())
-// 		if err != nil {
-// 			s.errc <- fmt.Errorf("rmx: introspect [verify]\n%v", err)
-// 		}
-
-// 		if err := msg.Respond([]byte(res)); err != nil {
-// 			s.errc <- fmt.Errorf("rmx: introspect [result]\n%v", err)
-// 		}
-// 	}); err != nil {
-// 		log.Fatalf("rmx: introspect\n%v", err)
-// 	}
-// }
 
 func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mux.ServeHTTP(w, r)
@@ -85,7 +51,20 @@ func (s *Service) routes(ps oauth.Providers) {
 	s.mux.Get("/{provider}", s.handleAuth())
 	s.mux.Get("/{provider}/callback", s.handleCallback())
 	// s.mux.Get("/refresh", s.handleRefresh())
-	// s.mux.Handle("/protected", middlewares.VerifySession(s.handleProtected(), s.nc, s.keyPair.PublicKey))
+	s.mux.Handle("/protected", auth.VerifySession(s.handleProtected(), s.keyPair.PublicKey, true))
+}
+
+func (s *Service) handleProtected() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		sess, err := auth.GetSessionFromContext(r.Context())
+		if err != nil {
+			w.Write([]byte("you are unauthorized"))
+			return
+		}
+
+		w.Write([]byte(fmt.Sprint(sess.SID, " ", sess.Issuer, " ", sess.Email)))
+		return
+	}
 }
 
 const (
@@ -117,33 +96,12 @@ func (s *Service) handleAuth() http.HandlerFunc {
 			return
 		}
 
-		str, err := sess.Marshal()
-		if err != nil {
+		if err := s.setOAuthSession(w, sess, provider.Name()); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("couldn't marshal session"))
+			w.Write([]byte("couldn't set session"))
 			return
 		}
 
-		sid, err := s.repo.SaveSession(&auth.Session{
-			Provider:    provider.Name(),
-			SessionInfo: str,
-		})
-		println(sid)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("couldn't save session"))
-			return
-		}
-
-		http.SetCookie(w, &http.Cookie{
-			Name:     oauthCookieName,
-			Value:    sid,
-			Path:     "/",
-			MaxAge:   60 * 5, // 5 minutes
-			Secure:   true,
-			HttpOnly: true,
-			SameSite: http.SameSiteLaxMode,
-		})
 		http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 	}
 }
@@ -165,18 +123,10 @@ func (s *Service) handleCallback() http.HandlerFunc {
 			return
 		}
 
-		appSession, err := s.repo.GetSession(sessCookie.Value)
+		sess, err := s.getOAuthSession(sessCookie.Value, provider)
 		if err != nil {
-			println(err)
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("couldn't find session"))
-			return
-		}
-
-		sess, err := provider.UnmarshalSession(string(appSession.SessionInfo))
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("couldn't unmarshal session"))
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("no session found"))
 			return
 		}
 
@@ -199,10 +149,17 @@ func (s *Service) handleCallback() http.HandlerFunc {
 			return
 		}
 
-		accessToken, refreshToken, err := s.genTokens(provider.Name(), sessCookie.Value, user.Email)
+		accessToken, err := s.newToken(provider.Name(), sessCookie.Value, user.Email, auth.AccessTokenExp)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("couldn't set session"))
+			w.Write([]byte("couldn't generate access token"))
+			return
+		}
+
+		refreshToken, err := s.newToken(provider.Name(), sessCookie.Value, user.Email, auth.RefreshTokenExp)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("couldn't generate refresh token"))
 			return
 		}
 
@@ -217,19 +174,46 @@ func (s *Service) handleCallback() http.HandlerFunc {
 		q.Set("accessToken", accessToken)
 		callbackURL.RawQuery = q.Encode()
 
-		cookie := &http.Cookie{
+		http.SetCookie(w, &http.Cookie{
 			Name:     sessionCookieName,
 			Value:    refreshToken,
 			Path:     "/",
-			MaxAge:   86400 * 30, // 30 days
+			MaxAge:   int(auth.RefreshTokenExp.Seconds()), // 30 days
 			HttpOnly: true,
 			Secure:   true,
 			SameSite: http.SameSiteLaxMode,
-		}
+		})
 
-		http.SetCookie(w, cookie)
 		http.Redirect(w, r, callbackURL.String(), http.StatusTemporaryRedirect)
 	}
+}
+
+func (s *Service) setOAuthSession(w http.ResponseWriter, sess oauth.Session, providerName string) error {
+	sid, err := s.repo.SaveSession(sess)
+	if err != nil {
+		return err
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     oauthCookieName,
+		Value:    sid,
+		Path:     "/",
+		MaxAge:   60 * 5, // 5 minutes
+		Secure:   true,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	return nil
+}
+
+func (s *Service) getOAuthSession(sid string, provider oauth.Provider) (oauth.Session, error) {
+	sess, err := s.repo.GetSession(sid)
+	if err != nil {
+		return nil, err
+	}
+
+	return provider.UnmarshalSession(string(sess))
 }
 
 func fetchUser(r *http.Request, provider oauth.Provider, sess oauth.Session) (oauth.User, error) {
@@ -276,36 +260,79 @@ func (s *Service) saveUser(r *http.Request, user *oauth.User) error {
 	return nil
 }
 
-// func (s *Service) handleRefresh() http.HandlerFunc {
-// 	return func(w http.ResponseWriter, r *http.Request) {
-// 		cookie, _ := r.Cookie(sessionCookieName)
-// 		sess, _ := s.repo.GetSession(cookie.Value)
-// 		provider, _ := s.client.GetProvider(sess.Provider)
-// 		sessInfo, _ := provider.UnmarshalSession(sess.SessionInfo)
-// 		provider.
-// 	}
-// }
+func (s *Service) handleRefresh() http.HandlerFunc {
+	type response struct {
+		AccessToken string `json:"accessToken"`
+	}
 
-// func setTokens(w http.ResponseWriter, accessToken, refreshToken string) string {
-// 	type response struct {
-// 		AccessToken string `json:"accessToken"`
-// 	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie(sessionCookieName)
+		if err != nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
 
-// 	cookie := &http.Cookie{
-// 		Name:     sessionCookieName,
-// 		Value:    refreshToken,
-// 		Expires:  time.Now().UTC().Add(auth.RefreshTokenExp),
-// 		Secure:   true,
-// 		HttpOnly: true,
-// 		SameSite: http.SameSiteLaxMode,
-// 	}
+		parsed, err := s.parseToken(cookie.Value)
+		if err != nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
 
-// 	http.SetCookie(w, cookie)
-// 	return ""
-// }
+		// TODO: verify oauth session
+		// check if session is not blacklisted
+		ok, err := s.repo.VerifySession(r.Context(), parsed.JwtID())
+		if !ok || err != nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
 
-func (s *Service) handleProtected() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {}
+		//	bs, err := s.repo.GetSession(parsed.JwtID())
+		//	if err != nil {
+		//		w.WriteHeader(http.StatusUnauthorized)
+		//		return
+		//	}
+
+		provider, err := s.client.GetProvider(parsed.Issuer())
+		if err != nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		//	sess, err := provider.UnmarshalSession(string(bs))
+		//	if err != nil {
+		//		w.WriteHeader(http.StatusUnauthorized)
+		//		return
+		//	}
+
+		//	sess.VerifySession() // not implemented yet
+
+		accessToken, err := s.newToken(provider.Name(), parsed.JwtID(), parsed.Subject(), auth.AccessTokenExp)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		// subtract the refresh token expiry elapsed time
+		exp := auth.RefreshTokenExp - time.Now().UTC().Sub(parsed.Expiration())
+		refreshToken, err := s.newToken(provider.Name(), parsed.JwtID(), parsed.Subject(), exp)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("couldn't generate refresh token"))
+			return
+		}
+
+		http.SetCookie(w, &http.Cookie{
+			Name:     sessionCookieName,
+			Value:    refreshToken,
+			Path:     "/",
+			MaxAge:   int(exp.Seconds()),
+			HttpOnly: true,
+			Secure:   true,
+			SameSite: http.SameSiteLaxMode,
+		})
+
+		s.mux.Respond(w, r, &response{accessToken}, http.StatusOK)
+	}
 }
 
 type Option func(*Service)
@@ -343,7 +370,7 @@ func WithProviders(p ...oauth.Provider) Option {
 	}
 }
 
-func WithCallback(callbackURL string) Option {
+func WithCallbackURL(callbackURL string) Option {
 	return func(s *Service) {
 		s.callbackURL = callbackURL
 	}
