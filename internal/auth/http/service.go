@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"database/sql"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -50,7 +49,7 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *Service) routes(ps oauth.Providers) {
 	s.mux.Get("/{provider}", s.handleAuth())
 	s.mux.Get("/{provider}/callback", s.handleCallback())
-	// s.mux.Get("/refresh", s.handleRefresh())
+	s.mux.Get("/refresh", s.handleRefresh())
 	s.mux.Handle("/protected", auth.VerifySession(s.handleProtected(), s.keyPair.PublicKey, true))
 }
 
@@ -143,7 +142,7 @@ func (s *Service) handleCallback() http.HandlerFunc {
 			return
 		}
 
-		if err := s.saveUser(r, &user); err != nil {
+		if err := s.saveUser(r.Context(), &user); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("couldn't save user"))
 			return
@@ -235,29 +234,6 @@ func fetchUser(r *http.Request, provider oauth.Provider, sess oauth.Session) (oa
 	}
 
 	return provider.FetchUser(sess)
-}
-
-func (s *Service) saveUser(r *http.Request, user *oauth.User) error {
-	_, err := s.repo.GetUserByEmail(r.Context(), user.Email)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			// user does not exist, create a new one
-			if _, err := s.repo.CreateUser(r.Context(), &auth.User{
-				Email:    user.Email,
-				Username: user.Name,
-			}); err != nil {
-				return err
-			}
-
-			if _, err := s.repo.GetUserByEmail(r.Context(), user.Email); err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func (s *Service) handleRefresh() http.HandlerFunc {

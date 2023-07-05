@@ -10,16 +10,22 @@ import (
 	"github.com/google/uuid"
 )
 
-type Session struct {
-	ID        uuid.UUID `json:"id"`
-	Email     string    `json:"email"`
-	Issuer    string    `json:"issuer"`
-	CreatedAt time.Time `json:"createdAt"`
+type Connection struct {
+	ProviderID string    `json:"providerID"`
+	UserID     uuid.UUID `json:"userID"`
+	CreatedAt  time.Time `json:"createdAt"`
+	UpdatedAt  time.Time `json:"updatedAt"`
 }
 
 type User struct {
-	ID        uuid.UUID `json:"id"`
-	Username  string    `json:"username"`
-	Email     string    `json:"email"`
-	CreatedAt time.Time `json:"createdAt"`
+	ID            uuid.UUID `json:"id"`
+	Username      string    `json:"username"`
+	Email         string    `json:"email"`
+	EmailVerified bool      `json:"emailVerified"`
+	IsAdmin       bool      `json:"isAdmin"`
+	Picture       string    `json:"picture"`
+	Blocked       bool      `json:"blocked"`
+	LastLogin     time.Time `json:"lastLogin"`
+	CreatedAt     time.Time `json:"createdAt"`
+	UpdatedAt     time.Time `json:"updatedAt"`
 }

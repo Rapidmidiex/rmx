@@ -7,30 +7,48 @@ package sqlc
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO users (username, email)
-    VALUES ($1, $2)
+INSERT INTO users (username, email, email_verified, is_admin, picture, blocked)
+    VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING
-    id, username, email, created_at
+    id, username, email, email_verified, is_admin, picture, blocked, last_login, created_at, updated_at
 `
 
 type CreateUserParams struct {
-	Username string `json:"username"`
-	Email    string `json:"email"`
+	Username      string `json:"username"`
+	Email         string `json:"email"`
+	EmailVerified bool   `json:"emailVerified"`
+	IsAdmin       bool   `json:"isAdmin"`
+	Picture       string `json:"picture"`
+	Blocked       bool   `json:"blocked"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg *CreateUserParams) (User, error) {
-	row := q.db.QueryRowContext(ctx, createUser, arg.Username, arg.Email)
+	row := q.db.QueryRowContext(ctx, createUser,
+		arg.Username,
+		arg.Email,
+		arg.EmailVerified,
+		arg.IsAdmin,
+		arg.Picture,
+		arg.Blocked,
+	)
 	var i User
 	err := row.Scan(
 		&i.ID,
 		&i.Username,
 		&i.Email,
+		&i.EmailVerified,
+		&i.IsAdmin,
+		&i.Picture,
+		&i.Blocked,
+		&i.LastLogin,
 		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -55,9 +73,19 @@ func (q *Queries) DeleteUserByID(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const deleteUserByUsername = `-- name: DeleteUserByUsername :exec
+DELETE FROM users
+WHERE username = $1
+`
+
+func (q *Queries) DeleteUserByUsername(ctx context.Context, username string) error {
+	_, err := q.db.ExecContext(ctx, deleteUserByUsername, username)
+	return err
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT
-    id, username, email, created_at
+    id, username, email, email_verified, is_admin, picture, blocked, last_login, created_at, updated_at
 FROM
     users
 WHERE
@@ -72,14 +100,20 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.ID,
 		&i.Username,
 		&i.Email,
+		&i.EmailVerified,
+		&i.IsAdmin,
+		&i.Picture,
+		&i.Blocked,
+		&i.LastLogin,
 		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
 SELECT
-    id, username, email, created_at
+    id, username, email, email_verified, is_admin, picture, blocked, last_login, created_at, updated_at
 FROM
     users
 WHERE
@@ -94,14 +128,48 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.ID,
 		&i.Username,
 		&i.Email,
+		&i.EmailVerified,
+		&i.IsAdmin,
+		&i.Picture,
+		&i.Blocked,
+		&i.LastLogin,
 		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getUserByUsername = `-- name: GetUserByUsername :one
+SELECT
+    id, username, email, email_verified, is_admin, picture, blocked, last_login, created_at, updated_at
+FROM
+    users
+WHERE
+    username = $1
+LIMIT 1
+`
+
+func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
+	row := q.db.QueryRowContext(ctx, getUserByUsername, username)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.EmailVerified,
+		&i.IsAdmin,
+		&i.Picture,
+		&i.Blocked,
+		&i.LastLogin,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
 
 const listUsers = `-- name: ListUsers :many
 SELECT
-    id, username, email, created_at
+    id, username, email, email_verified, is_admin, picture, blocked, last_login, created_at, updated_at
 FROM
     users
 ORDER BY
@@ -127,7 +195,13 @@ func (q *Queries) ListUsers(ctx context.Context, arg *ListUsersParams) ([]User, 
 			&i.ID,
 			&i.Username,
 			&i.Email,
+			&i.EmailVerified,
+			&i.IsAdmin,
+			&i.Picture,
+			&i.Blocked,
+			&i.LastLogin,
 			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -146,26 +220,50 @@ const updateUserByEmail = `-- name: UpdateUserByEmail :one
 UPDATE
     users
 SET
-    username = $2
+    username = $2,
+    email_verified = $3,
+    is_admin = $4,
+    picture = $5,
+    blocked = $6,
+    last_login = $7
 WHERE
     email = $1
 RETURNING
-    id, username, email, created_at
+    id, username, email, email_verified, is_admin, picture, blocked, last_login, created_at, updated_at
 `
 
 type UpdateUserByEmailParams struct {
-	Email    string `json:"email"`
-	Username string `json:"username"`
+	Email         string    `json:"email"`
+	Username      string    `json:"username"`
+	EmailVerified bool      `json:"emailVerified"`
+	IsAdmin       bool      `json:"isAdmin"`
+	Picture       string    `json:"picture"`
+	Blocked       bool      `json:"blocked"`
+	LastLogin     time.Time `json:"lastLogin"`
 }
 
 func (q *Queries) UpdateUserByEmail(ctx context.Context, arg *UpdateUserByEmailParams) (User, error) {
-	row := q.db.QueryRowContext(ctx, updateUserByEmail, arg.Email, arg.Username)
+	row := q.db.QueryRowContext(ctx, updateUserByEmail,
+		arg.Email,
+		arg.Username,
+		arg.EmailVerified,
+		arg.IsAdmin,
+		arg.Picture,
+		arg.Blocked,
+		arg.LastLogin,
+	)
 	var i User
 	err := row.Scan(
 		&i.ID,
 		&i.Username,
 		&i.Email,
+		&i.EmailVerified,
+		&i.IsAdmin,
+		&i.Picture,
+		&i.Blocked,
+		&i.LastLogin,
 		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -174,26 +272,105 @@ const updateUserByID = `-- name: UpdateUserByID :one
 UPDATE
     users
 SET
-    username = $2
+    username = $2,
+    email = $3,
+    email_verified = $4,
+    is_admin = $5,
+    picture = $6,
+    blocked = $7,
+    last_login = $8
 WHERE
     id = $1
 RETURNING
-    id, username, email, created_at
+    id, username, email, email_verified, is_admin, picture, blocked, last_login, created_at, updated_at
 `
 
 type UpdateUserByIDParams struct {
-	ID       uuid.UUID `json:"id"`
-	Username string    `json:"username"`
+	ID            uuid.UUID `json:"id"`
+	Username      string    `json:"username"`
+	Email         string    `json:"email"`
+	EmailVerified bool      `json:"emailVerified"`
+	IsAdmin       bool      `json:"isAdmin"`
+	Picture       string    `json:"picture"`
+	Blocked       bool      `json:"blocked"`
+	LastLogin     time.Time `json:"lastLogin"`
 }
 
 func (q *Queries) UpdateUserByID(ctx context.Context, arg *UpdateUserByIDParams) (User, error) {
-	row := q.db.QueryRowContext(ctx, updateUserByID, arg.ID, arg.Username)
+	row := q.db.QueryRowContext(ctx, updateUserByID,
+		arg.ID,
+		arg.Username,
+		arg.Email,
+		arg.EmailVerified,
+		arg.IsAdmin,
+		arg.Picture,
+		arg.Blocked,
+		arg.LastLogin,
+	)
 	var i User
 	err := row.Scan(
 		&i.ID,
 		&i.Username,
 		&i.Email,
+		&i.EmailVerified,
+		&i.IsAdmin,
+		&i.Picture,
+		&i.Blocked,
+		&i.LastLogin,
 		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateUserByUsername = `-- name: UpdateUserByUsername :one
+UPDATE
+    users
+SET
+    email = $2,
+    email_verified = $3,
+    is_admin = $4,
+    picture = $5,
+    blocked = $6,
+    last_login = $7
+WHERE
+    username = $1
+RETURNING
+    id, username, email, email_verified, is_admin, picture, blocked, last_login, created_at, updated_at
+`
+
+type UpdateUserByUsernameParams struct {
+	Username      string    `json:"username"`
+	Email         string    `json:"email"`
+	EmailVerified bool      `json:"emailVerified"`
+	IsAdmin       bool      `json:"isAdmin"`
+	Picture       string    `json:"picture"`
+	Blocked       bool      `json:"blocked"`
+	LastLogin     time.Time `json:"lastLogin"`
+}
+
+func (q *Queries) UpdateUserByUsername(ctx context.Context, arg *UpdateUserByUsernameParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, updateUserByUsername,
+		arg.Username,
+		arg.Email,
+		arg.EmailVerified,
+		arg.IsAdmin,
+		arg.Picture,
+		arg.Blocked,
+		arg.LastLogin,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.EmailVerified,
+		&i.IsAdmin,
+		&i.Picture,
+		&i.Blocked,
+		&i.LastLogin,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
