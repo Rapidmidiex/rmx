@@ -1,13 +1,13 @@
 package http
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 
 	"github.com/brianvoe/gofakeit/v6"
 	"github.com/rapidmidiex/oauth"
 	"github.com/rapidmidiex/rmx/internal/auth/store/sqlc"
-	"golang.org/x/net/context"
 )
 
 func (s *Service) saveUser(ctx context.Context, user *oauth.User) error {
