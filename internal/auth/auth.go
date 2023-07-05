@@ -24,11 +24,13 @@ type OAuthUserInfo struct {
 }
 
 type User struct {
-	ID       uuid.UUID `json:"id"`
-	Username string    `json:"username"`
-	Email    string    `json:"email"`
-	IsAdmin  bool      `json:"isAdmin"`
-	Picture  string    `json:"picture"`
+	ID            uuid.UUID `json:"id"`
+	Username      string    `json:"username"`
+	Email         string    `json:"email"`
+	EmailVerified bool      `json:"emailVerified"`
+	IsAdmin       bool      `json:"isAdmin"`
+	Picture       string    `json:"picture"`
+	Blocked       bool      `json:"blocked"`
 }
 
 type Connection struct {
