@@ -1,9 +1,6 @@
 package config
 
 import (
-	"crypto/ecdsa"
-	"crypto/x509"
-	"encoding/pem"
 	"errors"
 	"log"
 	"os"
@@ -18,32 +15,11 @@ type ServerConfig struct {
 
 type StoreConfig struct {
 	DatabaseURL string
-	NatsURL     string
-}
-
-type ProviderConfig struct {
-	ClientID     string
-	ClientSecret string
-}
-
-type ProvidersConfig struct {
-	Google ProviderConfig
-	Github ProviderConfig
-}
-
-type Keys struct {
-	CookieHashKey       string
-	CookieEncryptionKey string
-	JWTPrivateKey       *ecdsa.PrivateKey
-	JWTPublicKey        *ecdsa.PublicKey
-	SessionKey          string
 }
 
 type AuthConfig struct {
-	Enable      bool
-	CallbackURL string
-	Providers   ProvidersConfig
-	Keys        Keys
+	ClientID     string
+	ClientSecret string
 }
 
 type Config struct {
@@ -71,28 +47,13 @@ func LoadFromEnv() *Config {
 
 	// store
 	databaseURL := readEnvStr("DATABASE_URL")
-	natsURL := readEnvStr("NATS_URL")
 
 	// auth
-	enableAuth := readEnvBool("ENABLE_AUTH")
-	callbackURL := readEnvStr("CALLBACK_URL")
-	googleClientID := readEnvStr("GOOGLE_CLIENT_ID")
-	googleClientSecret := readEnvStr("GOOGLE_CLIENT_SECRET")
-	githubClientID := readEnvStr("GITHUB_CLIENT_ID")
-	githubClientSecret := readEnvStr("GITHUB_CLIENT_SECRET")
-	cookieHashKey := readEnvStr("COOKIE_HASH_KEY")
-	cookieEncryptionKey := readEnvStr("COOKIE_ENCRYPTION_KEY")
-	jwtEncodedPrivateKey := readEnvStr("JWT_PRIVATE_KEY")
-	jwtEncodedPublicKey := readEnvStr("JWT_PUBLIC_KEY")
-	sessionKey := readEnvStr("SESSION_KEY")
+	clientID := readEnvStr("GOOGLE_CLIENT_ID")
+	clientSecret := readEnvStr("GOOGLE_CLIENT_SECRET")
 
 	// env
 	dev := readEnvBool("DEV")
-
-	priv, pub, err := decodeKeyPair([]byte(jwtEncodedPrivateKey), []byte(jwtEncodedPublicKey))
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	return &Config{
 		Server: ServerConfig{
@@ -100,28 +61,10 @@ func LoadFromEnv() *Config {
 		},
 		Store: StoreConfig{
 			DatabaseURL: databaseURL,
-			NatsURL:     natsURL,
 		},
 		Auth: AuthConfig{
-			Enable:      enableAuth,
-			CallbackURL: callbackURL,
-			Providers: ProvidersConfig{
-				Google: ProviderConfig{
-					ClientID:     googleClientID,
-					ClientSecret: googleClientSecret,
-				},
-				Github: ProviderConfig{
-					ClientID:     githubClientID,
-					ClientSecret: githubClientSecret,
-				},
-			},
-			Keys: Keys{
-				CookieHashKey:       cookieHashKey,
-				CookieEncryptionKey: cookieEncryptionKey,
-				JWTPrivateKey:       priv,
-				JWTPublicKey:        pub,
-				SessionKey:          sessionKey,
-			},
+			ClientID:     clientID,
+			ClientSecret: clientSecret,
 		},
 		Dev: dev,
 	}
@@ -156,27 +99,4 @@ func readEnvBool(key string) bool {
 		log.Fatalf("rmx: couldn't parse (bool) value from key [%s]", key)
 	}
 	return v
-}
-
-// check for a config file
-func decodeKeyPair(privEncoded, pubEncoded []byte) (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
-	blockPriv, _ := pem.Decode(privEncoded)
-	privX509Encoded := blockPriv.Bytes
-	priv, err := x509.ParseECPrivateKey(privX509Encoded)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	blockPub, _ := pem.Decode(pubEncoded)
-	pubX509Encoded := blockPub.Bytes
-	genericPubKey, err := x509.ParsePKIXPublicKey(pubX509Encoded)
-	if err != nil {
-		return nil, nil, err
-	}
-	pub, ok := genericPubKey.(*ecdsa.PublicKey)
-	if !ok {
-		return nil, nil, errors.New("public key not of type ecdsa.PublicKey")
-	}
-
-	return priv, pub, nil
 }
