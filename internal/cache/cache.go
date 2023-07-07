@@ -17,6 +17,10 @@ type Cache struct {
 }
 
 func New(name string, conn *nats.Conn, ttl time.Duration, encKey []byte) (*Cache, error) {
+	if encKey != nil && len(encKey) != 32 {
+		return nil, errors.New("rmx: incompatible cache encryption key")
+	}
+
 	js, err := conn.JetStream()
 	if err != nil {
 		return nil, err
@@ -28,10 +32,6 @@ func New(name string, conn *nats.Conn, ttl time.Duration, encKey []byte) (*Cache
 	})
 	if err != nil {
 		return nil, err
-	}
-
-	if encKey != nil && len(encKey) != 32 {
-		return nil, errors.New("rmx: incompatible cache encryption key")
 	}
 
 	return &Cache{kv, encKey}, nil

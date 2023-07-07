@@ -4,6 +4,7 @@ go 1.19
 
 require (
 	github.com/brianvoe/gofakeit/v6 v6.21.0
+	github.com/coreos/go-oidc/v3 v3.6.0
 	github.com/go-chi/chi/v5 v5.0.8
 	github.com/gobwas/ws v1.2.0
 	github.com/golang-migrate/migrate/v4 v4.15.2
@@ -16,6 +17,7 @@ require (
 	github.com/rs/cors v1.8.3
 	github.com/stretchr/testify v1.8.2
 	github.com/urfave/cli/v2 v2.25.3
+	golang.org/x/oauth2 v0.6.0
 	golang.org/x/sync v0.1.0
 )
 
@@ -41,7 +43,9 @@ require (
 	github.com/docker/docker v20.10.13+incompatible // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
+	github.com/go-jose/go-jose/v3 v3.0.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
@@ -66,8 +70,11 @@ require (
 	go.uber.org/atomic v1.7.0 // indirect
 	golang.org/x/crypto v0.9.0 // indirect
 	golang.org/x/mod v0.9.0 // indirect
+	golang.org/x/net v0.10.0 // indirect
 	golang.org/x/sys v0.8.0 // indirect
 	golang.org/x/tools v0.7.0 // indirect
+	google.golang.org/appengine v1.6.7 // indirect
+	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

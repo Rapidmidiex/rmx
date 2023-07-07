@@ -16,6 +16,7 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/rapidmidiex/rmx/internal/cmd/config"
 	jamHTTP "github.com/rapidmidiex/rmx/internal/jam/http"
+	"github.com/rapidmidiex/rmx/internal/sessions"
 
 	authHTTP "github.com/rapidmidiex/rmx/internal/auth/http"
 	jamDB "github.com/rapidmidiex/rmx/internal/jam/store"
@@ -55,8 +56,15 @@ func serve(cfg *config.Config) error {
 		return err
 	}
 
+	sessStore, err := sessions.New(24*30*time.Hour, []byte(cfg.Auth.SessionKey))
+	if err != nil {
+		return err
+	}
+
 	authOpts := []authHTTP.Option{
 		authHTTP.WithContext(sCtx),
+		authHTTP.WithProvider(cfg.Auth.Domain, cfg.Auth.ClientID, cfg.Auth.ClientSecret, cfg.Auth.CallbackURL),
+		authHTTP.WithSessionStore(sessStore),
 	}
 
 	authService := authHTTP.New(authOpts...)
