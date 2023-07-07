@@ -49,8 +49,8 @@ func LoadFromEnv() *Config {
 	databaseURL := readEnvStr("DATABASE_URL")
 
 	// auth
-	clientID := readEnvStr("GOOGLE_CLIENT_ID")
-	clientSecret := readEnvStr("GOOGLE_CLIENT_SECRET")
+	clientID := readEnvStr("AUTH_CLIENT_ID")
+	clientSecret := readEnvStr("AUTH_CLIENT_SECRET")
 
 	// env
 	dev := readEnvBool("DEV")
