@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rapidmidiex/rmx/internal/jam"
-	"github.com/rapidmidiex/rmx/internal/jam/postgres/sqlc"
+	"github.com/rapidmidiex/rmx/internal/jam/store/sqlc"
 )
 
 type Repo interface {
