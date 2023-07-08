@@ -22,6 +22,7 @@ type AuthConfig struct {
 	ClientID     string
 	ClientSecret string
 	CallbackURL  string
+	RedirectURL  string
 	SessionKey   string
 }
 
@@ -56,6 +57,7 @@ func LoadFromEnv() *Config {
 	clientID := readEnvStr("AUTH_CLIENT_ID")
 	clientSecret := readEnvStr("AUTH_CLIENT_SECRET")
 	callbackURL := readEnvStr("AUTH_CALLBACK_URL")
+	redirectURL := readEnvStr("AUTH_REDIRECT_URL")
 	sessionKey := readEnvStr("AUTH_SESSION_KEY")
 
 	// env
@@ -73,6 +75,7 @@ func LoadFromEnv() *Config {
 			ClientID:     clientID,
 			ClientSecret: clientSecret,
 			CallbackURL:  callbackURL,
+			RedirectURL:  redirectURL,
 			SessionKey:   sessionKey,
 		},
 		Dev: dev,

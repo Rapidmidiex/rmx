@@ -16,11 +16,12 @@ import (
 )
 
 type Service struct {
-	ctx      context.Context
-	mux      service.Service
-	config   *oauth2.Config
-	provider *oidc.Provider
-	ss       *sessions.Store
+	ctx         context.Context
+	mux         service.Service
+	config      *oauth2.Config
+	provider    *oidc.Provider
+	ss          *sessions.Store
+	redirectURL string
 }
 
 type Option func(*Service)
@@ -57,7 +58,9 @@ func (s *Service) handleLogin() http.HandlerFunc {
 			return
 		}
 
-		if err := s.ss.Set(w, "state", state); err != nil {
+		if err := s.ss.Set(w, &sessions.Session{
+			State: state,
+		}); err != nil {
 			s.mux.Respond(w, r, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -80,13 +83,13 @@ func generateRandomState() (string, error) {
 
 func (s *Service) handleCallback() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		sessState, err := s.ss.Get(r, "state")
+		sess, err := s.ss.Get(r)
 		if err != nil {
 			s.mux.Respond(w, r, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		if r.URL.Query().Get("state") != sessState {
+		if r.URL.Query().Get("state") != sess.State {
 			s.mux.Respond(w, r, nil, http.StatusBadRequest)
 			return
 		}
@@ -104,13 +107,18 @@ func (s *Service) handleCallback() http.HandlerFunc {
 			return
 		}
 
-		var profile map[string]any
-		if err := idToken.Claims(&profile); err != nil {
+		if err := idToken.Claims(&sess.Profile); err != nil {
+			s.mux.Respond(w, r, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		sess.AccessToken = token.AccessToken
+
+		if err := s.ss.Set(w, sess); err != nil {
 			s.mux.Respond(w, r, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		s.mux.Respond(w, r, profile, http.StatusOK)
+		http.Redirect(w, r, s.redirectURL, http.StatusTemporaryRedirect)
 	}
 }
 
@@ -166,5 +174,11 @@ func WithProvider(domain, clientID, clientSecret, callbackURL string) Option {
 func WithSessionStore(ss *sessions.Store) Option {
 	return func(s *Service) {
 		s.ss = ss
+	}
+}
+
+func WithRedirectURL(url string) Option {
+	return func(s *Service) {
+		s.redirectURL = url
 	}
 }

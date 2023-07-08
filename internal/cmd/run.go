@@ -56,7 +56,7 @@ func serve(cfg *config.Config) error {
 		return err
 	}
 
-	sessStore, err := sessions.New(24*30*time.Hour, []byte(cfg.Auth.SessionKey))
+	sessStore, err := sessions.New("_rmx_session", 24*30*time.Hour, []byte(cfg.Auth.SessionKey))
 	if err != nil {
 		return err
 	}
@@ -65,6 +65,7 @@ func serve(cfg *config.Config) error {
 		authHTTP.WithContext(sCtx),
 		authHTTP.WithProvider(cfg.Auth.Domain, cfg.Auth.ClientID, cfg.Auth.ClientSecret, cfg.Auth.CallbackURL),
 		authHTTP.WithSessionStore(sessStore),
+		authHTTP.WithRedirectURL(cfg.Auth.RedirectURL),
 	}
 
 	authService := authHTTP.New(authOpts...)

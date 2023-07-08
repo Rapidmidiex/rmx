@@ -5,6 +5,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -13,33 +14,43 @@ import (
 
 // TODO: use global name for sessions and allow adding fields to session object
 type Store struct {
+	name   string
 	ttl    time.Duration
 	encKey []byte
 }
 
-func New(ttl time.Duration, encKey []byte) (*Store, error) {
+type Session struct {
+	State       string         `json:"state"`
+	AccessToken string         `json:"accessToken"`
+	Profile     map[string]any `json:"profile"`
+}
+
+func New(name string, ttl time.Duration, encKey []byte) (*Store, error) {
 	if encKey != nil && len(encKey) != 32 {
 		return nil, errors.New("rmx: incompatible session encryption key")
 	}
 
-	return &Store{ttl, encKey}, nil
+	return &Store{name, ttl, encKey}, nil
 }
 
-func (s *Store) Set(w http.ResponseWriter, name string, value string) error {
-	val := value
+func (s *Store) Set(w http.ResponseWriter, sess *Session) error {
+	val, err := json.Marshal(sess)
+	if err != nil {
+		return err
+	}
+
 	if s.encKey != nil {
-		v, err := s.encrypt([]byte(value))
+		v, err := s.encrypt(val)
 		if err != nil {
 			return err
 		}
 
-		val = string(v)
+		val = v
 	}
-	val = base64.StdEncoding.EncodeToString([]byte(val))
 
 	http.SetCookie(w, &http.Cookie{
-		Name:     name,
-		Value:    val,
+		Name:     s.name,
+		Value:    base64.StdEncoding.EncodeToString(val),
 		Path:     "/",
 		Expires:  time.Now().Add(s.ttl),
 		HttpOnly: true,
@@ -50,27 +61,32 @@ func (s *Store) Set(w http.ResponseWriter, name string, value string) error {
 	return nil
 }
 
-func (s *Store) Get(r *http.Request, name string) (string, error) {
-	cookie, err := r.Cookie(name)
+func (s *Store) Get(r *http.Request) (*Session, error) {
+	cookie, err := r.Cookie(s.name)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	decoded, err := base64.StdEncoding.DecodeString(cookie.Value)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if s.encKey != nil {
 		v, err := s.decrypt(decoded)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 
 		decoded = v
 	}
 
-	return string(decoded), nil
+	var sess *Session
+	if err := json.Unmarshal(decoded, &sess); err != nil {
+		return nil, err
+	}
+
+	return sess, nil
 }
 
 // encryption code borrowed from here: https://github.com/gtank/cryptopasta/blob/master/encrypt.go
