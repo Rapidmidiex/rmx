@@ -58,8 +58,14 @@ func serve(cfg *config.Config) error {
 
 	authOpts := []authHTTP.Option{
 		authHTTP.WithContext(sCtx),
-		authHTTP.WithProvider(cfg.Auth.Domain, cfg.Auth.ClientID, cfg.Auth.ClientSecret, cfg.Auth.CallbackURL),
-		authHTTP.WithRedirectURL(cfg.Auth.RedirectURL),
+		authHTTP.WithProvider(
+			cfg.Auth.Domain,
+			cfg.Auth.ClientID,
+			cfg.Auth.ClientSecret,
+			cfg.Auth.LoginCallbackURL,
+			cfg.Auth.LogoutCallbackURL,
+		),
+		authHTTP.WithServiceURLs(cfg.Auth.RedirectURL, cfg.Auth.LogoutURL),
 	}
 
 	sessHandler, err := sessions.New("_rmx_session", 24*30*time.Hour, []byte(cfg.Auth.SessionKey))

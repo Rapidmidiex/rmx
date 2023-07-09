@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -49,8 +48,7 @@ func New(name string, ttl time.Duration, encKey []byte) (func(next http.Handler)
 func Default(r *http.Request) (*Store, error) {
 	sess, ok := r.Context().Value(SessionsKey{}).(*Store)
 	if !ok {
-		fmt.Println(sess)
-		return nil, errors.New("rmx: invalid context for sessions")
+		return nil, errors.New("rmx: no session store found in context")
 	}
 
 	return sess, nil
@@ -110,6 +108,16 @@ func (s *Store) Get(r *http.Request) (*Session, error) {
 	}
 
 	return sess, nil
+}
+
+func (s *Store) Remove(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     s.name,
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Unix(0, 0),
+		HttpOnly: true,
+	})
 }
 
 // encryption code borrowed from here: https://github.com/gtank/cryptopasta/blob/master/encrypt.go

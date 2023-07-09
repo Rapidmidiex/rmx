@@ -18,12 +18,14 @@ type StoreConfig struct {
 }
 
 type AuthConfig struct {
-	Domain       string
-	ClientID     string
-	ClientSecret string
-	CallbackURL  string
-	RedirectURL  string
-	SessionKey   string
+	Domain            string
+	ClientID          string
+	ClientSecret      string
+	LoginCallbackURL  string
+	LogoutCallbackURL string
+	RedirectURL       string
+	LogoutURL         string
+	SessionKey        string
 }
 
 type Config struct {
@@ -56,8 +58,10 @@ func LoadFromEnv() *Config {
 	authDomain := readEnvStr("AUTH_DOMAIN")
 	clientID := readEnvStr("AUTH_CLIENT_ID")
 	clientSecret := readEnvStr("AUTH_CLIENT_SECRET")
-	callbackURL := readEnvStr("AUTH_CALLBACK_URL")
+	loginCallbackURL := readEnvStr("AUTH_LOGIN_CALLBACK_URL")
+	logoutCallbackURL := readEnvStr("AUTH_LOGOUT_CALLBACK_URL")
 	redirectURL := readEnvStr("AUTH_REDIRECT_URL")
+	logoutURL := readEnvStr("AUTH_LOGOUT_URL")
 	sessionKey := readEnvStr("AUTH_SESSION_KEY")
 
 	// env
@@ -71,12 +75,14 @@ func LoadFromEnv() *Config {
 			DatabaseURL: databaseURL,
 		},
 		Auth: AuthConfig{
-			Domain:       authDomain,
-			ClientID:     clientID,
-			ClientSecret: clientSecret,
-			CallbackURL:  callbackURL,
-			RedirectURL:  redirectURL,
-			SessionKey:   sessionKey,
+			Domain:            authDomain,
+			ClientID:          clientID,
+			ClientSecret:      clientSecret,
+			LoginCallbackURL:  loginCallbackURL,
+			LogoutCallbackURL: logoutCallbackURL,
+			RedirectURL:       redirectURL,
+			LogoutURL:         logoutURL,
+			SessionKey:        sessionKey,
 		},
 		Dev: dev,
 	}

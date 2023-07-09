@@ -5,9 +5,9 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	service "github.com/rapidmidiex/rmx/internal/http"
@@ -16,11 +16,19 @@ import (
 )
 
 type Service struct {
-	ctx         context.Context
-	mux         service.Service
-	config      *oauth2.Config
-	provider    *oidc.Provider
-	redirectURL string
+	ctx               context.Context
+	mux               service.Service
+	config            *oauth2.Config
+	provider          *Provider
+	loginRedirectURL  string
+	logoutRedirectURL string
+	logoutCallbackURL string
+}
+
+type Provider struct {
+	oidc      *oidc.Provider
+	domainURL string
+	logoutURL string
 }
 
 type Option func(*Service)
@@ -44,9 +52,10 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (s *Service) routes() {
 	s.mux.Handle("/login", s.handleLogin())
-	s.mux.Handle("/callback", s.handleCallback())
+	s.mux.Handle("/login/callback", s.handleLoginCallback())
 	s.mux.Handle("/user", s.handleUser())
 	s.mux.Handle("/logout", s.handleLogout())
+	s.mux.Handle("/logout/callback", s.handleLogoutCallback())
 }
 
 func (s *Service) handleLogin() http.HandlerFunc {
@@ -86,7 +95,7 @@ func generateRandomState() (string, error) {
 	return state, nil
 }
 
-func (s *Service) handleCallback() http.HandlerFunc {
+func (s *Service) handleLoginCallback() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		sess, err := sessions.Default(r)
 		if err != nil {
@@ -129,7 +138,7 @@ func (s *Service) handleCallback() http.HandlerFunc {
 			return
 		}
 
-		http.Redirect(w, r, s.redirectURL, http.StatusTemporaryRedirect)
+		http.Redirect(w, r, s.loginRedirectURL, http.StatusTemporaryRedirect)
 	}
 }
 
@@ -139,18 +148,55 @@ func (s *Service) verifyIDToken(ctx context.Context, token *oauth2.Token) (*oidc
 		return nil, errors.New("no id_token field in oauth2 token")
 	}
 
-	return s.provider.Verifier(&oidc.Config{ClientID: s.config.ClientID}).Verify(ctx, rawIDToken)
+	return s.provider.oidc.Verifier(&oidc.Config{ClientID: s.config.ClientID}).Verify(ctx, rawIDToken)
 }
 
 func (s *Service) handleUser() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		sess, err := sessions.Default(r)
+		if err != nil {
+			s.mux.Respond(w, r, err.Error(), http.StatusBadRequest)
+			return
+		}
 
+		session, err := sess.Get(r)
+		if err != nil {
+			s.mux.Respond(w, r, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		s.mux.Respond(w, r, session.Profile, http.StatusOK)
 	}
 }
 
 func (s *Service) handleLogout() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		logoutURL, err := url.Parse(s.provider.logoutURL)
+		if err != nil {
+			s.mux.Respond(w, r, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
+		parameters := url.Values{}
+		parameters.Add("returnTo", s.logoutCallbackURL)
+		parameters.Add("client_id", s.config.ClientID)
+		logoutURL.RawQuery = parameters.Encode()
+
+		http.Redirect(w, r, logoutURL.String(), http.StatusTemporaryRedirect)
+	}
+}
+
+func (s *Service) handleLogoutCallback() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		sess, err := sessions.Default(r)
+		if err != nil {
+			s.mux.Respond(w, r, err.Error(), http.StatusBadRequest)
+			return
+		}
+		// remove session
+		sess.Remove(w)
+
+		http.Redirect(w, r, s.logoutRedirectURL, http.StatusTemporaryRedirect)
 	}
 }
 
@@ -160,30 +206,44 @@ func WithContext(ctx context.Context) Option {
 	}
 }
 
-func WithProvider(domain, clientID, clientSecret, callbackURL string) Option {
+func WithProvider(domain, clientID, clientSecret, loginCallbackURL, logoutCallbackURL string) Option {
 	return func(s *Service) {
-		provider, err := oidc.NewProvider(
-			s.ctx,
-			fmt.Sprint("https://", domain, "/"),
-		)
+		domainURL, err := url.Parse("https://" + domain + "/")
 		if err != nil {
 			log.Fatalf("rmx: WithProvider\n%v", err)
 		}
 
-		s.provider = provider
+		logoutURL, err := url.Parse("https://" + domain + "/v2/logout")
+		if err != nil {
+			log.Fatalf("rmx: WithProvider\n%v", err)
+		}
+
+		provider, err := oidc.NewProvider(s.ctx, domainURL.String())
+		if err != nil {
+			log.Fatalf("rmx: WithProvider\n%v", err)
+		}
+
+		s.provider = &Provider{
+			oidc:      provider,
+			domainURL: domainURL.String(),
+			logoutURL: logoutURL.String(),
+		}
 
 		s.config = &oauth2.Config{
 			ClientID:     clientID,
 			ClientSecret: clientSecret,
-			RedirectURL:  callbackURL,
+			RedirectURL:  loginCallbackURL,
 			Endpoint:     provider.Endpoint(),
 			Scopes:       []string{oidc.ScopeOpenID, "profile"},
 		}
+		s.logoutCallbackURL = logoutCallbackURL
 	}
 }
 
-func WithRedirectURL(url string) Option {
+// TODO: don't use options for service urls
+func WithServiceURLs(loginRedirect, logoutRedirect string) Option {
 	return func(s *Service) {
-		s.redirectURL = url
+		s.loginRedirectURL = loginRedirect
+		s.logoutRedirectURL = logoutRedirect
 	}
 }
