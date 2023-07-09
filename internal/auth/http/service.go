@@ -20,7 +20,6 @@ type Service struct {
 	mux         service.Service
 	config      *oauth2.Config
 	provider    *oidc.Provider
-	ss          *sessions.Store
 	redirectURL string
 }
 
@@ -52,13 +51,19 @@ func (s *Service) routes() {
 
 func (s *Service) handleLogin() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		sess, err := sessions.Default(r)
+		if err != nil {
+			s.mux.Respond(w, r, err.Error(), http.StatusBadRequest)
+			return
+		}
+
 		state, err := generateRandomState()
 		if err != nil {
 			s.mux.Respond(w, r, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		if err := s.ss.Set(w, &sessions.Session{
+		if err := sess.Set(w, &sessions.Session{
 			State: state,
 		}); err != nil {
 			s.mux.Respond(w, r, err.Error(), http.StatusInternalServerError)
@@ -83,13 +88,19 @@ func generateRandomState() (string, error) {
 
 func (s *Service) handleCallback() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		sess, err := s.ss.Get(r)
+		sess, err := sessions.Default(r)
 		if err != nil {
 			s.mux.Respond(w, r, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		if r.URL.Query().Get("state") != sess.State {
+		session, err := sess.Get(r)
+		if err != nil {
+			s.mux.Respond(w, r, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		if r.URL.Query().Get("state") != session.State {
 			s.mux.Respond(w, r, nil, http.StatusBadRequest)
 			return
 		}
@@ -107,13 +118,13 @@ func (s *Service) handleCallback() http.HandlerFunc {
 			return
 		}
 
-		if err := idToken.Claims(&sess.Profile); err != nil {
+		if err := idToken.Claims(&session.Profile); err != nil {
 			s.mux.Respond(w, r, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		sess.AccessToken = token.AccessToken
+		session.AccessToken = token.AccessToken
 
-		if err := s.ss.Set(w, sess); err != nil {
+		if err := sess.Set(w, session); err != nil {
 			s.mux.Respond(w, r, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -168,12 +179,6 @@ func WithProvider(domain, clientID, clientSecret, callbackURL string) Option {
 			Endpoint:     provider.Endpoint(),
 			Scopes:       []string{oidc.ScopeOpenID, "profile"},
 		}
-	}
-}
-
-func WithSessionStore(ss *sessions.Store) Option {
-	return func(s *Service) {
-		s.ss = ss
 	}
 }
 

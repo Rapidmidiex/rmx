@@ -56,21 +56,21 @@ func serve(cfg *config.Config) error {
 		return err
 	}
 
-	sessStore, err := sessions.New("_rmx_session", 24*30*time.Hour, []byte(cfg.Auth.SessionKey))
-	if err != nil {
-		return err
-	}
-
 	authOpts := []authHTTP.Option{
 		authHTTP.WithContext(sCtx),
 		authHTTP.WithProvider(cfg.Auth.Domain, cfg.Auth.ClientID, cfg.Auth.ClientSecret, cfg.Auth.CallbackURL),
-		authHTTP.WithSessionStore(sessStore),
 		authHTTP.WithRedirectURL(cfg.Auth.RedirectURL),
+	}
+
+	sessHandler, err := sessions.New("_rmx_session", 24*30*time.Hour, []byte(cfg.Auth.SessionKey))
+	if err != nil {
+		return err
 	}
 
 	authService := authHTTP.New(authOpts...)
 
 	mux := chi.NewMux()
+	mux.Use(sessHandler)
 	mux.Route("/v0", func(r chi.Router) {
 		r.Mount("/jams", newJamService(sCtx, conn))
 		r.Mount("/auth", authService)

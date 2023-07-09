@@ -1,12 +1,14 @@
 package sessions
 
 import (
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -25,12 +27,33 @@ type Session struct {
 	Profile     map[string]any `json:"profile"`
 }
 
-func New(name string, ttl time.Duration, encKey []byte) (*Store, error) {
+type SessionsKey struct{}
+
+func New(name string, ttl time.Duration, encKey []byte) (func(next http.Handler) http.Handler, error) {
 	if encKey != nil && len(encKey) != 32 {
 		return nil, errors.New("rmx: incompatible session encryption key")
 	}
 
-	return &Store{name, ttl, encKey}, nil
+	s := &Store{name, ttl, encKey}
+
+	return func(next http.Handler) http.Handler {
+		fn := func(w http.ResponseWriter, r *http.Request) {
+			rCtx := context.WithValue(r.Context(), SessionsKey{}, s)
+			next.ServeHTTP(w, r.WithContext(rCtx))
+		}
+
+		return http.HandlerFunc(fn)
+	}, nil
+}
+
+func Default(r *http.Request) (*Store, error) {
+	sess, ok := r.Context().Value(SessionsKey{}).(*Store)
+	if !ok {
+		fmt.Println(sess)
+		return nil, errors.New("rmx: invalid context for sessions")
+	}
+
+	return sess, nil
 }
 
 func (s *Store) Set(w http.ResponseWriter, sess *Session) error {
