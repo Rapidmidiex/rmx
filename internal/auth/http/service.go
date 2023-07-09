@@ -8,8 +8,10 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/lestrrat-go/jwx/v2/jwk"
 	service "github.com/rapidmidiex/rmx/internal/http"
 	"github.com/rapidmidiex/rmx/internal/sessions"
 	"golang.org/x/oauth2"
@@ -27,6 +29,7 @@ type Service struct {
 
 type Provider struct {
 	oidc      *oidc.Provider
+	keys      *jwk.Cache
 	domainURL string
 	logoutURL string
 }
@@ -210,18 +213,34 @@ func WithProvider(domain, clientID, clientSecret, loginCallbackURL, logoutCallba
 	return func(s *Service) {
 		domainURL, err := url.Parse("https://" + domain + "/")
 		if err != nil {
-			log.Fatalf("rmx: WithProvider\n%v", err)
+			log.Fatalf("rmx: WithProvider couldn't parse domain url\n%v", err)
 		}
 
 		logoutURL, err := url.Parse("https://" + domain + "/v2/logout")
 		if err != nil {
-			log.Fatalf("rmx: WithProvider\n%v", err)
+			log.Fatalf("rmx: WithProvider couldn't parse logout url\n%v", err)
+		}
+
+		keysetURL, err := url.Parse("https://" + domain + "/.well-known/jwks.json")
+		if err != nil {
+			log.Fatalf("rmx: WithProvider couldn't parse keyset url\n%v", err)
 		}
 
 		provider, err := oidc.NewProvider(s.ctx, domainURL.String())
 		if err != nil {
-			log.Fatalf("rmx: WithProvider\n%v", err)
+			log.Fatalf("rmx: WithProvider couldn't initialize new provider\n%v", err)
 		}
+
+		keysetCache := jwk.NewCache(s.ctx)
+		if err := keysetCache.Register(keysetURL.String(), jwk.WithMinRefreshInterval(15*time.Minute)); err != nil {
+			log.Fatalf("rmx: WithProvider couldn't register keyset cache\n%v", err)
+		}
+
+		if _, err := keysetCache.Refresh(s.ctx, keysetURL.String()); err != nil {
+			log.Fatalf("rmx: WithProvider couldn't refresh keyset cache\n%v", err)
+		}
+
+		s.provider.keys = keysetCache
 
 		s.provider = &Provider{
 			oidc:      provider,
