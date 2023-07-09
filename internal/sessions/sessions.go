@@ -21,6 +21,7 @@ type Store struct {
 }
 
 type Session struct {
+	// NOTE state may be used only once
 	State       string         `json:"state"`
 	AccessToken string         `json:"accessToken"`
 	Profile     map[string]any `json:"profile"`
@@ -45,17 +46,17 @@ func New(name string, ttl time.Duration, encKey []byte) (func(next http.Handler)
 	}, nil
 }
 
-func Default(r *http.Request) (*Store, error) {
-	sess, ok := r.Context().Value(SessionsKey{}).(*Store)
-	if !ok {
-		return nil, errors.New("rmx: no session store found in context")
+// NOTE rename FromContext(ctx *context.Contexttext)
+// FromRequest(r *http.Request)
+
+func SetSession(w http.ResponseWriter, r *http.Request, session *Session) error {
+	s, err := storeFromRequest(r)
+	if err != nil {
+		return err
 	}
 
-	return sess, nil
-}
-
-func (s *Store) Set(w http.ResponseWriter, sess *Session) error {
-	val, err := json.Marshal(sess)
+	// NOTE (gob).Marshal({state, accessToken, profile})
+	val, err := json.Marshal(session)
 	if err != nil {
 		return err
 	}
@@ -82,7 +83,12 @@ func (s *Store) Set(w http.ResponseWriter, sess *Session) error {
 	return nil
 }
 
-func (s *Store) Get(r *http.Request) (*Session, error) {
+func GetSession(r *http.Request) (*Session, error) {
+	s, err := storeFromRequest(r)
+	if err != nil {
+		return nil, err
+	}
+
 	cookie, err := r.Cookie(s.name)
 	if err != nil {
 		return nil, err
@@ -110,7 +116,12 @@ func (s *Store) Get(r *http.Request) (*Session, error) {
 	return sess, nil
 }
 
-func (s *Store) Remove(w http.ResponseWriter) {
+func RemoveFromRequest(w http.ResponseWriter, r *http.Request) error {
+	s, err := storeFromRequest(r)
+	if err != nil {
+		return err
+	}
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     s.name,
 		Value:    "",
@@ -118,6 +129,17 @@ func (s *Store) Remove(w http.ResponseWriter) {
 		Expires:  time.Unix(0, 0),
 		HttpOnly: true,
 	})
+
+	return nil
+}
+
+func storeFromRequest(r *http.Request) (*Store, error) {
+	sess, ok := r.Context().Value(SessionsKey{}).(*Store)
+	if !ok {
+		return nil, errors.New("rmx: no session store found in context")
+	}
+
+	return sess, nil
 }
 
 // encryption code borrowed from here: https://github.com/gtank/cryptopasta/blob/master/encrypt.go

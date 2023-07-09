@@ -15,13 +15,7 @@ var (
 
 func IsAuthenticated(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		sess, err := sessions.Default(r)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
-		session, err := sess.Get(r)
+		session, err := sessions.GetSession(r)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			return

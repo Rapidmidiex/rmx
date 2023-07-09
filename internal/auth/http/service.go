@@ -25,6 +25,7 @@ type Service struct {
 	provider          *Provider
 	loginRedirectURL  string
 	logoutRedirectURL string
+	// NOTE callback can be dynamically set
 	logoutCallbackURL string
 }
 
@@ -63,19 +64,13 @@ func (s *Service) routes() {
 
 func (s *Service) handleLogin() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		sess, err := sessions.Default(r)
-		if err != nil {
-			s.mux.Respond(w, r, err.Error(), http.StatusBadRequest)
-			return
-		}
-
 		state, err := generateRandomState()
 		if err != nil {
 			s.mux.Respond(w, r, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		if err := sess.Set(w, &sessions.Session{
+		if err := sessions.SetSession(w, r, &sessions.Session{
 			State: state,
 		}); err != nil {
 			s.mux.Respond(w, r, err.Error(), http.StatusInternalServerError)
@@ -100,13 +95,7 @@ func generateRandomState() (string, error) {
 
 func (s *Service) handleLoginCallback() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		sess, err := sessions.Default(r)
-		if err != nil {
-			s.mux.Respond(w, r, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		session, err := sess.Get(r)
+		session, err := sessions.GetSession(r)
 		if err != nil {
 			s.mux.Respond(w, r, err.Error(), http.StatusBadRequest)
 			return
@@ -136,7 +125,7 @@ func (s *Service) handleLoginCallback() http.HandlerFunc {
 		}
 		session.AccessToken = token.AccessToken
 
-		if err := sess.Set(w, session); err != nil {
+		if err := sessions.SetSession(w, r, session); err != nil {
 			s.mux.Respond(w, r, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -156,13 +145,7 @@ func (s *Service) verifyIDToken(ctx context.Context, token *oauth2.Token) (*oidc
 
 func (s *Service) handleUser() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		sess, err := sessions.Default(r)
-		if err != nil {
-			s.mux.Respond(w, r, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		session, err := sess.Get(r)
+		session, err := sessions.GetSession(r)
 		if err != nil {
 			s.mux.Respond(w, r, err.Error(), http.StatusBadRequest)
 			return
@@ -191,13 +174,11 @@ func (s *Service) handleLogout() http.HandlerFunc {
 
 func (s *Service) handleLogoutCallback() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		sess, err := sessions.Default(r)
-		if err != nil {
+		// remove session
+		if err := sessions.RemoveFromRequest(w, r); err != nil {
 			s.mux.Respond(w, r, err.Error(), http.StatusBadRequest)
 			return
 		}
-		// remove session
-		sess.Remove(w)
 
 		http.Redirect(w, r, s.logoutRedirectURL, http.StatusTemporaryRedirect)
 	}
