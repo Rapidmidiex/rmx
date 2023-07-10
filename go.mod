@@ -3,6 +3,7 @@ module github.com/rapidmidiex/rmx
 go 1.19
 
 require (
+	github.com/auth0/go-jwt-middleware/v2 v2.1.0
 	github.com/brianvoe/gofakeit/v6 v6.21.0
 	github.com/coreos/go-oidc/v3 v3.6.0
 	github.com/go-chi/chi/v5 v5.0.8
@@ -84,6 +85,7 @@ require (
 	golang.org/x/tools v0.7.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
+	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

@@ -5,13 +5,15 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
 	"time"
 
+	"github.com/auth0/go-jwt-middleware/v2/jwks"
+	"github.com/auth0/go-jwt-middleware/v2/validator"
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/rapidmidiex/rmx/internal/auth"
 	service "github.com/rapidmidiex/rmx/internal/http"
 	"github.com/rapidmidiex/rmx/internal/sessions"
@@ -19,20 +21,17 @@ import (
 )
 
 type Service struct {
-	ctx               context.Context
-	mux               service.Service
-	config            *oauth2.Config
-	provider          *Provider
-	loginRedirectURL  string
-	logoutRedirectURL string
-	// NOTE callback can be dynamically set
-	logoutCallbackURL string
+	ctx          context.Context
+	mux          service.Service
+	config       *oauth2.Config
+	provider     *Provider
+	callbacktURL string
+	redirectURL  string
 }
 
 type Provider struct {
 	oidc      *oidc.Provider
 	domainURL string
-	logoutURL string
 }
 
 type Option func(*Service)
@@ -58,7 +57,6 @@ func (s *Service) routes() {
 	s.mux.Handle("/login", s.handleLogin())
 	s.mux.Handle("/login/callback", s.handleLoginCallback())
 	s.mux.Handle("/logout", s.handleLogout())
-	s.mux.Handle("/logout/callback", s.handleLogoutCallback())
 	s.mux.Handle("/user", auth.IsAuthenticated(s.handleUser()))
 }
 
@@ -102,7 +100,7 @@ func (s *Service) handleLoginCallback() http.HandlerFunc {
 		}
 
 		if r.URL.Query().Get("state") != session.State {
-			s.mux.Respond(w, r, nil, http.StatusBadRequest)
+			s.mux.Respond(w, r, "state parameter doesn't match", http.StatusForbidden)
 			return
 		}
 
@@ -112,6 +110,8 @@ func (s *Service) handleLoginCallback() http.HandlerFunc {
 			s.mux.Respond(w, r, err.Error(), http.StatusUnauthorized)
 			return
 		}
+
+		fmt.Println(token.AccessToken)
 
 		idToken, err := s.verifyIDToken(r.Context(), token)
 		if err != nil {
@@ -124,13 +124,14 @@ func (s *Service) handleLoginCallback() http.HandlerFunc {
 			return
 		}
 		session.AccessToken = token.AccessToken
+		session.State = ""
 
 		if err := sessions.SetSession(w, r, session); err != nil {
 			s.mux.Respond(w, r, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		http.Redirect(w, r, s.loginRedirectURL, http.StatusTemporaryRedirect)
+		http.Redirect(w, r, s.redirectURL, http.StatusTemporaryRedirect)
 	}
 }
 
@@ -157,30 +158,24 @@ func (s *Service) handleUser() http.HandlerFunc {
 
 func (s *Service) handleLogout() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		logoutURL, err := url.Parse(s.provider.logoutURL)
-		if err != nil {
-			s.mux.Respond(w, r, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		parameters := url.Values{}
-		parameters.Add("returnTo", s.logoutCallbackURL)
-		parameters.Add("client_id", s.config.ClientID)
-		logoutURL.RawQuery = parameters.Encode()
-
-		http.Redirect(w, r, logoutURL.String(), http.StatusTemporaryRedirect)
-	}
-}
-
-func (s *Service) handleLogoutCallback() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
 		// remove session
 		if err := sessions.RemoveFromRequest(w, r); err != nil {
 			s.mux.Respond(w, r, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		http.Redirect(w, r, s.logoutRedirectURL, http.StatusTemporaryRedirect)
+		logoutURL, err := url.Parse(s.provider.domainURL + "v2/logout")
+		if err != nil {
+			s.mux.Respond(w, r, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		parameters := url.Values{}
+		parameters.Add("returnTo", s.redirectURL)
+		parameters.Add("client_id", s.config.ClientID)
+		logoutURL.RawQuery = parameters.Encode()
+
+		http.Redirect(w, r, logoutURL.String(), http.StatusTemporaryRedirect)
 	}
 }
 
@@ -190,50 +185,62 @@ func WithContext(ctx context.Context) Option {
 	}
 }
 
-func WithProvider(domain, clientID, clientSecret, loginCallbackURL, logoutCallbackURL string) Option {
+type CustomClaims struct {
+	Scope string `json:"scope"`
+}
+
+func (c CustomClaims) Validate(ctx context.Context) error {
+	return nil
+}
+
+func WithProvider(domain, clientID, clientSecret, callbackURL string, audience []string) Option {
 	return func(s *Service) {
-		domainURL := "https://" + domain + "/"
-		logoutURL := "https://" + domain + "/v2/logout"
-		keysetURL := "https://" + domain + "/.well-known/jwks.json"
-
-		provider, err := oidc.NewProvider(s.ctx, domainURL)
+		domainURL, err := url.Parse("https://" + domain + "/")
 		if err != nil {
-			log.Fatalf("rmx: WithProvider couldn't initialize new provider\n%v", err)
+			log.Fatalf("rmx: WithProvider failed to parse domain url\n%v", err)
 		}
 
-		keysetCache := jwk.NewCache(s.ctx)
-		if err := keysetCache.Register(keysetURL, jwk.WithMinRefreshInterval(15*time.Minute)); err != nil {
-			log.Fatalf("rmx: WithProvider couldn't register keyset cache\n%v", err)
+		provider, err := oidc.NewProvider(s.ctx, domainURL.String())
+		if err != nil {
+			log.Fatalf("rmx: WithProvider failed to initialize new provider\n%v", err)
 		}
 
-		if _, err := keysetCache.Refresh(s.ctx, keysetURL); err != nil {
-			log.Fatalf("rmx: WithProvider couldn't refresh keyset cache\n%v", err)
+		keysetProvider := jwks.NewCachingProvider(domainURL, 5*time.Minute)
+		jwtValidator, err := validator.New(
+			keysetProvider.KeyFunc,
+			validator.RS256,
+			domainURL.String(),
+			audience,
+			validator.WithCustomClaims(func() validator.CustomClaims {
+				return &CustomClaims{}
+			}),
+			validator.WithAllowedClockSkew(time.Minute),
+		)
+		if err != nil {
+			log.Fatalf("rmx: WithProvider failed to set up jwt validator")
 		}
 
-		auth.KeysetURL = keysetURL
-		auth.KeysetCache = keysetCache
+		auth.Validator = jwtValidator
 
 		s.provider = &Provider{
 			oidc:      provider,
-			domainURL: domainURL,
-			logoutURL: logoutURL,
+			domainURL: domainURL.String(),
 		}
 
 		s.config = &oauth2.Config{
 			ClientID:     clientID,
 			ClientSecret: clientSecret,
-			RedirectURL:  loginCallbackURL,
+			RedirectURL:  callbackURL,
 			Endpoint:     provider.Endpoint(),
 			Scopes:       []string{oidc.ScopeOpenID, "profile"},
 		}
-		s.logoutCallbackURL = logoutCallbackURL
+		s.callbacktURL = callbackURL
 	}
 }
 
 // TODO: don't use options for service urls
-func WithServiceURLs(loginRedirect, logoutRedirect string) Option {
+func WithCallbackURL(url string) Option {
 	return func(s *Service) {
-		s.loginRedirectURL = loginRedirect
-		s.logoutRedirectURL = logoutRedirect
+		s.redirectURL = url
 	}
 }

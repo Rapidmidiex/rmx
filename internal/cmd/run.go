@@ -62,10 +62,10 @@ func serve(cfg *config.Config) error {
 			cfg.Auth.Domain,
 			cfg.Auth.ClientID,
 			cfg.Auth.ClientSecret,
-			cfg.Auth.LoginCallbackURL,
-			cfg.Auth.LogoutCallbackURL,
+			cfg.Auth.CallbackURL,
+			cfg.Auth.Audience,
 		),
-		authHTTP.WithServiceURLs(cfg.Auth.RedirectURL, cfg.Auth.LogoutURL),
+		authHTTP.WithCallbackURL(cfg.Auth.RedirectURL),
 	}
 
 	sessHandler, err := sessions.New("_rmx_session", 24*30*time.Hour, []byte(cfg.Auth.SessionKey))

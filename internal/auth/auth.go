@@ -1,17 +1,14 @@
 package auth
 
 import (
+	"fmt"
 	"net/http"
 
-	"github.com/lestrrat-go/jwx/v2/jwk"
-	"github.com/lestrrat-go/jwx/v2/jwt"
+	"github.com/auth0/go-jwt-middleware/v2/validator"
 	"github.com/rapidmidiex/rmx/internal/sessions"
 )
 
-var (
-	KeysetURL   string
-	KeysetCache *jwk.Cache
-)
+var Validator *validator.Validator
 
 func IsAuthenticated(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -26,16 +23,13 @@ func IsAuthenticated(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		keyset, err := KeysetCache.Get(r.Context(), KeysetURL)
+		res, err := Validator.ValidateToken(r.Context(), session.AccessToken)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
-		if _, err := jwt.Parse([]byte(session.AccessToken), jwt.WithKeySet(keyset)); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
+		fmt.Println(res)
 
 		next(w, r)
 	}

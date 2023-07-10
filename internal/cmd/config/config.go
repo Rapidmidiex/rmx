@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -18,14 +19,13 @@ type StoreConfig struct {
 }
 
 type AuthConfig struct {
-	Domain            string
-	ClientID          string
-	ClientSecret      string
-	LoginCallbackURL  string
-	LogoutCallbackURL string
-	RedirectURL       string
-	LogoutURL         string
-	SessionKey        string
+	Domain       string
+	Audience     []string
+	ClientID     string
+	ClientSecret string
+	CallbackURL  string
+	RedirectURL  string
+	SessionKey   string
 }
 
 type Config struct {
@@ -56,12 +56,11 @@ func LoadFromEnv() *Config {
 
 	// auth
 	authDomain := readEnvStr("AUTH_DOMAIN")
+	authAudience := readEnvStrArray("AUTH_AUDIENCE")
 	clientID := readEnvStr("AUTH_CLIENT_ID")
 	clientSecret := readEnvStr("AUTH_CLIENT_SECRET")
-	loginCallbackURL := readEnvStr("AUTH_LOGIN_CALLBACK_URL")
-	logoutCallbackURL := readEnvStr("AUTH_LOGOUT_CALLBACK_URL")
+	callbackURL := readEnvStr("AUTH_CALLBACK_URL")
 	redirectURL := readEnvStr("AUTH_REDIRECT_URL")
-	logoutURL := readEnvStr("AUTH_LOGOUT_URL")
 	sessionKey := readEnvStr("AUTH_SESSION_KEY")
 
 	// env
@@ -75,14 +74,13 @@ func LoadFromEnv() *Config {
 			DatabaseURL: databaseURL,
 		},
 		Auth: AuthConfig{
-			Domain:            authDomain,
-			ClientID:          clientID,
-			ClientSecret:      clientSecret,
-			LoginCallbackURL:  loginCallbackURL,
-			LogoutCallbackURL: logoutCallbackURL,
-			RedirectURL:       redirectURL,
-			LogoutURL:         logoutURL,
-			SessionKey:        sessionKey,
+			Domain:       authDomain,
+			Audience:     authAudience,
+			ClientID:     clientID,
+			ClientSecret: clientSecret,
+			CallbackURL:  callbackURL,
+			RedirectURL:  redirectURL,
+			SessionKey:   sessionKey,
 		},
 		Dev: dev,
 	}
@@ -94,6 +92,15 @@ func readEnvStr(key string) string {
 		log.Fatalf("rmx: no value assigned for key [%s]", key)
 	}
 	return v
+}
+
+func readEnvStrArray(key string) []string {
+	v := os.Getenv(key)
+	if v == "" {
+		log.Fatalf("rmx: no value assigned for key [%s]", key)
+	}
+
+	return strings.Split(v, " ")
 }
 
 /*
