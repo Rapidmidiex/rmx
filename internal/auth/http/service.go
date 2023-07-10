@@ -5,12 +5,12 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
 	"net/url"
 	"time"
 
+	jwtmiddleware "github.com/auth0/go-jwt-middleware/v2"
 	"github.com/auth0/go-jwt-middleware/v2/jwks"
 	"github.com/auth0/go-jwt-middleware/v2/validator"
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -110,8 +110,6 @@ func (s *Service) handleLoginCallback() http.HandlerFunc {
 			s.mux.Respond(w, r, err.Error(), http.StatusUnauthorized)
 			return
 		}
-
-		fmt.Println(token.AccessToken)
 
 		idToken, err := s.verifyIDToken(r.Context(), token)
 		if err != nil {
@@ -220,7 +218,22 @@ func WithProvider(domain, clientID, clientSecret, callbackURL string, audience [
 			log.Fatalf("rmx: WithProvider failed to set up jwt validator")
 		}
 
-		auth.Validator = jwtValidator
+		vm := jwtmiddleware.New(
+			jwtValidator.ValidateToken,
+			jwtmiddleware.WithErrorHandler(func(w http.ResponseWriter, r *http.Request, err error) {
+				s.mux.Respond(w, r, err.Error(), http.StatusUnauthorized)
+			}),
+			jwtmiddleware.WithTokenExtractor(func(r *http.Request) (string, error) {
+				session, err := sessions.GetSession(r)
+				if err != nil {
+					return "", err
+				}
+
+				return session.AccessToken, nil
+			}),
+		)
+
+		auth.ValidatorM = vm
 
 		s.provider = &Provider{
 			oidc:      provider,

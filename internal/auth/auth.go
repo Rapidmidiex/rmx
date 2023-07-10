@@ -1,36 +1,13 @@
 package auth
 
 import (
-	"fmt"
 	"net/http"
 
-	"github.com/auth0/go-jwt-middleware/v2/validator"
-	"github.com/rapidmidiex/rmx/internal/sessions"
+	jwtmiddleware "github.com/auth0/go-jwt-middleware/v2"
 )
 
-var Validator *validator.Validator
+var ValidatorM *jwtmiddleware.JWTMiddleware
 
-func IsAuthenticated(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		session, err := sessions.GetSession(r)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
-		if session.Profile == nil {
-			w.WriteHeader(http.StatusUnauthorized)
-			return
-		}
-
-		res, err := Validator.ValidateToken(r.Context(), session.AccessToken)
-		if err != nil {
-			w.WriteHeader(http.StatusUnauthorized)
-			return
-		}
-
-		fmt.Println(res)
-
-		next(w, r)
-	}
+func IsAuthenticated(next http.Handler) http.Handler {
+	return ValidatorM.CheckJWT(next)
 }
