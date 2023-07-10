@@ -1,6 +1,7 @@
 package rmx_test
 
 import (
+	"context"
 	"database/sql"
 	"embed"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/brianvoe/gofakeit/v6"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
@@ -16,14 +18,15 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
-	"github.com/rapidmidiex/rmx/internal/jam/postgres/sqlc"
+	jamDB "github.com/rapidmidiex/rmx/internal/jam/store/sqlc"
+	"github.com/stretchr/testify/require"
 )
 
-//go:embed jam/postgres/migration/*.sql
+//go:embed db/migration/*.sql
 var migrations embed.FS
 
 var pgDB *sql.DB
-var testQueries *sqlc.Queries
+var jamTestQueries *jamDB.Queries
 var dbName = "rmx-test"
 var pgUser = "rmx-test"
 var pgPass = "password123dev"
@@ -38,7 +41,7 @@ func TestMain(m *testing.M) {
 			log.Fatalf("cannot connect to db: %s\nconnection string: %s", err, databaseURL)
 		}
 
-		testQueries = sqlc.New(pgDB)
+		jamTestQueries = jamDB.New(pgDB)
 		// Run tests
 		code := m.Run()
 		os.Exit(code)
@@ -97,7 +100,7 @@ func TestMain(m *testing.M) {
 		log.Fatalf("Could not connect to docker: %s", err)
 	}
 	// Instantiate testQueries
-	testQueries = sqlc.New(pgDB)
+	jamTestQueries = jamDB.New(pgDB)
 
 	err = migrateUp()
 	if err != nil {
@@ -118,7 +121,7 @@ func TestMain(m *testing.M) {
 func migrateUp() error {
 	// Migrations
 	// https://pkg.go.dev/github.com/golang-migrate/migrate/v4/source/iofs#example-package
-	d, err := iofs.New(migrations, "jam/postgres/migration")
+	d, err := iofs.New(migrations, "db/migration")
 	if err != nil {
 		return fmt.Errorf("iofs: %w", err)
 	}
@@ -138,7 +141,7 @@ func migrateUp() error {
 
 // CleanDB runs the down migrations to drop all tables, then runs up migrations to reset database.
 func cleanDB(conn *sql.DB) error {
-	d, err := iofs.New(migrations, "jam/postgres/migration")
+	d, err := iofs.New(migrations, "db/migration")
 	if err != nil {
 		return fmt.Errorf("iofs: %w", err)
 	}
@@ -157,4 +160,26 @@ func cleanDB(conn *sql.DB) error {
 	}
 
 	return nil
+}
+
+func TestCreateJam(t *testing.T) {
+	jamName := gofakeit.NounAbstract()
+	want := jamDB.Jam{
+		Name: jamName,
+		Bpm:  90,
+		// Defaults
+		Capacity: 5,
+	}
+	arg := jamDB.CreateJamParams{
+		Name:     want.Name,
+		Bpm:      want.Bpm,
+		Capacity: want.Capacity,
+	}
+	got, err := jamTestQueries.CreateJam(context.Background(), &arg)
+	require.NoError(t, err)
+
+	require.NotEmpty(t, got.ID, "ID should have a value")
+	require.Equal(t, want.Name, got.Name)
+	require.Equal(t, want.Bpm, got.Bpm)
+	require.Equal(t, want.Capacity, got.Capacity)
 }

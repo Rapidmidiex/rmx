@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	service "github.com/rapidmidiex/rmx/internal/http"
 	"github.com/rapidmidiex/rmx/internal/jam"
-	jamDB "github.com/rapidmidiex/rmx/internal/jam/postgres"
+	jamDB "github.com/rapidmidiex/rmx/internal/jam/store"
 	"github.com/rapidmidiex/rmx/pkg/fp"
 )
 
