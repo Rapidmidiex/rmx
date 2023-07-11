@@ -13,26 +13,24 @@ import (
 )
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO users (username, email, email_verified, is_admin, picture, blocked)
-    VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO users (username, email, is_admin, picture, blocked)
+    VALUES ($1, $2, $3, $4, $5)
 RETURNING
-    id, username, email, email_verified, is_admin, picture, blocked, last_login, created_at, updated_at
+    id, username, email, is_admin, picture, blocked, last_login, created_at, updated_at
 `
 
 type CreateUserParams struct {
-	Username      string `json:"username"`
-	Email         string `json:"email"`
-	EmailVerified bool   `json:"emailVerified"`
-	IsAdmin       bool   `json:"isAdmin"`
-	Picture       string `json:"picture"`
-	Blocked       bool   `json:"blocked"`
+	Username string `json:"username"`
+	Email    string `json:"email"`
+	IsAdmin  bool   `json:"isAdmin"`
+	Picture  string `json:"picture"`
+	Blocked  bool   `json:"blocked"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg *CreateUserParams) (User, error) {
 	row := q.db.QueryRowContext(ctx, createUser,
 		arg.Username,
 		arg.Email,
-		arg.EmailVerified,
 		arg.IsAdmin,
 		arg.Picture,
 		arg.Blocked,
@@ -42,7 +40,6 @@ func (q *Queries) CreateUser(ctx context.Context, arg *CreateUserParams) (User, 
 		&i.ID,
 		&i.Username,
 		&i.Email,
-		&i.EmailVerified,
 		&i.IsAdmin,
 		&i.Picture,
 		&i.Blocked,
@@ -85,7 +82,7 @@ func (q *Queries) DeleteUserByUsername(ctx context.Context, username string) err
 
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT
-    id, username, email, email_verified, is_admin, picture, blocked, last_login, created_at, updated_at
+    id, username, email, is_admin, picture, blocked, last_login, created_at, updated_at
 FROM
     users
 WHERE
@@ -100,7 +97,6 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.ID,
 		&i.Username,
 		&i.Email,
-		&i.EmailVerified,
 		&i.IsAdmin,
 		&i.Picture,
 		&i.Blocked,
@@ -113,7 +109,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 
 const getUserByID = `-- name: GetUserByID :one
 SELECT
-    id, username, email, email_verified, is_admin, picture, blocked, last_login, created_at, updated_at
+    id, username, email, is_admin, picture, blocked, last_login, created_at, updated_at
 FROM
     users
 WHERE
@@ -128,7 +124,6 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.ID,
 		&i.Username,
 		&i.Email,
-		&i.EmailVerified,
 		&i.IsAdmin,
 		&i.Picture,
 		&i.Blocked,
@@ -141,7 +136,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 
 const getUserByUsername = `-- name: GetUserByUsername :one
 SELECT
-    id, username, email, email_verified, is_admin, picture, blocked, last_login, created_at, updated_at
+    id, username, email, is_admin, picture, blocked, last_login, created_at, updated_at
 FROM
     users
 WHERE
@@ -156,7 +151,6 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.ID,
 		&i.Username,
 		&i.Email,
-		&i.EmailVerified,
 		&i.IsAdmin,
 		&i.Picture,
 		&i.Blocked,
@@ -169,7 +163,7 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 
 const listUsers = `-- name: ListUsers :many
 SELECT
-    id, username, email, email_verified, is_admin, picture, blocked, last_login, created_at, updated_at
+    id, username, email, is_admin, picture, blocked, last_login, created_at, updated_at
 FROM
     users
 ORDER BY
@@ -195,7 +189,6 @@ func (q *Queries) ListUsers(ctx context.Context, arg *ListUsersParams) ([]User, 
 			&i.ID,
 			&i.Username,
 			&i.Email,
-			&i.EmailVerified,
 			&i.IsAdmin,
 			&i.Picture,
 			&i.Blocked,
@@ -221,32 +214,29 @@ UPDATE
     users
 SET
     username = $2,
-    email_verified = $3,
-    is_admin = $4,
-    picture = $5,
-    blocked = $6,
-    last_login = $7
+    is_admin = $3,
+    picture = $4,
+    blocked = $5,
+    last_login = $6
 WHERE
     email = $1
 RETURNING
-    id, username, email, email_verified, is_admin, picture, blocked, last_login, created_at, updated_at
+    id, username, email, is_admin, picture, blocked, last_login, created_at, updated_at
 `
 
 type UpdateUserByEmailParams struct {
-	Email         string    `json:"email"`
-	Username      string    `json:"username"`
-	EmailVerified bool      `json:"emailVerified"`
-	IsAdmin       bool      `json:"isAdmin"`
-	Picture       string    `json:"picture"`
-	Blocked       bool      `json:"blocked"`
-	LastLogin     time.Time `json:"lastLogin"`
+	Email     string    `json:"email"`
+	Username  string    `json:"username"`
+	IsAdmin   bool      `json:"isAdmin"`
+	Picture   string    `json:"picture"`
+	Blocked   bool      `json:"blocked"`
+	LastLogin time.Time `json:"lastLogin"`
 }
 
 func (q *Queries) UpdateUserByEmail(ctx context.Context, arg *UpdateUserByEmailParams) (User, error) {
 	row := q.db.QueryRowContext(ctx, updateUserByEmail,
 		arg.Email,
 		arg.Username,
-		arg.EmailVerified,
 		arg.IsAdmin,
 		arg.Picture,
 		arg.Blocked,
@@ -257,7 +247,6 @@ func (q *Queries) UpdateUserByEmail(ctx context.Context, arg *UpdateUserByEmailP
 		&i.ID,
 		&i.Username,
 		&i.Email,
-		&i.EmailVerified,
 		&i.IsAdmin,
 		&i.Picture,
 		&i.Blocked,
@@ -274,26 +263,24 @@ UPDATE
 SET
     username = $2,
     email = $3,
-    email_verified = $4,
-    is_admin = $5,
-    picture = $6,
-    blocked = $7,
-    last_login = $8
+    is_admin = $4,
+    picture = $5,
+    blocked = $6,
+    last_login = $7
 WHERE
     id = $1
 RETURNING
-    id, username, email, email_verified, is_admin, picture, blocked, last_login, created_at, updated_at
+    id, username, email, is_admin, picture, blocked, last_login, created_at, updated_at
 `
 
 type UpdateUserByIDParams struct {
-	ID            uuid.UUID `json:"id"`
-	Username      string    `json:"username"`
-	Email         string    `json:"email"`
-	EmailVerified bool      `json:"emailVerified"`
-	IsAdmin       bool      `json:"isAdmin"`
-	Picture       string    `json:"picture"`
-	Blocked       bool      `json:"blocked"`
-	LastLogin     time.Time `json:"lastLogin"`
+	ID        uuid.UUID `json:"id"`
+	Username  string    `json:"username"`
+	Email     string    `json:"email"`
+	IsAdmin   bool      `json:"isAdmin"`
+	Picture   string    `json:"picture"`
+	Blocked   bool      `json:"blocked"`
+	LastLogin time.Time `json:"lastLogin"`
 }
 
 func (q *Queries) UpdateUserByID(ctx context.Context, arg *UpdateUserByIDParams) (User, error) {
@@ -301,7 +288,6 @@ func (q *Queries) UpdateUserByID(ctx context.Context, arg *UpdateUserByIDParams)
 		arg.ID,
 		arg.Username,
 		arg.Email,
-		arg.EmailVerified,
 		arg.IsAdmin,
 		arg.Picture,
 		arg.Blocked,
@@ -312,7 +298,6 @@ func (q *Queries) UpdateUserByID(ctx context.Context, arg *UpdateUserByIDParams)
 		&i.ID,
 		&i.Username,
 		&i.Email,
-		&i.EmailVerified,
 		&i.IsAdmin,
 		&i.Picture,
 		&i.Blocked,
@@ -328,32 +313,29 @@ UPDATE
     users
 SET
     email = $2,
-    email_verified = $3,
-    is_admin = $4,
-    picture = $5,
-    blocked = $6,
-    last_login = $7
+    is_admin = $3,
+    picture = $4,
+    blocked = $5,
+    last_login = $6
 WHERE
     username = $1
 RETURNING
-    id, username, email, email_verified, is_admin, picture, blocked, last_login, created_at, updated_at
+    id, username, email, is_admin, picture, blocked, last_login, created_at, updated_at
 `
 
 type UpdateUserByUsernameParams struct {
-	Username      string    `json:"username"`
-	Email         string    `json:"email"`
-	EmailVerified bool      `json:"emailVerified"`
-	IsAdmin       bool      `json:"isAdmin"`
-	Picture       string    `json:"picture"`
-	Blocked       bool      `json:"blocked"`
-	LastLogin     time.Time `json:"lastLogin"`
+	Username  string    `json:"username"`
+	Email     string    `json:"email"`
+	IsAdmin   bool      `json:"isAdmin"`
+	Picture   string    `json:"picture"`
+	Blocked   bool      `json:"blocked"`
+	LastLogin time.Time `json:"lastLogin"`
 }
 
 func (q *Queries) UpdateUserByUsername(ctx context.Context, arg *UpdateUserByUsernameParams) (User, error) {
 	row := q.db.QueryRowContext(ctx, updateUserByUsername,
 		arg.Username,
 		arg.Email,
-		arg.EmailVerified,
 		arg.IsAdmin,
 		arg.Picture,
 		arg.Blocked,
@@ -364,7 +346,6 @@ func (q *Queries) UpdateUserByUsername(ctx context.Context, arg *UpdateUserByUse
 		&i.ID,
 		&i.Username,
 		&i.Email,
-		&i.EmailVerified,
 		&i.IsAdmin,
 		&i.Picture,
 		&i.Blocked,

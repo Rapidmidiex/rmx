@@ -4,7 +4,6 @@ CREATE TABLE IF NOT EXISTS users (
     id uuid PRIMARY KEY DEFAULT uuid_generate_v4 (),
     username TEXT UNIQUE NOT NULL CHECK (username <> ''),
     email TEXT UNIQUE NOT NULL CHECK (email ~ '^[a-zA-Z0-9.!#$%&’*+/=?^_\x60{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$'),
-    email_verified BOOLEAN NOT NULL,
     is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     picture TEXT NOT NULL,
     blocked BOOLEAN NOT NULL DEFAULT FALSE,

@@ -31,12 +31,11 @@ func (s *Service) saveUser(ctx context.Context, user *oauth.User) error {
 
 func (s *Service) createUser(ctx context.Context, user *oauth.User) error {
 	created, err := s.repo.CreateUser(ctx, &sqlc.CreateUserParams{
-		Username:      gofakeit.Username(),
-		Email:         user.Email,
-		EmailVerified: false,
-		IsAdmin:       false,
-		Picture:       user.AvatarURL,
-		Blocked:       false,
+		Username: gofakeit.Username(),
+		Email:    user.Email,
+		IsAdmin:  false,
+		Picture:  user.AvatarURL,
+		Blocked:  false,
 	})
 	if err != nil {
 		return err
@@ -58,15 +57,14 @@ func (s *Service) updateUser(ctx context.Context, user *oauth.User, conn *auth.C
 		return err
 	}
 
-	// some values won't get updated
+	// some values should not be updated
 	if _, err := s.repo.UpdateUserByID(ctx, &sqlc.UpdateUserByIDParams{
-		ID:            conn.UserID,
-		Username:      userInfo.Username,
-		Email:         user.Email,
-		EmailVerified: userInfo.EmailVerified,
-		IsAdmin:       userInfo.IsAdmin,
-		Picture:       user.AvatarURL,
-		Blocked:       userInfo.Blocked,
+		ID:       conn.UserID,
+		Username: userInfo.Username,
+		Email:    user.Email,
+		IsAdmin:  userInfo.IsAdmin,
+		Picture:  user.AvatarURL,
+		Blocked:  userInfo.Blocked,
 	}); err != nil {
 		return err
 	}

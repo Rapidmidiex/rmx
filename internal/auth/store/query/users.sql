@@ -1,6 +1,6 @@
 -- name: CreateUser :one
-INSERT INTO users (username, email, email_verified, is_admin, picture, blocked)
-    VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO users (username, email, is_admin, picture, blocked)
+    VALUES ($1, $2, $3, $4, $5)
 RETURNING
     *;
 
@@ -46,11 +46,10 @@ UPDATE
 SET
     username = $2,
     email = $3,
-    email_verified = $4,
-    is_admin = $5,
-    picture = $6,
-    blocked = $7,
-    last_login = $8
+    is_admin = $4,
+    picture = $5,
+    blocked = $6,
+    last_login = $7
 WHERE
     id = $1
 RETURNING
@@ -61,11 +60,10 @@ UPDATE
     users
 SET
     email = $2,
-    email_verified = $3,
-    is_admin = $4,
-    picture = $5,
-    blocked = $6,
-    last_login = $7
+    is_admin = $3,
+    picture = $4,
+    blocked = $5,
+    last_login = $6
 WHERE
     username = $1
 RETURNING
@@ -76,11 +74,10 @@ UPDATE
     users
 SET
     username = $2,
-    email_verified = $3,
-    is_admin = $4,
-    picture = $5,
-    blocked = $6,
-    last_login = $7
+    is_admin = $3,
+    picture = $4,
+    blocked = $5,
+    last_login = $6
 WHERE
     email = $1
 RETURNING
