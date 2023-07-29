@@ -60,13 +60,12 @@ func (s *store) CreateUser(ctx context.Context, u *sqlc.CreateUserParams) (*auth
 	}
 
 	return &auth.User{
-		ID:            created.ID,
-		Username:      created.Username,
-		Email:         created.Email,
-		EmailVerified: created.EmailVerified,
-		IsAdmin:       created.IsAdmin,
-		Picture:       created.Picture,
-		Blocked:       created.Blocked,
+		ID:       created.ID,
+		Username: created.Username,
+		Email:    created.Email,
+		IsAdmin:  created.IsAdmin,
+		Picture:  created.Picture,
+		Blocked:  created.Blocked,
 	}, nil
 }
 
@@ -77,13 +76,12 @@ func (s *store) GetUserByID(ctx context.Context, id uuid.UUID) (*auth.User, erro
 	}
 
 	return &auth.User{
-		ID:            found.ID,
-		Username:      found.Username,
-		Email:         found.Email,
-		EmailVerified: found.EmailVerified,
-		IsAdmin:       found.IsAdmin,
-		Picture:       found.Picture,
-		Blocked:       found.Blocked,
+		ID:       found.ID,
+		Username: found.Username,
+		Email:    found.Email,
+		IsAdmin:  found.IsAdmin,
+		Picture:  found.Picture,
+		Blocked:  found.Blocked,
 	}, nil
 }
 
@@ -94,13 +92,12 @@ func (s *store) GetUserByUsername(ctx context.Context, username string) (*auth.U
 	}
 
 	return &auth.User{
-		ID:            found.ID,
-		Username:      found.Username,
-		Email:         found.Email,
-		EmailVerified: found.EmailVerified,
-		IsAdmin:       found.IsAdmin,
-		Picture:       found.Picture,
-		Blocked:       found.Blocked,
+		ID:       found.ID,
+		Username: found.Username,
+		Email:    found.Email,
+		IsAdmin:  found.IsAdmin,
+		Picture:  found.Picture,
+		Blocked:  found.Blocked,
 	}, nil
 }
 
@@ -111,13 +108,12 @@ func (s *store) GetUserByEmail(ctx context.Context, email string) (*auth.User, e
 	}
 
 	return &auth.User{
-		ID:            found.ID,
-		Username:      found.Username,
-		Email:         found.Email,
-		EmailVerified: found.EmailVerified,
-		IsAdmin:       found.IsAdmin,
-		Picture:       found.Picture,
-		Blocked:       found.Blocked,
+		ID:       found.ID,
+		Username: found.Username,
+		Email:    found.Email,
+		IsAdmin:  found.IsAdmin,
+		Picture:  found.Picture,
+		Blocked:  found.Blocked,
 	}, nil
 }
 
@@ -130,13 +126,12 @@ func (s *store) ListUsers(ctx context.Context, p *sqlc.ListUsersParams) ([]auth.
 
 	for _, u := range users {
 		res = append(res, auth.User{
-			ID:            u.ID,
-			Username:      u.Username,
-			Email:         u.Email,
-			EmailVerified: u.EmailVerified,
-			IsAdmin:       u.IsAdmin,
-			Picture:       u.Picture,
-			Blocked:       u.Blocked,
+			ID:       u.ID,
+			Username: u.Username,
+			Email:    u.Email,
+			IsAdmin:  u.IsAdmin,
+			Picture:  u.Picture,
+			Blocked:  u.Blocked,
 		})
 	}
 	return res, nil
@@ -149,13 +144,12 @@ func (s *store) UpdateUserByID(ctx context.Context, u *sqlc.UpdateUserByIDParams
 	}
 
 	return &auth.User{
-		ID:            updated.ID,
-		Username:      updated.Username,
-		Email:         updated.Email,
-		EmailVerified: updated.EmailVerified,
-		IsAdmin:       updated.IsAdmin,
-		Picture:       updated.Picture,
-		Blocked:       updated.Blocked,
+		ID:       updated.ID,
+		Username: updated.Username,
+		Email:    updated.Email,
+		IsAdmin:  updated.IsAdmin,
+		Picture:  updated.Picture,
+		Blocked:  updated.Blocked,
 	}, nil
 }
 
@@ -166,13 +160,12 @@ func (s *store) UpdateUserByUsername(ctx context.Context, u *sqlc.UpdateUserByUs
 	}
 
 	return &auth.User{
-		ID:            updated.ID,
-		Username:      updated.Username,
-		Email:         updated.Email,
-		EmailVerified: updated.EmailVerified,
-		IsAdmin:       updated.IsAdmin,
-		Picture:       updated.Picture,
-		Blocked:       updated.Blocked,
+		ID:       updated.ID,
+		Username: updated.Username,
+		Email:    updated.Email,
+		IsAdmin:  updated.IsAdmin,
+		Picture:  updated.Picture,
+		Blocked:  updated.Blocked,
 	}, nil
 }
 
@@ -183,13 +176,12 @@ func (s *store) UpdateUserByEmail(ctx context.Context, u *sqlc.UpdateUserByEmail
 	}
 
 	return &auth.User{
-		ID:            updated.ID,
-		Username:      updated.Username,
-		Email:         updated.Email,
-		EmailVerified: updated.EmailVerified,
-		IsAdmin:       updated.IsAdmin,
-		Picture:       updated.Picture,
-		Blocked:       updated.Blocked,
+		ID:       updated.ID,
+		Username: updated.Username,
+		Email:    updated.Email,
+		IsAdmin:  updated.IsAdmin,
+		Picture:  updated.Picture,
+		Blocked:  updated.Blocked,
 	}, nil
 }
 
