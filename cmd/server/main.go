@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/httplog"
 	jams "github.com/rapidmidiex/rmx/internal/jam/http"
 	"github.com/rapidmidiex/rmx/static"
+	"github.com/rapidmidiex/rmx/svelte"
 )
 
 func main() {
@@ -39,9 +40,10 @@ func run(ctx context.Context) (err error) {
 	logger := newLogger(AppName)
 	mux.Use(httplog.RequestLogger(logger))
 	{
-		mux.Handle("/", http.RedirectHandler("/jams", http.StatusMovedPermanently))
 		mux.Mount("/jams", jams.NewService())
+		mux.HandleFunc("/static/bundle.js", svelte.BundleHandler)
 		mux.Handle("/static/*", &static.Static{Prefix: "/static/"})
+		mux.Handle("/", http.RedirectHandler("/jams", http.StatusMovedPermanently))
 	}
 
 	s := http.Server{
