@@ -12,6 +12,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/httplog"
+	jams "github.com/rapidmidiex/rmx/internal/jam/http"
+	"github.com/rapidmidiex/rmx/static"
 )
 
 func main() {
@@ -37,9 +39,10 @@ func run(ctx context.Context) (err error) {
 	logger := newLogger(AppName)
 	mux.Use(httplog.RequestLogger(logger))
 	{
-		mux.Get("/", handleIndex())
+		mux.Handle("/", http.RedirectHandler("/jams", http.StatusMovedPermanently))
+		mux.Mount("/jams", jams.NewService())
+		mux.Handle("/static/*", &static.Static{Prefix: "/static/"})
 	}
-	// mux.Handle("/static/*", &static.Static{Prefix: "/static/"})
 
 	s := http.Server{
 		Addr:         Addr,
