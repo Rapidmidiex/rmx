@@ -1,9 +1,5 @@
 <svelte:options customElement="piano-note" />
 
-<!-- in Svelte 3, do this instead:
-<svelte:options tag="my-element" />
--->
-
 <script>
     const audioContext = new AudioContext();
 
