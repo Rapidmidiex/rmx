@@ -4,9 +4,15 @@ tasks:
   cache:
     cmds:
       - go get -d ./...
+
+  svelte:
+    cmds:
+      - cd svelte && bun run build
+
   dev:
     deps:
       - cache
+      - svelte
     cmds: 
       - go run ./cmd/server/
 
