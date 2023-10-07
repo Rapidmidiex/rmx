@@ -52,6 +52,7 @@ func (s *Service) routes() {
 	// TODO -- delete jam
 	// TODO -- edit jam
 	s.mux.Get("/", s.handleIndex())
+	s.mux.Post("/", s.handleCreateRoom())
 	// s.mux.Post("/jams", s.handleCreateJam())
 	// s.mux.Get("/jams/{uuid}", s.handleGetJam())
 	// s.mux.Get("/jams/{uuid}/ws", s.handleP2PConn())

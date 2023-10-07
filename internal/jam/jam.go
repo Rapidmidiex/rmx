@@ -11,6 +11,8 @@ import (
 	"github.com/rapidmidiex/rmx/pkg/websocket"
 )
 
+// Jam.User Jam.Jam
+
 const (
 	defaultBPM      = 120
 	defaultCapacity = 10
