@@ -5,7 +5,7 @@ import { svelte } from "@sveltejs/vite-plugin-svelte";
 export default defineConfig({
     build: {
         lib: {
-            entry: ["./src/lib/PianoNote.svelte"],
+            entry: ["./src/components/PianoNote.svelte"],
             fileName: 'bundle',
             formats: ['es' /* ,'umd' */]
         }
