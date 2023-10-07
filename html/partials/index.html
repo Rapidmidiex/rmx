@@ -11,18 +11,21 @@
 <!-- ./Piano Note -->
 <!-- Create Session -->
 <section id="create-session">
-    <form action="/jams/create" method="post">
+    <form hx-post="/jams" hx-swap="innerHTML">
         <label for="roomName">
             <span>Room name</span>
-            <input type="text" name="roomName" id="roomName" placeholder="Enter a unique room name (i.e 'Space Jam')">
+            <!-- TODO -- use regex for pattern -->
+            <input type="text" name="roomName" id="roomName" placeholder="Enter a unique room name (i.e 'Space Jam')" required>
         </label>
         <label for="capacity">
-            <span>BPM</span>
-            <!-- minimum allowed is 1 -->
-            <input type="number" name="bpm" id="bpm" value="1" placeholder="Enter a maximum capacity (i.e 10)">
+            <span>capacity</span>
+            <!-- TODO -- minimum allowed is 1 -->
+            <!-- TODO -- use regex for pattern -->
+            <input type="number" name="capacity" id="capacity" value="1" placeholder="Enter a maximum capacity (i.e 10)">
         </label>
         <label for="bpm">
             <span>BPM</span>
+            <!-- TODO -- use regex for pattern -->
             <input type="number" name="bpm" id="bpm" value="120" placeholder="Enter a BPM value (i.e 120)">
         </label>
         <button type="submit">Start</button>
